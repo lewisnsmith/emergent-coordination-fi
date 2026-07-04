@@ -49,7 +49,11 @@ uv run pytest && uv run ruff check .      # required before claiming done
   model params) goes in the run manifest.
 - Datasets/results payloads are gitignored; manifests are checked in.
 - `src/flock/logging_/` has the underscore to avoid shadowing stdlib `logging`.
-- **Python is pinned to 3.12 (`.python-version`) — do not bump to 3.13.** This repo lives in an
-  iCloud-synced folder; iCloud propagates macOS's `hidden` flag into `.venv`, and Python 3.13's
-  site.py silently skips hidden `.pth` files, breaking the editable install
-  (`ModuleNotFoundError: flock`). If that ever bites: `chflags -R nohidden .venv`.
+- **iCloud quirk — `UV_NO_EDITABLE=1` is load-bearing.** This repo lives in an iCloud-synced
+  folder. iCloud keeps re-applying macOS's `hidden` flag to files in `.venv`, and modern
+  CPython's site.py silently skips hidden `.pth` files, which breaks *editable* installs
+  intermittently (`ModuleNotFoundError: flock` from `uv run`). Fix: install non-editable.
+  `.claude/settings.json` sets `UV_NO_EDITABLE=1` for Claude sessions; human shells should
+  export it too (see README). Consequence: uv rebuilds the wheel on source changes — normal.
+  iCloud can also evict repo files under disk pressure (reads fail with "Operation canceled"
+  or time out); `brctl download <path>` re-materializes them.

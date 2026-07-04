@@ -1,0 +1,27 @@
+# H5: emergent coordination with price impact. Same cohorts as exp-000 but
+# trading against each other in one continuous double auction. Offline (mocks).
+name: exp-010-shared-exchange
+seed: 42
+dataset: synthetic-equities-v1
+market:
+  kind: exchange
+  fee_bps: 5
+  tick_size: 0.01
+steps: 40
+observation_window: 20
+initial_cash: 100000
+max_position_per_symbol: 1000
+cohorts:
+  - name: llm
+    agents:
+      - { kind: llm, model: mock-momentum, persona: neutral, count: 4, temperature: 0.7 }
+      - { kind: llm, model: mock-momentum-noisy, persona: neutral, count: 2, temperature: 0.7 }
+  - name: baseline
+    agents:
+      - { kind: momentum, count: 1 }
+      - { kind: mean_reversion, count: 2 }
+      - { kind: market_maker, count: 2 }
+      - { kind: buy_hold, count: 1 }
+  - name: "null"
+    agents:
+      - { kind: random, count: 6 }

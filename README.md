@@ -81,3 +81,9 @@ and cost.
 uv run pytest
 uv run ruff check .
 ```
+
+**If this repo lives in an iCloud-synced folder** (e.g. `~/Documents`), export
+`UV_NO_EDITABLE=1` in your shell before running uv: iCloud re-hides `.venv` `.pth` files and
+modern CPython skips hidden `.pth` files, which intermittently breaks editable installs with
+`ModuleNotFoundError: flock`. Non-editable installs are immune. (Claude Code sessions get this
+automatically via `.claude/settings.json`.)

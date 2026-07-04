@@ -135,6 +135,25 @@ def cohort_metrics(run: dict, cohort: str) -> dict[str, float]:
     }
 
 
+def pairwise_kappa_matrix(decisions: pd.DataFrame, agents: list[str]) -> pd.DataFrame:
+    """Symmetric agents x agents Cohen's kappa matrix (diagonal = 1)."""
+    mat = action_matrix(decisions, agents)
+    out = pd.DataFrame(np.eye(len(agents)), index=agents, columns=agents)
+    for a, b in itertools.combinations(agents, 2):
+        k = cohen_kappa(mat[a], mat[b])
+        out.loc[a, b] = out.loc[b, a] = k
+    return out
+
+
+def mean_kappa_of_multiset(kappa: pd.DataFrame, agents: list[str]) -> float:
+    """Mean pairwise kappa over an agent multiset (bootstrap resamples may
+    repeat an agent; a self-pair scores 1 by definition)."""
+    idx = kappa.index.get_indexer(agents)
+    arr = kappa.to_numpy()[np.ix_(idx, idx)]
+    iu = np.triu_indices(len(agents), k=1)
+    return float(arr[iu].mean())
+
+
 def kappa_for_agent_subset(decisions: pd.DataFrame, agents: list[str]) -> float:
     """Kappa on an arbitrary agent set — the statistic used by permutation tests."""
-    return mean_pairwise_kappa(action_matrix(decisions, sorted(agents)))
+    return mean_pairwise_kappa(action_matrix(decisions, sorted(set(agents))))

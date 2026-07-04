@@ -1,0 +1,87 @@
+"""Pure-transform tests for network dataset builders (no network)."""
+
+import pandas as pd
+
+from flock.data.builders.kalshi import candles_to_bars
+from flock.data.builders.polymarket import history_to_bars, parse_market
+from flock.data.builders.real_world_refs import parse_info_table, recent_13f_accessions
+
+
+def test_polymarket_parse_market():
+    m = {
+        "outcomes": '["Yes", "No"]',
+        "outcomePrices": '["1", "0"]',
+        "clobTokenIds": '["111", "222"]',
+        "slug": "will-x-happen",
+        "question": "Will X happen?",
+    }
+    parsed = parse_market(m)
+    assert parsed is not None
+    symbol, token, resolution = parsed
+    assert token == "111" and resolution == 1.0
+    assert symbol.startswith("PM-WILL-X")
+    assert parse_market({"outcomes": "bad"}) is None
+
+
+def test_polymarket_history_settles_at_resolution():
+    history = [
+        {"t": 1_700_000_000 + i * 86_400, "p": 0.4 + 0.01 * i} for i in range(20)
+    ]
+    bars = history_to_bars(history, "PM-T", resolution=1.0)
+    assert bars is not None
+    assert bars.iloc[-1]["close"] == 1.0
+    assert bars.iloc[-1]["high"] >= 1.0
+    assert (bars["ts"].sort_values() == bars["ts"]).all()
+
+
+def test_kalshi_candles_to_bars_converts_cents():
+    candles = [
+        {"end_period_ts": 1_700_000_000 + i * 86_400,
+         "price": {"open": 40 + i, "high": 45 + i, "low": 38 + i, "close": 42 + i},
+         "volume": 10}
+        for i in range(20)
+    ]
+    bars = candles_to_bars(candles, "KX-T", resolution=0.0)
+    assert bars is not None
+    assert 0 < bars.iloc[0]["close"] < 1
+    assert bars.iloc[-1]["close"] == 0.0
+
+
+def test_13f_info_table_parsing_with_namespace():
+    xml = """<?xml version="1.0"?>
+    <informationTable xmlns="http://www.sec.gov/edgar/document/thirteenf/informationtable">
+      <infoTable><nameOfIssuer>ACME</nameOfIssuer><cusip>037833100</cusip>
+        <value>1500</value></infoTable>
+      <infoTable><nameOfIssuer>BETA</nameOfIssuer><cusip>594918104</cusip>
+        <value>2500</value></infoTable>
+    </informationTable>"""
+    holdings = parse_info_table(xml)
+    assert holdings == [("037833100", 1_500_000.0), ("594918104", 2_500_000.0)]
+    assert parse_info_table("not xml") == []
+
+
+def test_13f_accession_selection():
+    subs = {
+        "filings": {
+            "recent": {
+                "form": ["10-K", "13F-HR", "13F-HR/A", "13F-HR"],
+                "accessionNumber": ["a", "b", "c", "d"],
+                "reportDate": ["2024-12-31", "2024-09-30", "2024-09-30", "2024-06-30"],
+            }
+        }
+    }
+    accs = recent_13f_accessions(subs, quarters=2)
+    assert accs == [("b", "2024-09-30"), ("d", "2024-06-30")]
+
+
+def test_registry_primary_file(tmp_path):
+    from flock.data.registry import Registry
+
+    d = tmp_path / "refs"
+    d.mkdir()
+    pd.DataFrame({"manager": ["x"], "cusip": ["1"], "value_usd": [1.0]}).to_parquet(
+        d / "holdings13f.parquet"
+    )
+    reg = Registry(root=tmp_path)
+    entry = reg.register("refs", "refs13f", d, {}, primary_file="holdings13f.parquet")
+    assert entry.rows == 1

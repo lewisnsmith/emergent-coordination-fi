@@ -62,6 +62,7 @@ def build_market(cfg: ExperimentConfig, registry: Registry):
             fee_bps=cfg.market.fee_bps,
             tick_size=cfg.market.tick_size,
             max_steps=cfg.steps,
+            seed=cfg.seed,
         )
     return market, entry
 
@@ -110,7 +111,14 @@ def run_experiment(
     cfg = load_experiment(config_path)
     if seed_override is not None:
         cfg = cfg.model_copy(update={"seed": seed_override})
+    return run_config(cfg, results_root=results_root, use_cache=use_cache)
 
+
+def run_config(
+    cfg: ExperimentConfig,
+    results_root: Path = RESULTS_DIR,
+    use_cache: bool = True,
+) -> RunResult:
     registry = Registry()
     market, dataset_entry = build_market(cfg, registry)
     cache = ResponseCache() if use_cache else None

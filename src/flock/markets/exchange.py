@@ -1,0 +1,189 @@
+"""Phase-2 shared exchange: a step-synchronous continuous double auction.
+
+Agents' orders trade against each other, so herding has price impact and
+feedback loops can emerge. Mechanics per step:
+
+  1. All agents observe the same state (seeded history + endogenous bars).
+  2. Submitted orders arrive in a deterministically shuffled order.
+  3. Each arriving limit order matches against resting opposite orders that
+     cross (price-time priority, fill at the resting price) and then rests.
+     Market orders match what they can and the remainder expires.
+  4. At step end the book is cleared and the step's trades are synthesized
+     into a bar (no trades -> carry-forward close, zero volume).
+
+Public information is the tape (bar history), not the intra-step book, so
+agents coordinate only through prices — the phenomenon under study.
+
+The dataset provides symbols, seeded price history, timestamps, and news;
+prices become endogenous from the first step onward.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+import numpy as np
+import pandas as pd
+
+from flock.core.types import Bar, Fill, NewsEvent, Order
+from flock.markets.base import MarketState
+
+
+@dataclass(order=True)
+class _Resting:
+    sort_key: tuple = field(init=False, repr=False)
+    price: float
+    arrival: int
+    agent_id: str = field(compare=False)
+    side: str = field(compare=False)
+    quantity: float = field(compare=False)
+
+    def __post_init__(self):
+        # bids: matched best (highest) first -> sort by -price; asks by price
+        direction = -1.0 if self.side == "buy" else 1.0
+        self.sort_key = (direction * self.price, self.arrival)
+
+
+class ExchangeMarket:
+    def __init__(
+        self,
+        bars: pd.DataFrame,
+        events: pd.DataFrame | None = None,
+        observation_window: int = 20,
+        fee_bps: float = 5.0,
+        tick_size: float = 0.01,
+        max_steps: int | None = None,
+        seed: int = 0,
+    ):
+        self.fee_bps = fee_bps
+        self.tick = tick_size
+        self.window = observation_window
+        self.seed = seed
+
+        bars = bars.sort_values(["ts", "symbol"])
+        self.timestamps: list[str] = sorted(bars["ts"].unique().tolist())
+        self.symbols: tuple[str, ...] = tuple(sorted(bars["symbol"].unique().tolist()))
+        seeded = {
+            s: [Bar(**row) for row in g.to_dict("records")][: self.window]
+            for s, g in bars.groupby("symbol")
+        }
+        self._history: dict[str, list[Bar]] = seeded
+
+        self._events_by_ts: dict[str, list[NewsEvent]] = {}
+        if events is not None and len(events):
+            for row in events.to_dict("records"):
+                self._events_by_ts.setdefault(row["ts"], []).append(NewsEvent(**row))
+
+        n_available = max(len(self.timestamps) - self.window - 1, 0)
+        self.n_steps = min(n_available, max_steps) if max_steps else n_available
+        self.reset()
+
+    def reset(self) -> None:
+        self._step = 0
+        self._pending: list[tuple[str, Order]] = []
+
+    @property
+    def done(self) -> bool:
+        return self._step >= self.n_steps
+
+    def _ts(self) -> str:
+        return self.timestamps[self.window + self._step]
+
+    def state(self) -> MarketState:
+        window_bars = {s: tuple(self._history[s][-self.window :]) for s in self.symbols}
+        ts = self._ts()
+        return MarketState(
+            step=self._step,
+            ts=ts,
+            symbols=self.symbols,
+            bars=window_bars,
+            prices={s: window_bars[s][-1].close for s in self.symbols},
+            news=tuple(self._events_by_ts.get(ts, ())),
+        )
+
+    def submit(self, agent_id: str, orders: tuple[Order, ...]) -> None:
+        self._pending.extend((agent_id, o) for o in orders)
+
+    def step(self) -> list[Fill]:
+        ts = self._ts()
+        rng = np.random.default_rng([self.seed, self._step])
+        arrival_order = rng.permutation(len(self._pending))
+        fills: list[Fill] = []
+        trades: dict[str, list[tuple[float, float]]] = {s: [] for s in self.symbols}
+        books: dict[str, dict[str, list[_Resting]]] = {
+            s: {"buy": [], "sell": []} for s in self.symbols
+        }
+
+        for arrival, idx in enumerate(arrival_order):
+            agent_id, order = self._pending[idx]
+            book = books[order.symbol]
+            remaining = order.quantity
+            opposite = book["sell" if order.side == "buy" else "buy"]
+            opposite.sort()
+            while remaining > 1e-9 and opposite:
+                best = opposite[0]
+                if order.limit_price is not None and not self._crosses(order, best):
+                    break
+                qty = min(remaining, best.quantity)
+                price = best.price
+                fills.append(self._fill(agent_id, ts, order.symbol, order.side, qty, price))
+                fills.append(self._fill(best.agent_id, ts, order.symbol, best.side, qty, price))
+                trades[order.symbol].append((price, qty))
+                remaining -= qty
+                best.quantity -= qty
+                if best.quantity <= 1e-9:
+                    opposite.pop(0)
+            if remaining > 1e-9 and order.limit_price is not None:
+                book[order.side].append(
+                    _Resting(
+                        price=self._snap(order.limit_price), arrival=arrival,
+                        agent_id=agent_id, side=order.side, quantity=remaining,
+                    )
+                )
+
+        self._append_bars(ts, trades)
+        self._pending = []
+        self._step += 1
+        return fills
+
+    @staticmethod
+    def _crosses(incoming: Order, resting: _Resting) -> bool:
+        if incoming.side == "buy":
+            return resting.price <= incoming.limit_price
+        return resting.price >= incoming.limit_price
+
+    def _snap(self, price: float) -> float:
+        return round(round(price / self.tick) * self.tick, 10)
+
+    def _fill(
+        self, agent_id: str, ts: str, symbol: str, side: str, qty: float, price: float
+    ) -> Fill:
+        fee = abs(price * qty) * self.fee_bps / 1e4
+        return Fill(agent_id, self._step, ts, symbol, side, qty, price, fee)
+
+    def _append_bars(self, ts: str, trades: dict[str, list[tuple[float, float]]]) -> None:
+        for s in self.symbols:
+            prev_close = self._history[s][-1].close
+            t = trades[s]
+            if t:
+                prices = [p for p, _ in t]
+                volume = sum(q for _, q in t)
+                bar = Bar(
+                    ts, s,
+                    open=prices[0], high=max(prices), low=min(prices),
+                    close=prices[-1], volume=volume,
+                )
+            else:
+                bar = Bar(ts, s, prev_close, prev_close, prev_close, prev_close, 0.0)
+            self._history[s].append(bar)
+
+
+def cascade_ready_history(market: ExchangeMarket) -> pd.DataFrame:
+    """Endogenous bar history as a DataFrame (for coordination analysis)."""
+    rows = [
+        {"ts": b.ts, "symbol": s, "open": b.open, "high": b.high,
+         "low": b.low, "close": b.close, "volume": b.volume}
+        for s in market.symbols
+        for b in market._history[s]
+    ]
+    return pd.DataFrame(rows)

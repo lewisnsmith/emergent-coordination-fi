@@ -1,0 +1,30 @@
+# H1 on binary prediction contracts. Requires:
+#   uv run flock data build polymarket   (or kalshi)
+name: exp-002-replay-prediction
+seed: 42
+dataset: polymarket-binary
+market:
+  kind: replay
+  fee_bps: 10
+  slippage_bps: 5
+steps: 60
+observation_window: 10
+initial_cash: 100000
+max_position_per_symbol: 5000
+cohorts:
+  - name: llm
+    agents:
+      - { kind: llm, model: claude-sonnet, persona: neutral, count: 2, temperature: 0.7 }
+      - { kind: llm, model: claude-haiku, persona: neutral, count: 2, temperature: 0.7 }
+      - { kind: llm, model: gpt-5, persona: neutral, count: 2, temperature: 0.7 }
+      - { kind: llm, model: gemini-pro, persona: neutral, count: 2, temperature: 0.7 }
+  - name: baseline
+    agents:
+      - { kind: momentum, count: 2 }
+      - { kind: mean_reversion, count: 2 }
+      - { kind: market_maker, count: 2 }
+      - { kind: buy_hold, count: 1 }
+      - { kind: random, count: 1 }
+  - name: "null"
+    agents:
+      - { kind: random, count: 8 }

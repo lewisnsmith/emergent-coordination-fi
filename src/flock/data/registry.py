@@ -64,10 +64,17 @@ class Registry:
     def dataset_dir(self, name: str) -> Path:
         return Path(self.get(name).path)
 
-    def register(self, name: str, source: str, dataset_dir: Path, params: dict) -> DatasetEntry:
+    def register(
+        self,
+        name: str,
+        source: str,
+        dataset_dir: Path,
+        params: dict,
+        primary_file: str = "bars.parquet",
+    ) -> DatasetEntry:
         entries = self._load()
         version = 1 + max((e["version"] for e in entries if e["name"] == name), default=0)
-        bars_path = dataset_dir / "bars.parquet"
+        bars_path = dataset_dir / primary_file
         entry = DatasetEntry(
             name=name,
             version=version,

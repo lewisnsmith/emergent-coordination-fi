@@ -1,0 +1,5 @@
+{
+  "env": {
+    "UV_NO_EDITABLE": "1"
+  }
+}
