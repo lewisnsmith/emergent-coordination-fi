@@ -49,3 +49,7 @@ uv run pytest && uv run ruff check .      # required before claiming done
   model params) goes in the run manifest.
 - Datasets/results payloads are gitignored; manifests are checked in.
 - `src/flock/logging_/` has the underscore to avoid shadowing stdlib `logging`.
+- **Python is pinned to 3.12 (`.python-version`) — do not bump to 3.13.** This repo lives in an
+  iCloud-synced folder; iCloud propagates macOS's `hidden` flag into `.venv`, and Python 3.13's
+  site.py silently skips hidden `.pth` files, breaking the editable install
+  (`ModuleNotFoundError: flock`). If that ever bites: `chflags -R nohidden .venv`.

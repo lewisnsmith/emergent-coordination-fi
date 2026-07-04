@@ -1,0 +1,31 @@
+# Smoke experiment: fully offline, no API keys.
+# Calibrates the metric pipeline on cohorts with KNOWN convergence:
+#   - "llm" cohort of mock-momentum agents  -> near-total convergence expected
+#   - "baseline" cohort of mixed classical bots -> heterogeneous
+#   - "null" cohort of random agents        -> chance floor
+name: exp-000-smoke
+seed: 42
+dataset: synthetic-equities-v1
+market:
+  kind: replay
+  fee_bps: 5
+  slippage_bps: 2
+steps: 40
+observation_window: 20
+initial_cash: 100000
+max_position_per_symbol: 1000
+cohorts:
+  - name: llm
+    agents:
+      - { kind: llm, model: mock-momentum, persona: neutral, count: 4, temperature: 0.7 }
+      - { kind: llm, model: mock-momentum-noisy, persona: neutral, count: 2, temperature: 0.7 }
+  - name: baseline
+    agents:
+      - { kind: momentum, count: 1 }
+      - { kind: mean_reversion, count: 2 }
+      - { kind: market_maker, count: 1 }
+      - { kind: buy_hold, count: 1 }
+      - { kind: random, count: 1 }
+  - name: "null"
+    agents:
+      - { kind: random, count: 6 }

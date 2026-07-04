@@ -1,0 +1,49 @@
+# Model registry: agents reference these keys from experiment configs.
+# Mock models are deterministic and run offline (no keys, no network).
+# Verify real model IDs against provider docs before a sweep.
+
+# --- mock (offline) ---
+mock-momentum:
+  provider: mock
+  model_id: mock-momentum
+  behavior: momentum
+mock-momentum-noisy:
+  provider: mock
+  model_id: mock-momentum-noisy
+  behavior: momentum
+  noise: 0.25
+mock-contrarian:
+  provider: mock
+  model_id: mock-contrarian
+  behavior: contrarian
+mock-random:
+  provider: mock
+  model_id: mock-random
+  behavior: random
+mock-hold:
+  provider: mock
+  model_id: mock-hold
+  behavior: hold
+
+# --- anthropic ---
+claude-sonnet:
+  provider: anthropic
+  model_id: claude-sonnet-5
+claude-haiku:
+  provider: anthropic
+  model_id: claude-haiku-4-5-20251001
+
+# --- openai ---
+gpt-5:
+  provider: openai
+  model_id: gpt-5
+
+# --- google ---
+gemini-pro:
+  provider: google
+  model_id: gemini-2.5-pro
+
+# --- openai-compatible endpoint (Ollama/vLLM/OpenRouter via env vars) ---
+local-open-weights:
+  provider: openai_compatible
+  model_id: llama3.3:70b
