@@ -37,6 +37,12 @@ dev = [
     "ruff>=0.5",
 ]
 
+[tool.uv]
+# Rebuild the (non-editable) wheel whenever sources change. Non-editable is
+# required here: iCloud re-hides .venv .pth files and CPython skips hidden
+# .pth files, so editable installs break intermittently. See CLAUDE.md.
+cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.py" }]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

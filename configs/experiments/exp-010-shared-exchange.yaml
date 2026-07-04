@@ -10,6 +10,7 @@ market:
 steps: 40
 observation_window: 20
 initial_cash: 100000
+initial_position_per_symbol: 200   # endowment so the sell side exists (long-only market)
 max_position_per_symbol: 1000
 cohorts:
   - name: llm

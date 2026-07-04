@@ -27,7 +27,9 @@ def build_kalshi(
             if bars is None or len(bars) < 15:
                 continue
             frames.append(bars)
-            contracts.append({"symbol": "KX-" + ticker, "title": m.get("title", ""), "result": result})
+            contracts.append(
+                {"symbol": "KX-" + ticker, "title": m.get("title", ""), "result": result}
+            )
             if len(frames) >= limit:
                 break
     if not frames:

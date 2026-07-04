@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from flock.analysis import convergence, strategy
+from flock.analysis import convergence, coordination, strategy
 from flock.analysis.stats import permutation_test
 from flock.data.registry import Registry
 from flock.logging_.decisions import RESULTS_DIR, resolve_run_dir
@@ -54,6 +54,7 @@ def analyze_run(run_id: str, paper: bool = False, results_root: Path = RESULTS_D
     metrics = {c: convergence.cohort_metrics(run, c) for c in cohorts}
     for c in cohorts:
         metrics[c].update(strategy.strategy_metrics(run, c, dataset_dir))
+        metrics[c].update(coordination.coordination_metrics(run["decisions"], c))
     contrast = _primary_contrast(run, cohorts)
 
     _fig_metrics_by_cohort(metrics, report_dir)

@@ -127,6 +127,12 @@ def run_config(
         a.agent_id: Ledger(cfg.initial_cash, cfg.max_position_per_symbol, cfg.market.fee_bps)
         for a in agents
     }
+    if cfg.initial_position_per_symbol > 0:
+        prices0 = market.state().prices
+        for ledger in ledgers.values():
+            for symbol, price in prices0.items():
+                ledger.qty[symbol] = cfg.initial_position_per_symbol
+                ledger.avg_price[symbol] = price
 
     run_id = make_run_id(cfg)
     writer = RunWriter(run_id, results_root)

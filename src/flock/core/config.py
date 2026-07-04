@@ -69,6 +69,9 @@ class ExperimentConfig(BaseModel):
     steps: int | None = None  # None = full dataset
     observation_window: int = 20
     initial_cash: float = 100_000.0
+    # per-symbol share endowment at t0 (essential for exchange markets:
+    # long-only agents with zero holdings can never provide the sell side)
+    initial_position_per_symbol: float = 0.0
     max_position_per_symbol: float = 1_000.0
     cohorts: list[CohortConfig]
 
