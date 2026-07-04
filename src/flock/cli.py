@@ -19,7 +19,9 @@ app.add_typer(data_app, name="data", help="Build and list versioned local datase
 
 @data_app.command("build")
 def data_build(
-    builder: str = typer.Argument(..., help="Builder name: synthetic|equities|polymarket|kalshi|refs13f"),
+    builder: str = typer.Argument(
+        ..., help="Builder name: synthetic|equities|polymarket|kalshi|refs13f"
+    ),
     name: str = typer.Option(None, help="Dataset name (defaults per builder)"),
     seed: int = typer.Option(42, help="Seed for synthetic data"),
     start: str = typer.Option(None, help="Start date YYYY-MM-DD (network builders)"),
