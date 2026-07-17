@@ -357,3 +357,22 @@ def compile_study(
 def compile_study_file(path: Path = Path("configs/studies/paper-core.yaml")) -> FrozenStudyPlan:
     """Load and compile one study YAML file."""
     return compile_study(load_study_spec(path))
+
+
+def write_study_plan(plan: FrozenStudyPlan, path: Path) -> None:
+    """Atomically persist a canonical compiled plan."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(plan.to_jsonable(), indent=2) + "\n")
+    temporary.replace(path)
+
+
+def load_study_plan(path: Path) -> FrozenStudyPlan:
+    """Load a plan and prove that it still recompiles to the recorded hash."""
+    plan = FrozenStudyPlan.model_validate_json(path.read_text())
+    recompiled = compile_study(plan.source_spec)
+    if recompiled.plan_hash != plan.plan_hash:
+        raise ValueError("compiled study plan hash does not match its source specification")
+    if recompiled.to_jsonable() != plan.to_jsonable():
+        raise ValueError("compiled study plan contents do not match deterministic recompilation")
+    return plan

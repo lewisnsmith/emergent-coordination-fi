@@ -8,6 +8,8 @@ Commands:
     flock analyze <run-id>       Compute convergence metrics and write a report.
     flock validate               Verify the complete scaffold and execution blockers.
     flock design                 Print/export MPHIQ and prompt-pressure cells.
+    flock compile-study          Compile a strict study YAML to a frozen JSON plan.
+    flock validate-study         Recompile and validate a frozen study plan.
 """
 
 from pathlib import Path
@@ -129,6 +131,36 @@ def design(
         typer.echo(f"design -> {output}")
     else:
         typer.echo(rendered)
+
+
+@app.command("compile-study")
+def compile_study_command(
+    study: Path = typer.Argument(..., help="Strict study YAML contract"),
+    output: Path = typer.Option(..., help="Frozen JSON plan output"),
+) -> None:
+    """Compile a strict study contract into a deterministic frozen run plan."""
+    from flock.experiments.study import compile_study_file, write_study_plan
+
+    plan = compile_study_file(study)
+    write_study_plan(plan, output)
+    typer.echo(
+        f"study plan -> {output} ({plan.exact_runs} runs, {plan.exact_calls} calls, "
+        f"hash {plan.plan_hash})"
+    )
+
+
+@app.command("validate-study")
+def validate_study_command(
+    plan_path: Path = typer.Argument(..., help="Frozen compiled study-plan JSON"),
+) -> None:
+    """Fail unless a frozen plan exactly matches deterministic recompilation."""
+    from flock.experiments.study import load_study_plan
+
+    plan = load_study_plan(plan_path)
+    typer.echo(
+        f"valid study plan: {plan.study_id} ({plan.exact_runs} runs, "
+        f"{plan.exact_calls} calls, hash {plan.plan_hash})"
+    )
 
 
 @app.command("estimate")

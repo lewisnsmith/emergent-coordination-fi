@@ -7,7 +7,12 @@ import yaml
 from pydantic import ValidationError
 
 from flock.core.study import StudySpec
-from flock.experiments.study import compile_study, compile_study_file
+from flock.experiments.study import (
+    compile_study,
+    compile_study_file,
+    load_study_plan,
+    write_study_plan,
+)
 
 PAPER_CORE = Path("configs/studies/paper-core.yaml")
 
@@ -48,6 +53,19 @@ def test_schema_forbids_unknown_fields_and_invalid_values():
     invalid["stages"][0]["steps_per_run"] = 0
     with pytest.raises(ValidationError, match="greater than 0"):
         StudySpec.model_validate(invalid)
+
+
+def test_frozen_plan_roundtrip_rejects_tampering(tmp_path):
+    path = tmp_path / "plan.json"
+    write_study_plan(compile_study_file(PAPER_CORE), path)
+    loaded = load_study_plan(path)
+    assert loaded.plan_hash
+
+    payload = json.loads(path.read_text())
+    payload["exact_calls"] += 1
+    path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match="deterministic recompilation"):
+        load_study_plan(path)
 
 
 def test_rejects_placeholder_block_and_mutable_model_alias():
