@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib
+
 from flock.agents.providers.base import ChatResponse
 from flock.agents.providers.pricing import cost_usd
 from flock.core.config import ModelSpec
@@ -15,9 +17,8 @@ class GoogleChatModel:
 
     def _get_client(self):
         if self._client is None:
-            from google import genai
-
-            self._client = genai.Client()
+            client_type = importlib.import_module("google.genai").Client
+            self._client = client_type()
         return self._client
 
     def complete(

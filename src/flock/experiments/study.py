@@ -248,14 +248,15 @@ def compile_study(
         )
 
     pricing = pricing or load_pricing()
-    llm_pricing_keys = {
-        allocation.pricing_key
-        for cohort in spec.cohorts
-        if cohort.technology == "llm"
-        for allocation in cohort.allocations
-    }
-    if None in llm_pricing_keys:
-        raise ValueError("every LLM allocation requires a pricing_key")
+    llm_pricing_keys: set[str] = set()
+    for cohort in spec.cohorts:
+        if cohort.technology != "llm":
+            continue
+        for allocation in cohort.allocations:
+            pricing_key = allocation.pricing_key
+            if pricing_key is None:
+                raise ValueError("every LLM allocation requires a pricing_key")
+            llm_pricing_keys.add(pricing_key)
     missing_prices = llm_pricing_keys - set(pricing.api)
     if missing_prices:
         raise ValueError(f"LLM allocations have no dated pricing: {sorted(missing_prices)}")

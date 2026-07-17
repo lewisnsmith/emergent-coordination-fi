@@ -8,6 +8,7 @@ silent passes and not reasons to call the research program complete.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, NotRequired, TypedDict, cast
 
 import numpy as np
 import pandas as pd
@@ -41,6 +42,33 @@ class RunVerification(BaseModel):
     decisions: int
     fills: int
     portfolio_rows: int
+
+
+class DecisionRecord(TypedDict):
+    agent_id: str
+    step: int
+    symbols: NotRequired[list[str]]
+    orders_clipped: list[dict[str, Any]]
+    prompt_hash: str | None
+    raw_response_hash: str | None
+    grounding_ok: bool
+    parse_ok: bool
+    usage: NotRequired[dict[str, Any] | None]
+
+
+class FillRecord(TypedDict):
+    agent_id: str
+    step: int
+    price: float
+    quantity: float
+    fee: float
+    side: str
+
+
+class PortfolioRecord(TypedDict):
+    agent_id: str
+    step: int
+    cash: float
 
 
 def _yaml(path: Path):
@@ -157,6 +185,13 @@ def verify_run(run_dir: Path, tolerance: float = 1e-6) -> RunVerification:
     decisions = pd.read_json(run_dir / "decisions.jsonl", lines=True)
     fills = pd.read_parquet(run_dir / "fills.parquet")
     portfolio = pd.read_parquet(run_dir / "portfolio.parquet")
+    decision_records = cast(
+        list[DecisionRecord], decisions.to_dict(orient="records")
+    )
+    fill_records = cast(list[FillRecord], fills.to_dict(orient="records"))
+    portfolio_records = cast(
+        list[PortfolioRecord], portfolio.to_dict(orient="records")
+    )
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -184,51 +219,74 @@ def verify_run(run_dir: Path, tolerance: float = 1e-6) -> RunVerification:
     known_decision_agents = set(decisions["agent_id"])
     if known_agents != known_decision_agents:
         errors.append("manifest and decision agent sets differ")
-    if len(fills) and not set(fills["agent_id"]).issubset(known_agents):
+    if fill_records and not {record["agent_id"] for record in fill_records}.issubset(
+        known_agents
+    ):
         errors.append("fills contain an unknown agent")
 
-    for rec in decisions.itertuples():
-        symbols = set(rec.symbols) if hasattr(rec, "symbols") else set()
+    for record in decision_records:
+        symbols = set(record.get("symbols", []))
         if not symbols:
-            errors.append(f"{rec.agent_id} step {rec.step}: missing symbol universe")
+            errors.append(
+                f"{record['agent_id']} step {record['step']}: missing symbol universe"
+            )
             continue
-        for order in rec.orders_clipped:
+        for order in record["orders_clipped"]:
             if order["symbol"] not in symbols or float(order["quantity"]) <= 0:
-                errors.append(f"{rec.agent_id} step {rec.step}: invalid clipped order")
-        meta = manifest["agents"].get(rec.agent_id, {})
+                errors.append(
+                    f"{record['agent_id']} step {record['step']}: invalid clipped order"
+                )
+        meta = manifest["agents"].get(record["agent_id"], {})
         if meta.get("kind") == "llm":
-            if not rec.prompt_hash or not rec.raw_response_hash:
-                errors.append(f"{rec.agent_id} step {rec.step}: missing prompt/response hash")
-            if meta.get("grounding_mode") == "strict" and not rec.grounding_ok:
-                errors.append(f"{rec.agent_id} step {rec.step}: strict grounding failure")
+            if not record["prompt_hash"] or not record["raw_response_hash"]:
+                errors.append(
+                    f"{record['agent_id']} step {record['step']}: "
+                    "missing prompt/response hash"
+                )
+            if meta.get("grounding_mode") == "strict" and not record["grounding_ok"]:
+                errors.append(
+                    f"{record['agent_id']} step {record['step']}: strict grounding failure"
+                )
 
-    usage_cost = float(sum((usage or {}).get("cost_usd", 0.0) for usage in decisions["usage"]))
+    usage_cost = sum(
+        float((record.get("usage") or {}).get("cost_usd", 0.0))
+        for record in decision_records
+    )
     if not np.isclose(usage_cost, manifest["total_cost_usd"], atol=tolerance, rtol=0):
         errors.append("manifest total cost does not reconcile with decision usage")
 
     initial_cash = float(manifest["config"]["initial_cash"])
     fee_bps = float(manifest["config"]["market"]["fee_bps"])
     cash = dict.fromkeys(known_agents, initial_cash)
-    fills_by_step = fills.groupby("step") if len(fills) else {}
+    fills_by_step: dict[int, list[FillRecord]] = {}
+    for record in fill_records:
+        fills_by_step.setdefault(record["step"], []).append(record)
+    portfolios_by_step: dict[int, list[PortfolioRecord]] = {}
+    for record in portfolio_records:
+        portfolios_by_step.setdefault(record["step"], []).append(record)
     for step in range(manifest["n_steps"]):
-        step_fills = (
-            fills_by_step.get_group(step)
-            if len(fills) and step in fills_by_step.groups
-            else []
-        )
-        for fill in getattr(step_fills, "itertuples", lambda: [])():
-            expected_fee = abs(fill.price * fill.quantity) * fee_bps / 1e4
-            if not np.isclose(fill.fee, expected_fee, atol=tolerance, rtol=1e-9):
-                errors.append(f"fill fee mismatch at step {step} for {fill.agent_id}")
-            gross = fill.price * fill.quantity
-            cash[fill.agent_id] += gross - fill.fee if fill.side == "sell" else -gross - fill.fee
-        snapshot = portfolio[portfolio["step"] == step]
-        for rec in snapshot.itertuples():
-            if not np.isclose(rec.cash, cash[rec.agent_id], atol=tolerance, rtol=1e-9):
-                errors.append(f"cash ledger mismatch at step {step} for {rec.agent_id}")
+        for fill in fills_by_step.get(step, []):
+            expected_fee = abs(fill["price"] * fill["quantity"]) * fee_bps / 1e4
+            if not np.isclose(fill["fee"], expected_fee, atol=tolerance, rtol=1e-9):
+                errors.append(f"fill fee mismatch at step {step} for {fill['agent_id']}")
+            gross = fill["price"] * fill["quantity"]
+            net = gross - fill["fee"] if fill["side"] == "sell" else -gross - fill["fee"]
+            cash[fill["agent_id"]] += net
+        for record in portfolios_by_step.get(step, []):
+            if not np.isclose(
+                record["cash"], cash[record["agent_id"]], atol=tolerance, rtol=1e-9
+            ):
+                errors.append(
+                    f"cash ledger mismatch at step {step} for {record['agent_id']}"
+                )
 
-    failure_rates = 1 - decisions.groupby("agent_id")["parse_ok"].mean()
-    if (failure_rates > 0.2).any():
+    parse_results: dict[str, list[bool]] = {}
+    for record in decision_records:
+        parse_results.setdefault(record["agent_id"], []).append(record["parse_ok"])
+    if any(
+        1 - sum(results) / len(results) > 0.2
+        for results in parse_results.values()
+    ):
         errors.append("one or more agents exceed the preregistered 20% parse-failure gate")
     return RunVerification(
         ok=not errors,

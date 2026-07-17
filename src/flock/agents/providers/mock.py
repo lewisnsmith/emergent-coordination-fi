@@ -81,7 +81,7 @@ class MockChatModel:
                     orders.append({"symbol": s, "side": "sell", "quantity": q})
             return orders
 
-        ranked = sorted(returns, key=returns.get)  # ascending
+        ranked = sorted(returns, key=lambda symbol: returns[symbol])  # ascending
         weakest, strongest = ranked[0], ranked[-1]
         buy, sell = (
             (strongest, weakest) if behavior == "momentum" else (weakest, strongest)
