@@ -1,31 +1,44 @@
-"""Per-model token pricing (USD per million tokens) for cost tracking.
-
-Best-effort: unknown models cost 0 and the run manifest still records token
-counts. Update alongside provider price changes; prices are matched by the
-longest model-id prefix.
-"""
+"""Runtime token pricing backed by the dated experiment pricing catalog."""
 
 from __future__ import annotations
 
-# Synchronous standard-tier prices verified against official provider pages on
-# 2026-07-13. Preflight estimates use configs/budgets/pricing.yaml. Unknown
-# metered models fail closed instead of silently being recorded as free.
-# model-id prefix -> (input $/Mtok, output $/Mtok)
-PRICES: dict[str, tuple[float, float]] = {
-    "claude-opus-4-8": (5.0, 25.0),
-    "claude-sonnet-5": (2.0, 10.0),
-    "gpt-5.6-sol": (5.0, 30.0),
-    "gpt-5.6-terra": (2.5, 15.0),
-    "gemini-3.1-pro-preview": (2.0, 12.0),
-}
+from datetime import date
+from functools import lru_cache
+from pathlib import Path
+
+from flock.experiments.costs import PricingCatalog, load_pricing
 
 
-def cost_usd(model_id: str, input_tokens: int, output_tokens: int) -> float:
+@lru_cache(maxsize=4)
+def _catalog(path: str) -> PricingCatalog:
+    return load_pricing(Path(path))
+
+
+def cost_usd(
+    model_id: str,
+    input_tokens: int,
+    output_tokens: int,
+    *,
+    cached_input_tokens: int = 0,
+    cache_write_tokens: int = 0,
+    as_of: date | None = None,
+    pricing_path: Path = Path("configs/budgets/pricing.yaml"),
+) -> float:
+    catalog = _catalog(str(pricing_path.resolve()))
     best = ""
-    for prefix in PRICES:
+    for prefix in catalog.api:
         if model_id.startswith(prefix) and len(prefix) > len(best):
             best = prefix
     if not best:
         raise ValueError(f"no verified token price for metered model '{model_id}'")
-    p_in, p_out = PRICES[best]
-    return (input_tokens * p_in + output_tokens * p_out) / 1e6
+    price = catalog.api[best]
+    p_in, p_out = price.rates_on(as_of or date.today())
+    ordinary_input = max(input_tokens - cached_input_tokens - cache_write_tokens, 0)
+    cached_rate = price.cached_input_per_million_usd or p_in
+    write_rate = p_in * price.cache_write_multiplier
+    return (
+        ordinary_input * p_in
+        + cached_input_tokens * cached_rate
+        + cache_write_tokens * write_rate
+        + output_tokens * p_out
+    ) / 1e6

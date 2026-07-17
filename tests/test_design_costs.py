@@ -1,13 +1,17 @@
+from datetime import date
+
 import pytest
 
 from flock.experiments.costs import (
     APIPrice,
+    EffectiveRate,
     PricingCatalog,
     TokenCase,
     VMPrice,
     Workload,
     estimate_costs,
     load_run_matrix,
+    load_workload,
 )
 from flock.experiments.design import (
     balanced_levels,
@@ -75,6 +79,7 @@ def test_cost_estimator_includes_retries_vm_and_contingency():
     assert result.total_expected_usd == pytest.approx(
         (result.expected_api_usd + 40 + 5) * 1.2
     )
+    assert result.pricing_version == "test"
 
 
 def test_cost_estimator_fails_closed_on_unknown_model():
@@ -96,3 +101,41 @@ def test_committed_run_matrix_has_staged_stop_go_envelopes():
     assert set(matrix.scenarios) == {"pilot", "base", "high"}
     assert matrix.scenarios["pilot"].total_calls < matrix.scenarios["base"].total_calls
     assert matrix.scenarios["base"].recommended_credit_envelope_usd.total > 0
+
+
+def test_effective_dated_price_changes_estimate():
+    pricing = PricingCatalog(
+        version="dated",
+        api={
+            "m": APIPrice(
+                input_per_million_usd=2,
+                output_per_million_usd=10,
+                future_rates=[
+                    EffectiveRate(
+                        effective_from=date(2026, 9, 1),
+                        input_per_million_usd=3,
+                        output_per_million_usd=15,
+                    )
+                ],
+                source="official",
+                verified_on="2026-07-17",
+            )
+        },
+        vm={},
+    )
+    workload = Workload(
+        calls=1000,
+        model_mix={"m": 1.0},
+        token_cases={
+            name: TokenCase(input_tokens=1000, output_tokens=100)
+            for name in ("low", "expected", "high")
+        },
+    )
+    before = estimate_costs(workload, pricing, as_of=date(2026, 8, 31))
+    after = estimate_costs(workload, pricing, as_of=date(2026, 9, 1))
+    assert after.expected_api_usd > before.expected_api_usd
+
+
+def test_legacy_run_matrix_cannot_masquerade_as_calculable_workload():
+    with pytest.raises(ValueError, match="legacy summary"):
+        load_workload()

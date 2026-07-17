@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -15,14 +16,34 @@ class TokenCase(BaseModel):
     retry_rate: float = 0.0
 
 
+class EffectiveRate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    effective_from: date
+    input_per_million_usd: float
+    output_per_million_usd: float
+
+
 class APIPrice(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     input_per_million_usd: float
     output_per_million_usd: float
     batch_discount: float = 0.0
+    cached_input_per_million_usd: float | None = None
+    cache_write_multiplier: float = 1.0
+    future_rates: list[EffectiveRate] = Field(default_factory=list)
     source: str
     verified_on: str
+
+    def rates_on(self, on_date: date) -> tuple[float, float]:
+        input_rate = self.input_per_million_usd
+        output_rate = self.output_per_million_usd
+        for rate in sorted(self.future_rates, key=lambda item: item.effective_from):
+            if rate.effective_from <= on_date:
+                input_rate = rate.input_per_million_usd
+                output_rate = rate.output_per_million_usd
+        return input_rate, output_rate
 
 
 class VMPrice(BaseModel):
@@ -91,6 +112,8 @@ class CostRange:
     total_low_usd: float
     total_expected_usd: float
     total_high_usd: float
+    pricing_version: str
+    priced_on: str
 
 
 def load_pricing(path: Path = Path("configs/budgets/pricing.yaml")) -> PricingCatalog:
@@ -98,12 +121,29 @@ def load_pricing(path: Path = Path("configs/budgets/pricing.yaml")) -> PricingCa
         return PricingCatalog.model_validate(yaml.safe_load(f))
 
 
-def load_workload(path: Path = Path("configs/budgets/run-matrix.yaml")) -> Workload:
+def load_workload(
+    path: Path = Path("configs/budgets/run-matrix.yaml"), scenario: str = "pilot"
+) -> Workload:
+    """Load a calculable workload, refusing legacy hard-coded summaries.
+
+    The committed run matrix predates the executable study compiler and does
+    not declare a model mix. It must not be silently interpreted as a real
+    estimate. A workload-shaped YAML remains supported for focused use.
+    """
     with path.open() as f:
-        return Workload.model_validate(yaml.safe_load(f))
+        payload = yaml.safe_load(f)
+    if "scenarios" in payload:
+        raise ValueError(
+            f"scenario {scenario!r} is a legacy summary, not a calculable workload; "
+            "compile a study plan first"
+        )
+    return Workload.model_validate(payload)
 
 
-def estimate_costs(workload: Workload, pricing: PricingCatalog) -> CostRange:
+def estimate_costs(
+    workload: Workload, pricing: PricingCatalog, as_of: date | None = None
+) -> CostRange:
+    as_of = as_of or date.today()
     if set(workload.token_cases) != {"low", "expected", "high"}:
         raise ValueError("token_cases must contain exactly low, expected, and high")
     weight_total = sum(workload.model_mix.values())
@@ -122,10 +162,11 @@ def estimate_costs(workload: Workload, pricing: PricingCatalog) -> CostRange:
         total = 0.0
         for model, weight in workload.model_mix.items():
             price = pricing.api[model]
+            input_rate, output_rate = price.rates_on(as_of)
             discount_factor = 1 - price.batch_discount
             total += calls * weight * discount_factor * (
-                case.input_tokens * price.input_per_million_usd
-                + case.output_tokens * price.output_per_million_usd
+                case.input_tokens * input_rate
+                + case.output_tokens * output_rate
             ) / 1_000_000
         return total
 
@@ -150,4 +191,6 @@ def estimate_costs(workload: Workload, pricing: PricingCatalog) -> CostRange:
         total_low_usd=total(api["low"]),
         total_expected_usd=total(api["expected"]),
         total_high_usd=total(api["high"]),
+        pricing_version=pricing.version,
+        priced_on=as_of.isoformat(),
     )
