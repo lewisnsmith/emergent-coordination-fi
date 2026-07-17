@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 Side = Literal["buy", "sell"]
 
@@ -63,6 +63,7 @@ class Observation:
     prices: dict[str, float]  # symbol -> current reference price
     news: tuple[NewsEvent, ...]
     portfolio: PortfolioView
+    instrument_context: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def digest_payload(self) -> str:
         """Stable serialization of the complete observation, including portfolio."""
@@ -73,6 +74,7 @@ class Observation:
             "bars": {symbol: [asdict(bar) for bar in self.bars[symbol]] for symbol in self.symbols},
             "prices": self.prices,
             "news": [asdict(event) for event in self.news],
+            "instrument_context": self.instrument_context,
             "portfolio": asdict(self.portfolio),
         }
         return json.dumps(payload, sort_keys=True, separators=(",", ":"))

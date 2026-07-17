@@ -34,4 +34,5 @@ def apply_information_policy(obs: Observation, policy: str) -> Observation:
         prices=obs.prices,
         news=news,
         portfolio=obs.portfolio,
+        instrument_context=obs.instrument_context,
     )

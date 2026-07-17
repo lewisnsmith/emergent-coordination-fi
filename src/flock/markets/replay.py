@@ -9,7 +9,7 @@ exceed the amount the ledger reserved at submission.
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
 import pandas as pd
 
@@ -26,10 +26,12 @@ class ReplayMarket:
         fee_bps: float = 5.0,
         slippage_bps: float = 2.0,
         max_steps: int | None = None,
+        instrument_context: dict[str, dict[str, Any]] | None = None,
     ):
         self.fee_bps = fee_bps
         self.slippage_bps = slippage_bps
         self.window = observation_window
+        self.instrument_context = instrument_context or {}
 
         duplicate_rows = bars.duplicated(["symbol", "ts"], keep=False)
         if duplicate_rows.any():
@@ -108,6 +110,11 @@ class ReplayMarket:
             bars=window_bars,
             prices={s: window_bars[s][-1].close for s in self.symbols},
             news=tuple(self._events_by_ts.get(ts, ())),
+            instrument_context={
+                symbol: self.instrument_context[symbol]
+                for symbol in self.symbols
+                if symbol in self.instrument_context
+            },
         )
 
     def submit(self, agent_id: str, orders: tuple[Order, ...]) -> None:

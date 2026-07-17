@@ -77,6 +77,12 @@ def build_market(cfg: ExperimentConfig, registry: Registry):
     ds_dir = registry.dataset_dir(entry.name)
     bars = schemas.read_bars(ds_dir)
     events = schemas.read_events(ds_dir)
+    meta = schemas.read_meta(ds_dir)
+    instrument_context = {
+        str(contract["symbol"]): contract
+        for contract in meta.get("contracts", [])
+        if isinstance(contract, dict) and contract.get("symbol")
+    }
     if cfg.market.kind == "replay":
         market = ReplayMarket(
             bars,
@@ -85,6 +91,7 @@ def build_market(cfg: ExperimentConfig, registry: Registry):
             fee_bps=cfg.market.fee_bps,
             slippage_bps=cfg.market.slippage_bps,
             max_steps=cfg.steps,
+            instrument_context=instrument_context,
         )
     else:
         market = ExchangeMarket(
@@ -254,6 +261,7 @@ def run_config(
                     prices=state.prices,
                     news=state.news,
                     portfolio=ledger.view(state.prices),
+                    instrument_context=state.instrument_context,
                 )
                 if getattr(agent, "kind", "") == "llm":
                     obs = apply_information_policy(obs, agent.information_policy)
