@@ -2,6 +2,12 @@
 #   uv run flock data build polymarket   (or kalshi)
 name: exp-002-replay-prediction
 model_policy: frontier_only
+runtime_budget:
+  max_requests: 1440       # 12 LLMs x 60 steps x one format repair
+  max_input_tokens: 10000000
+  max_output_tokens: 1500000
+  max_cost_usd: 50.0       # canary authorization; raise only after a compiled estimate
+  request_cost_reserve_usd: 1.0
 hypothesis_ids: [H1, H3]
 independent_block: prediction-window-config-required
 seed: 42

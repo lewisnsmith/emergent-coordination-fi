@@ -4,6 +4,12 @@
 # Swap/extend models per configs/models.yaml. Sweep seeds via configs/sweeps/.
 name: exp-001-replay-equities
 model_policy: frontier_only
+runtime_budget:
+  max_requests: 2880       # 12 LLMs x 120 steps x one format repair
+  max_input_tokens: 20000000
+  max_output_tokens: 3000000
+  max_cost_usd: 50.0       # canary authorization; raise only after a compiled estimate
+  request_cost_reserve_usd: 1.0
 hypothesis_ids: [H1, H3, H4]
 independent_block: equities-window-config-required
 seed: 42

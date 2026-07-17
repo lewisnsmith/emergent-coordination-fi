@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 CONFIG_DIR = Path("configs")
 
@@ -80,6 +80,23 @@ class MarketConfig(BaseModel):
     tick_size: float = 0.01  # exchange only
 
 
+class RuntimeBudget(BaseModel):
+    """Fail-closed limits for one resolved experiment run.
+
+    ``request_cost_reserve_usd`` is a deliberately conservative pre-request
+    reserve. It prevents the runner from starting a call that could cross the
+    dollar ceiling; actual billed usage is reconciled after the response.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_requests: int = Field(gt=0)
+    max_input_tokens: int = Field(gt=0)
+    max_output_tokens: int = Field(gt=0)
+    max_cost_usd: float = Field(gt=0, allow_inf_nan=False)
+    request_cost_reserve_usd: float = Field(gt=0, allow_inf_nan=False)
+
+
 class ExperimentConfig(BaseModel):
     name: str
     seed: int = 42
@@ -93,9 +110,16 @@ class ExperimentConfig(BaseModel):
     initial_position_per_symbol: float = 0.0
     max_position_per_symbol: float = 1_000.0
     model_policy: Literal["mock_only", "frontier_only"] = "frontier_only"
+    runtime_budget: RuntimeBudget | None = None
     hypothesis_ids: list[str] = Field(default_factory=list)
     independent_block: str = "unspecified"
     cohorts: list[CohortConfig]
+
+    @model_validator(mode="after")
+    def require_paid_run_budget(self) -> ExperimentConfig:
+        if self.model_policy == "frontier_only" and self.runtime_budget is None:
+            raise ValueError("frontier-only experiments require an explicit runtime_budget")
+        return self
 
     def config_hash(self) -> str:
         payload = json.dumps(self.model_dump(), sort_keys=True)
