@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from flock.core.config import PersonaConfig, load_experiment, load_models
 from flock.core.research import load_research_program, validate_research_program
-from flock.data.registry import Registry
+from flock.data.registry import Registry, dataset_bundle_hash
 from flock.experiments.design import validate_mphiq_catalog
 
 
@@ -108,9 +108,15 @@ def verify_repository(repo_root: Path = Path(".")) -> RepositoryReadiness:
     missing = sorted(set(required) - set(acquired))
     blockers.extend(f"dataset not acquired: {name}" for name in missing)
     for entry in entries:
-        path = repo_root / entry.path
+        path = registry.dataset_dir(entry.name)
         if not path.exists():
             errors.append(f"registered dataset payload is missing: {entry.name} -> {path}")
+            continue
+        for error in registry.verify(entry):
+            if entry.files is None:
+                warnings.append(f"{entry.name}: {error}")
+            else:
+                errors.append(f"{entry.name}: {error}")
 
     mphiq = _yaml(repo_root / "configs/designs/mphiq.yaml")
     mphiq_entries = mphiq["schemes"]["entries"]
@@ -153,6 +159,15 @@ def verify_run(run_dir: Path, tolerance: float = 1e-6) -> RunVerification:
     portfolio = pd.read_parquet(run_dir / "portfolio.parquet")
     errors: list[str] = []
     warnings: list[str] = []
+
+    try:
+        registry = Registry()
+        registered = registry.get(manifest["dataset"]["name"])
+        actual_dataset_hash = dataset_bundle_hash(registry.dataset_dir(registered.name))
+        if actual_dataset_hash != manifest["dataset"]["sha256"]:
+            errors.append("run manifest dataset hash does not match current dataset bundle")
+    except (KeyError, FileNotFoundError):
+        errors.append("run dataset cannot be resolved from the registry")
 
     expected_decisions = manifest["n_agents"] * manifest["n_steps"]
     if len(decisions) != expected_decisions:
@@ -214,7 +229,7 @@ def verify_run(run_dir: Path, tolerance: float = 1e-6) -> RunVerification:
 
     failure_rates = 1 - decisions.groupby("agent_id")["parse_ok"].mean()
     if (failure_rates > 0.2).any():
-        warnings.append("one or more agents exceed the preregistered 20% parse-failure gate")
+        errors.append("one or more agents exceed the preregistered 20% parse-failure gate")
     return RunVerification(
         ok=not errors,
         errors=errors,

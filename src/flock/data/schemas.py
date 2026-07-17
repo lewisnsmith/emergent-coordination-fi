@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 BAR_COLUMNS = ["ts", "symbol", "open", "high", "low", "close", "volume"]
@@ -26,9 +27,21 @@ def write_dataset(
     """Write a dataset directory; returns bar row count."""
     path.mkdir(parents=True, exist_ok=True)
     bars = bars[BAR_COLUMNS].sort_values(["ts", "symbol"]).reset_index(drop=True)
+    if bars.duplicated(["ts", "symbol"]).any():
+        raise ValueError("bars contain duplicate (ts, symbol) rows")
+    prices = bars[["open", "high", "low", "close"]]
+    if not np.isfinite(prices.to_numpy()).all() or not (prices > 0).all().all():
+        raise ValueError("bar prices must be finite and positive")
+    if not (
+        (bars["high"] >= prices[["open", "close", "low"]].max(axis=1))
+        & (bars["low"] <= prices[["open", "close", "high"]].min(axis=1))
+    ).all():
+        raise ValueError("bar OHLC bounds are inconsistent")
     bars.to_parquet(path / "bars.parquet", index=False)
     if events is not None and len(events):
         events = events[EVENT_COLUMNS].sort_values("ts").reset_index(drop=True)
+        if events.isna().any().any():
+            raise ValueError("events contain missing required values")
         events.to_parquet(path / "events.parquet", index=False)
     with open(path / "meta.json", "w") as f:
         json.dump(meta or {}, f, indent=2, default=str)

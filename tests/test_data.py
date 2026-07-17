@@ -1,7 +1,8 @@
 import numpy as np
+import pandas as pd
 
 from flock.data import schemas, synthetic
-from flock.data.registry import Registry
+from flock.data.registry import Registry, dataset_bundle_hash
 
 
 def test_synthetic_is_deterministic():
@@ -34,6 +35,31 @@ def test_dataset_roundtrip_and_registry(tmp_path, synthetic_data):
     entry2 = reg.register("syn-test", "synthetic", ds_dir, {"seed": 7})
     assert entry2.version == 2
     assert reg.get("syn-test").version == 2
+    assert entry.files is not None
+    assert set(entry.files) == {"bars.parquet", "events.parquet", "meta.json"}
+
+
+def test_dataset_bundle_hash_covers_events_and_metadata(tmp_path, synthetic_data):
+    bars, events, meta = synthetic_data
+    ds_dir = tmp_path / "dataset"
+    schemas.write_dataset(ds_dir, bars, events, meta)
+    reg = Registry(root=tmp_path / "registry")
+    entry = reg.register("complete", "synthetic", ds_dir, {"seed": 7})
+    original = entry.sha256
+
+    (ds_dir / "meta.json").write_text('{"changed": true}')
+    assert dataset_bundle_hash(ds_dir) != original
+    assert reg.verify(entry)
+
+
+def test_dataset_schema_rejects_duplicate_symbol_timestamp(tmp_path, synthetic_data):
+    bars, events, meta = synthetic_data
+    duplicated = pd.concat([bars, bars.iloc[[0]]], ignore_index=True)
+    try:
+        schemas.write_dataset(tmp_path / "bad", duplicated, events, meta)
+        raise AssertionError("expected duplicate bars to fail")
+    except ValueError as exc:
+        assert "duplicate" in str(exc)
 
 
 def test_registry_missing_dataset_message(tmp_path):

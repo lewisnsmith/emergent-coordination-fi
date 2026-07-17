@@ -41,4 +41,7 @@ def test_existing_smoke_run_passes_logical_verification():
     # Legacy committed logs predate full symbols/prompt hashes and must not be
     # silently certified under the new evidence contract.
     assert not result.ok
-    assert any("missing symbol universe" in error for error in result.errors)
+    assert any(
+        "missing symbol universe" in error or "dataset hash" in error
+        for error in result.errors
+    )
