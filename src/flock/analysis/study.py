@@ -71,7 +71,7 @@ def analyze_h1_study(run_dirs: list[Path], seed: int = 0) -> StudyInference:
             raise ValueError(f"invalid independent block identifier {block!r}")
         if block in effects:
             raise ValueError(f"duplicate independent block {block}")
-        cluster = str(config.get("dependence_cluster", block)).strip()
+        cluster = str(config.get("dependence_cluster") or block).strip()
         if not cluster:
             raise ValueError(f"missing dependence cluster for {block}")
         if cluster in seen_clusters:

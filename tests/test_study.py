@@ -72,6 +72,22 @@ def test_study_rejects_shared_dependence_cluster(monkeypatch):
         analyze_h1_study([Path("a"), Path("b")])
 
 
+def test_null_dependence_cluster_defaults_to_independent_block(monkeypatch):
+    runs = iter(
+        [
+            {"manifest": {"config": {"independent_block": "window-a", "dependence_cluster": None}}},
+            {"manifest": {"config": {"independent_block": "window-b", "dependence_cluster": None}}},
+        ]
+    )
+    monkeypatch.setattr("flock.analysis.study.convergence.load_run", lambda _: next(runs))
+    monkeypatch.setattr(
+        "flock.analysis.study.convergence.cohort_metrics",
+        lambda _run, cohort: {"kappa": 0.5 if cohort == "llm" else 0.2},
+    )
+    result = analyze_h1_study([Path("a"), Path("b")])
+    assert result.dependence_clusters == {"window-a": "window-a", "window-b": "window-b"}
+
+
 def test_study_rejects_placeholder_block(monkeypatch):
     run = {"manifest": {"config": {"independent_block": "equities-window-config-required"}}}
     monkeypatch.setattr("flock.analysis.study.convergence.load_run", lambda _: run)
