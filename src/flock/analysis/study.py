@@ -6,7 +6,6 @@ must never manufacture an additional independent market unit.
 
 from __future__ import annotations
 
-import itertools
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -14,7 +13,7 @@ from pathlib import Path
 import numpy as np
 
 from flock.analysis import convergence
-from flock.analysis.stats import bootstrap_ci, holm_bonferroni, paired_randomization_test
+from flock.analysis.stats import bootstrap_ci, holm_bonferroni, paired_sign_flip_test
 
 
 @dataclass(frozen=True)
@@ -50,15 +49,7 @@ def _exact_or_monte_carlo_sign_flip(values: list[float], seed: int) -> float:
     Exact enumeration is used through 20 blocks. Larger studies use the
     seeded Monte Carlo implementation with its finite-sample correction.
     """
-    observed = abs(float(np.mean(values)))
-    if len(values) <= 20:
-        hits = 0
-        total = 2 ** len(values)
-        for signs in itertools.product((-1.0, 1.0), repeat=len(values)):
-            candidate = abs(float(np.mean(np.asarray(signs) * values)))
-            hits += candidate >= observed - 1e-12
-        return hits / total
-    return paired_randomization_test(values, seed=seed).p_value
+    return paired_sign_flip_test(values, seed=seed).p_value
 
 
 def analyze_h1_study(run_dirs: list[Path], seed: int = 0) -> StudyInference:
