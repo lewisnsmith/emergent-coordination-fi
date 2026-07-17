@@ -22,6 +22,8 @@ See [`docs/research/`](docs/research/) and the machine-readable
 - [09–12 – MPHIQ, profiles, prompt pressure, and statistics](docs/research/09-mphiq-factorial-design.md)
 - [13–17 – safeguards, markets/trust, interpretability, attribution, outputs](docs/research/13-grounding-and-logical-verification.md)
 - [18 – cost and execution runbook](docs/research/18-cost-and-execution-runbook.md)
+- [19–23 – authorship, research log, mistake case study, review, and release](docs/research/19-authorship-and-tool-use.md)
+- [24 – H5 ODD/STRESS report and simulator gate](docs/research/24-simulator-odd-stress.md)
 
 The first-paper contract is H1/H3/H4. H2 is a conditional descriptive external anchor, and H5 is
 a separate causal experiment whose claims are bounded to the validated simulator. H6–H12 are the
@@ -41,8 +43,10 @@ Run the preflight rather than inferring readiness from config files:
 
 ```bash
 uv run flock validate
-uv run flock design --output results/design.json
-uv run flock estimate --scenario pilot
+uv run flock doctor
+uv run flock compile-study configs/studies/paper-core.yaml --output results/paper-core/plan.json
+uv run flock validate-study results/paper-core/plan.json
+uv run flock estimate --plan results/paper-core/plan.json --stage canary
 ```
 
 `scaffold_ok=true` means only that repository contracts are internally consistent.
@@ -61,12 +65,16 @@ uv run flock verify-run results/<run-id>
 uv run flock analyze latest                # convergence report with bootstrap CIs
 ```
 
-Do not start a real-model sweep until `flock validate` has no relevant blocker and the draft
-preregistration is frozen. Real-model runs need provider keys and the extras:
+Do not start a real-model run until `flock doctor --live` passes for the exact endpoints,
+`flock validate` has no first-paper blocker, the compiled high envelope is below the authorized
+stage cap, and the preregistration is frozen. Frontier configs carry request, token, and dollar
+limits; a call reserves its conservative envelope before reaching a provider. Real-model runs
+need provider keys and the extras:
 
 ```bash
 uv sync --extra providers --extra data
 uv run flock data build equities --symbols AAPL,MSFT,NVDA --start 2023-01-01 --end 2024-12-31
+# replace the placeholder block/window IDs only with frozen compiled assignments
 uv run flock run configs/experiments/exp-001-replay-equities.yaml
 ```
 
@@ -103,7 +111,7 @@ sampling can be harmonized; otherwise they remain separate descriptive context.
 | `configs/designs/`, `prompts/`, `personas/` | MPHIQ, pressure, wording, and profile treatments |
 | `configs/budgets/` | Dated official prices and staged call/credit assumptions |
 | `docs/research/` | Research question, design, metrics, pre-registration |
-| `paper/` | LaTeX skeleton; figures regenerated via `flock analyze <run> --paper` |
+| `paper/` | Claim-locked LaTeX manuscript and bibliography; no single-run paper export |
 
 ## Reproducibility
 
@@ -117,6 +125,22 @@ trajectories or nonoverlapping historical windows. Overlapping windows and units
 common shock share a dependence cluster. Seeds, agents, agent pairs, calls, steps, symbols, and
 prompt variants are nested observations, not additional independent evidence. A single run is a
 pipeline artifact, never a paper result.
+
+Study-level release commands fail closed on incomplete or unverified runs, duplicate trajectories,
+mock evidence declared as real, changed inputs, and missing immutable preregistration evidence:
+
+```bash
+uv run flock analyze-study results/study-source.json --output results/paper-core/bundle
+uv run flock verify-study results/paper-core/bundle
+# --paper additionally requires real evidence and the frozen preregistration reference
+uv run flock verify-study results/paper-core/bundle --paper
+uv run flock reproduce results/paper-core/bundle/release-manifest.json \
+  --output results/paper-core/clean-reproduction
+```
+
+The bundle contains independent-unit and block-effect tables, multiplicity and verification
+records, claim links, an experimental-topology figure, and a block-level forest plot. Reproduction
+regenerates into an empty directory and requires byte-identical core artifacts.
 
 ## Publication gates
 
@@ -136,6 +160,7 @@ present and audited.
 ```bash
 uv run pytest
 uv run ruff check .
+uv run pyright
 ```
 
 **If this repo lives in an iCloud-synced folder** (e.g. `~/Documents`), export
