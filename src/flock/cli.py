@@ -219,15 +219,29 @@ def verify_run_command(
 
 @app.command("analyze-study")
 def analyze_study(
-    run_dirs: list[Path] = typer.Argument(..., help="Two or more independent run directories"),
-    output: Path = typer.Option(Path("results/study-h1.json"), help="Inference JSON output"),
+    source_manifest: Path = typer.Argument(..., help="Strict study-source JSON manifest"),
+    output: Path = typer.Option(None, help="Output bundle directory"),
+    paper: bool = typer.Option(False, "--paper", help="Enforce preregistered real-evidence gates"),
 ) -> None:
-    """Aggregate H1 over independent blocks; never over repeated calls or pairs."""
-    from flock.analysis.study import analyze_h1_study, write_study_inference
+    """Verify complete independent blocks and emit a hash-locked study bundle."""
+    from flock.analysis.bundle import analyze_study_bundle
 
-    inference = analyze_h1_study(run_dirs)
-    write_study_inference(inference, output)
-    typer.echo(f"study inference -> {output}")
+    bundle = analyze_study_bundle(source_manifest, output_dir=output, paper=paper)
+    typer.echo(f"verified study bundle -> {bundle}")
+
+
+@app.command("verify-study")
+def verify_study_command(
+    bundle: Path = typer.Argument(..., help="Generated study bundle directory"),
+    paper: bool = typer.Option(False, "--paper", help="Require all paper-release gates"),
+) -> None:
+    """Verify study artifact hashes, independent units, and optional paper gates."""
+    from flock.analysis.bundle import verify_study_bundle
+
+    result = verify_study_bundle(bundle, require_paper=paper)
+    typer.echo(result.model_dump_json(indent=2))
+    if not result.ok:
+        raise typer.Exit(code=1)
 
 
 @app.command()
