@@ -21,6 +21,7 @@ EVENT_COLUMNS = ["ts", "symbol", "headline", "sentiment"]
 BINARY_CONTRACT_FIELDS = {
     "symbol",
     "question",
+    "rules",
     "open_ts",
     "close_ts",
     "resolution",
@@ -31,7 +32,13 @@ BINARY_CONTRACT_FIELDS = {
 
 
 def validate_binary_contracts(bars: pd.DataFrame, meta: dict) -> None:
-    """Require reconstructable YES-price semantics and contract lifetimes."""
+    """Require reconstructable YES-price semantics and contract lifetimes.
+
+    The last bar for each contract is a settlement payload, not a tradable
+    observation.  Replay removes that bar from the agent-visible history and
+    applies its frozen binary payout at ``close_ts``.  Validating that payload
+    here prevents an ambiguous terminal price from entering an experiment.
+    """
     contracts = meta.get("contracts")
     if not isinstance(contracts, list) or not contracts:
         raise ValueError("binary datasets require nonempty contract metadata")
@@ -42,19 +49,55 @@ def validate_binary_contracts(bars: pd.DataFrame, meta: dict) -> None:
         symbol = str(contract["symbol"])
         if symbol in by_symbol:
             raise ValueError(f"duplicate binary contract metadata for {symbol}")
+        if not str(contract["question"]).strip() or not str(contract["rules"]).strip():
+            raise ValueError(f"binary question and rules must be nonempty for {symbol}")
+        if str(contract["yes_label"]).strip().casefold() != "yes":
+            raise ValueError(f"binary YES label is ambiguous for {symbol}")
+        if str(contract["no_label"]).strip().casefold() != "no":
+            raise ValueError(f"binary NO label is ambiguous for {symbol}")
         resolution = float(contract["resolution"])
         if resolution not in {0.0, 1.0}:
             raise ValueError(f"binary resolution must be zero or one for {symbol}")
         if contract["price_semantics"] != "YES probability in [0,1]":
             raise ValueError(f"unsupported binary price semantics for {symbol}")
-        open_ts = pd.Timestamp(pd.to_datetime(contract["open_ts"], utc=True))
-        close_ts = pd.Timestamp(pd.to_datetime(contract["close_ts"], utc=True))
+        try:
+            open_ts = pd.Timestamp(pd.to_datetime(contract["open_ts"], utc=True))
+            close_ts = pd.Timestamp(pd.to_datetime(contract["close_ts"], utc=True))
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"invalid binary contract timestamps for {symbol}") from error
+        if pd.isna(open_ts) or pd.isna(close_ts):
+            raise ValueError(f"invalid binary contract timestamps for {symbol}")
+        open_ts = cast(pd.Timestamp, open_ts)
+        close_ts = cast(pd.Timestamp, close_ts)
         if open_ts > close_ts:
             raise ValueError(f"binary contract opens after it closes: {symbol}")
         by_symbol[symbol] = contract
     symbols = set(cast(pd.Series, bars["symbol"]).astype(str))
     if symbols != set(by_symbol):
         raise ValueError("binary contract metadata must exactly match bar symbols")
+    for symbol, group in bars.groupby("symbol", sort=False):
+        contract = by_symbol[str(symbol)]
+        try:
+            bar_times = pd.to_datetime(group["ts"], utc=True)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"invalid binary bar timestamps for {symbol}") from error
+        if bar_times.isna().any():
+            raise ValueError(f"invalid binary bar timestamps for {symbol}")
+        open_at = cast(
+            pd.Timestamp, pd.to_datetime(str(contract["open_ts"]), utc=True)
+        )
+        close_at = cast(
+            pd.Timestamp, pd.to_datetime(str(contract["close_ts"]), utc=True)
+        )
+        if (bar_times < open_at).any() or (bar_times > close_at).any():
+            raise ValueError(f"binary bars fall outside the contract lifetime for {symbol}")
+        ordered = group.assign(_parsed_ts=bar_times).sort_values("_parsed_ts")
+        terminal_close = float(ordered.iloc[-1]["close"])
+        resolution = float(contract["resolution"])
+        if not np.isclose(terminal_close, resolution, rtol=0.0, atol=1e-12):
+            raise ValueError(
+                f"terminal binary bar must equal the resolution payout for {symbol}"
+            )
 
 
 def write_dataset(

@@ -256,10 +256,12 @@ def run_config(
     }
     if cfg.initial_position_per_symbol > 0:
         prices0 = market.state().prices
-        for ledger in ledgers.values():
+        for agent_id, ledger in ledgers.items():
             for symbol, price in prices0.items():
                 ledger.qty[symbol] = cfg.initial_position_per_symbol
                 ledger.avg_price[symbol] = price
+                if isinstance(market, ReplayMarket) and market.uses_binary_contract_lifecycle:
+                    market.register_position(agent_id, symbol, cfg.initial_position_per_symbol)
 
     writer = RunWriter(run_id, results_root)
     t_start = time.time()

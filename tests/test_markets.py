@@ -40,6 +40,64 @@ def _symbol_bars(symbol: str, days: range) -> list[dict]:
     ]
 
 
+def _binary_bars(symbol: str, days: range, resolution: float) -> list[dict]:
+    rows = []
+    day_values = list(days)
+    for offset, day in enumerate(day_values):
+        close = 0.35 + offset * 0.02
+        rows.append(
+            {
+                "ts": f"2030-01-{day:02d}",
+                "symbol": symbol,
+                "open": close,
+                "high": min(close + 0.03, 1.0),
+                "low": max(close - 0.03, 0.0),
+                "close": close,
+                "volume": 1000,
+            }
+        )
+    rows[-1]["close"] = resolution
+    rows[-1]["high"] = max(rows[-1]["high"], resolution)
+    rows[-1]["low"] = min(rows[-1]["low"], resolution)
+    return rows
+
+
+def _binary_context(
+    symbol: str, open_day: int, close_day: int, resolution: float
+) -> dict:
+    return {
+        "symbol": symbol,
+        "question": f"Will {symbol} occur?",
+        "rules": f"Resolves Yes if {symbol} occurs.",
+        "open_ts": f"2030-01-{open_day:02d}T00:00:00Z",
+        "close_ts": f"2030-01-{close_day:02d}T00:00:00Z",
+        "resolution": resolution,
+        "yes_label": "Yes",
+        "no_label": "No",
+        "price_semantics": "YES probability in [0,1]",
+        "result": "yes" if resolution else "no",
+    }
+
+
+def _asynchronous_binary_market(*, max_steps: int | None = None) -> ReplayMarket:
+    bars = pd.DataFrame(
+        _binary_bars("X", range(1, 7), 1.0)
+        + _binary_bars("Y", range(3, 10), 0.0)
+    )
+    contexts = {
+        "X": _binary_context("X", 1, 6, 1.0),
+        "Y": _binary_context("Y", 3, 9, 0.0),
+    }
+    return ReplayMarket(
+        bars,
+        observation_window=1,
+        fee_bps=0.0,
+        slippage_bps=0.0,
+        max_steps=max_steps,
+        instrument_context=contexts,
+    )
+
+
 def test_replay_market_fill_at_next_open_with_slippage():
     m = ReplayMarket(_tiny_bars(), observation_window=2, fee_bps=0.0, slippage_bps=10.0)
     state = m.state()
@@ -131,19 +189,96 @@ def test_replay_rejects_duplicate_symbol_timestamp():
         ReplayMarket(bars, observation_window=2)
 
 
-def test_replay_exposes_prediction_question_expiry_and_rules():
-    context = {
-        "X": {
-            "question": "Will X occur?",
-            "close_ts": "2030-01-06T00:00:00Z",
-            "rules": "Resolves Yes if X occurs.",
-            "price_semantics": "YES probability in [0,1]",
-        }
-    }
-    market = ReplayMarket(
-        _tiny_bars(), observation_window=2, instrument_context=context
+def test_binary_replay_uses_union_timeline_and_contract_lifetimes():
+    market = _asynchronous_binary_market()
+
+    assert market.timestamps == [f"2030-01-{day:02d}" for day in range(2, 9)]
+    assert market.state().symbols == ("X",)
+    assert set(market.state().prices) == set(market.state().symbols)
+    market.step()
+    # Y has a price row on its listing date but lacks sufficient visible history.
+    assert market.state().ts == "2030-01-03"
+    assert market.state().symbols == ("X",)
+    assert set(market.state().prices) == {"X"}
+    market.step()
+    assert market.state().ts == "2030-01-04"
+    assert market.state().symbols == ("X", "Y")
+
+
+def test_binary_replay_preserves_contract_definition_without_outcome_leakage():
+    market = _asynchronous_binary_market()
+    context = market.state().instrument_context["X"]
+
+    assert context["question"] == "Will X occur?"
+    assert context["rules"] == "Resolves Yes if X occurs."
+    assert context["close_ts"] == "2030-01-06T00:00:00Z"
+    assert context["tradable_side"] == "YES"
+    assert "direct NO shares are not traded" in context["no_payout"]
+    assert "resolution" not in context
+    assert "result" not in context
+    assert all(bar.close != 1.0 for bar in market.state().bars["X"])
+
+
+def test_binary_replay_rejects_bar_before_intraday_listing():
+    context = _binary_context("X", 1, 6, 1.0)
+    context["open_ts"] = "2030-01-01T12:00:00Z"
+
+    with pytest.raises(ValueError, match="outside the contract lifetime"):
+        ReplayMarket(
+            pd.DataFrame(_binary_bars("X", range(1, 7), 1.0)),
+            observation_window=1,
+            instrument_context={"X": context},
+        )
+
+
+def test_binary_replay_settles_yes_holdings_and_rejects_matured_orders():
+    market = _asynchronous_binary_market()
+    market.register_position("agent", "X", 2.0)
+    while market.state().ts != "2030-01-05":
+        assert market.step() == []
+
+    # The order expires at maturity; the terminal outcome bar is not tradable.
+    market.submit("agent", (Order("X", "buy", 1.0),))
+    fills = market.step()
+    assert [(fill.side, fill.quantity, fill.price) for fill in fills] == [
+        ("sell", 2.0, 1.0)
+    ]
+    assert market.state().symbols == ("Y",)
+    with pytest.raises(ValueError, match="inactive binary contract X"):
+        market.submit("agent", (Order("X", "buy", 1.0),))
+
+
+def test_binary_replay_zero_payout_removes_yes_position():
+    market = _asynchronous_binary_market()
+    while market.state().ts != "2030-01-04":
+        market.step()
+    market.submit("agent", (Order("Y", "buy", 3.0),))
+    purchase = market.step()
+    assert len(purchase) == 1 and purchase[0].side == "buy"
+
+    terminal_fills = []
+    while not market.done:
+        terminal_fills.extend(market.step())
+    assert any(
+        fill.symbol == "Y"
+        and fill.side == "sell"
+        and fill.quantity == purchase[0].quantity
+        and fill.price == 0.0
+        for fill in terminal_fills
     )
-    assert market.state().instrument_context == context
+
+
+def test_truncated_binary_replay_does_not_reveal_future_settlement():
+    market = _asynchronous_binary_market(max_steps=4)
+    market.register_position("agent", "X", 2.0)
+
+    while market.state().ts != "2030-01-05":
+        assert market.step() == []
+    market.submit("agent", (Order("X", "buy", 1.0),))
+    # The next unselected timestamp is the close, but truncation freezes the
+    # selected horizon: neither the order nor the known payout may enter.
+    assert market.step() == []
+    assert market.done
 
 
 def test_simultaneous_orders_cannot_create_capacity_for_each_other():
