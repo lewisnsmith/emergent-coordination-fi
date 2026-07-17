@@ -24,6 +24,7 @@ from flock.core.config import ExperimentConfig, load_experiment, load_models, lo
 from flock.core.types import Observation
 from flock.data import schemas
 from flock.data.registry import Registry
+from flock.experiments.budget import RuntimeBudgetGuard
 from flock.experiments.ledger import Ledger
 from flock.experiments.treatments import apply_information_policy
 from flock.logging_.decisions import RESULTS_DIR, RunWriter, git_sha
@@ -72,7 +73,7 @@ def make_run_id(cfg: ExperimentConfig) -> str:
 
 def build_market(cfg: ExperimentConfig, registry: Registry):
     entry = registry.get(cfg.dataset)
-    ds_dir = Path(entry.path)
+    ds_dir = registry.dataset_dir(entry.name)
     bars = schemas.read_bars(ds_dir)
     events = schemas.read_events(ds_dir)
     if cfg.market.kind == "replay":
@@ -99,7 +100,11 @@ def build_market(cfg: ExperimentConfig, registry: Registry):
     return market, entry
 
 
-def build_agents(cfg: ExperimentConfig, cache: ResponseCache | None):
+def build_agents(
+    cfg: ExperimentConfig,
+    cache: ResponseCache | None,
+    budget: RuntimeBudgetGuard | None = None,
+):
     """Instantiate all cohorts; deterministic per-agent seeding from cfg.seed."""
     models = load_models()
     agents = []
@@ -139,6 +144,9 @@ def build_agents(cfg: ExperimentConfig, cache: ResponseCache | None):
                             information_policy=group.information_policy,
                             harness_id=group.harness_id,
                             cache=cache,
+                            before_request=budget.before_request if budget else None,
+                            record_response=budget.record_response if budget else None,
+                            record_failure=budget.record_failure if budget else None,
                         )
                     )
                 else:
@@ -181,7 +189,8 @@ def run_config(
     registry = Registry()
     market, dataset_entry = build_market(cfg, registry)
     cache = ResponseCache() if use_cache else None
-    agents = build_agents(cfg, cache)
+    budget = RuntimeBudgetGuard(cfg.runtime_budget) if cfg.runtime_budget else None
+    agents = build_agents(cfg, cache, budget)
     ledgers = {
         a.agent_id: Ledger(cfg.initial_cash, cfg.max_position_per_symbol, cfg.market.fee_bps)
         for a in agents
@@ -241,6 +250,8 @@ def run_config(
             n_steps += 1
             writer.checkpoint(n_steps, total_cost)
     except BaseException as error:
+        if budget is not None:
+            writer.checkpoint(n_steps, budget.snapshot().cost_usd)
         writer.fail(error)
         raise
 
@@ -260,6 +271,7 @@ def run_config(
         "agents": {a.agent_id: {"cohort": a.cohort, **a.describe()} for a in agents},
         "wall_time_s": round(time.time() - t_start, 2),
         "total_cost_usd": total_cost,
+        "runtime_budget": budget.manifest_payload() if budget is not None else None,
     }
     writer.finalize(manifest)
     return RunResult(run_id, writer.run_dir, n_steps, len(agents))

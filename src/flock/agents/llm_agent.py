@@ -11,7 +11,9 @@ import hashlib
 import json
 import math
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from flock.agents.cache import ResponseCache
 from flock.agents.grounding import validate_grounding
@@ -174,6 +176,9 @@ class LLMAgent:
         information_policy: str = "shared-all",
         harness_id: str = "default",
         cache: ResponseCache | None = None,
+        before_request: Callable[[str, str, int, int], Any] | None = None,
+        record_response: Callable[[Any, ChatResponse], None] | None = None,
+        record_failure: Callable[[Any], None] | None = None,
     ):
         self.agent_id = agent_id
         self.cohort = cohort
@@ -191,6 +196,9 @@ class LLMAgent:
         self.information_policy = information_policy
         self.harness_id = harness_id
         self.cache = cache
+        self.before_request = before_request
+        self.record_response = record_response
+        self.record_failure = record_failure
         self._memory_log: list[str] = []
 
     def describe(self) -> dict:
@@ -213,7 +221,7 @@ class LLMAgent:
         task = self.task_prompt.strip() or TASK_FRAME.strip()
         return f"{self.persona.system_prompt.strip()}\n{task}"
 
-    def _complete(self, user: str) -> ChatResponse:
+    def _complete(self, user: str) -> tuple[ChatResponse, bool]:
         if self.cache is not None:
             key = ResponseCache.key(
                 self.chat_model.model_key, self.chat_model.model_id, self.temperature,
@@ -221,31 +229,50 @@ class LLMAgent:
             )
             cached = self.cache.get(key)
             if cached is not None:
-                return cached
-        response = self.chat_model.complete(
-            self.system_prompt, user,
-            temperature=self.temperature, seed=self.seed, max_tokens=self.max_tokens,
+                return cached, True
+        max_attempts = int(
+            getattr(getattr(self.chat_model, "policy", None), "max_attempts", 1)
         )
+        reservation = (
+            self.before_request(
+                self.system_prompt, user, self.max_tokens, max_attempts
+            )
+            if self.before_request is not None
+            else None
+        )
+        try:
+            response = self.chat_model.complete(
+                self.system_prompt, user,
+                temperature=self.temperature, seed=self.seed, max_tokens=self.max_tokens,
+            )
+        except BaseException:
+            if reservation is not None and self.record_failure is not None:
+                self.record_failure(reservation)
+            raise
+        if reservation is not None and self.record_response is not None:
+            self.record_response(reservation, response)
         if self.cache is not None:
             self.cache.put(key, response)
-        return response
+        return response, False
 
     @staticmethod
-    def _usage(response: ChatResponse) -> Usage:
+    def _usage(response: ChatResponse, cache_hit: bool = False) -> Usage:
         visible_output = response.visible_output_tokens
         if visible_output == 0 and response.output_tokens:
             visible_output = max(response.output_tokens - response.reasoning_tokens, 0)
         return Usage(
             input_tokens=response.input_tokens,
             output_tokens=response.output_tokens,
-            cost_usd=response.cost_usd,
+            cost_usd=0.0 if cache_hit else response.cost_usd,
             cached_input_tokens=response.cached_input_tokens,
             cache_write_tokens=response.cache_write_tokens,
             visible_output_tokens=visible_output,
             reasoning_tokens=response.reasoning_tokens,
-            attempts=response.attempts,
-            request_ids=(response.request_id,) if response.request_id else (),
-            retry_errors=response.retry_errors,
+            attempts=0 if cache_hit else response.attempts,
+            request_ids=(
+                () if cache_hit else ((response.request_id,) if response.request_id else ())
+            ),
+            retry_errors=() if cache_hit else response.retry_errors,
         )
 
     @staticmethod
@@ -272,14 +299,16 @@ class LLMAgent:
             user = f"Your recent decisions:\n{recent}\n\n{user}"
 
         t0 = time.perf_counter()
-        response = self._complete(user)
+        response, cache_hit = self._complete(user)
         raw_text = response.text
         parsed = parse_structured_response(raw_text, obs.symbols)
-        usage = self._usage(response)
+        usage = self._usage(response, cache_hit=cache_hit)
 
         if parsed is None:
-            retry = self._complete(user + RETRY_REMINDER)
-            usage = self._combine_usage(usage, self._usage(retry))
+            retry, retry_cache_hit = self._complete(user + RETRY_REMINDER)
+            usage = self._combine_usage(
+                usage, self._usage(retry, cache_hit=retry_cache_hit)
+            )
             raw_text = retry.text
             parsed = parse_structured_response(raw_text, obs.symbols)
 
