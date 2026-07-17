@@ -111,9 +111,10 @@ def block_effect_forest(bundle_dir: Path, path: Path, sesoi: float = 0.10) -> Pa
     return path
 
 
-def export_core_study_figures(bundle_dir: Path) -> tuple[Path, Path]:
+def export_core_study_figures(bundle_dir: Path, *, sesoi: float = 0.10) -> tuple[Path, Path]:
+    """Render the core figures using the bundle's resolved practical threshold."""
     figures = bundle_dir / "figures"
     return (
         experimental_topology(figures / "independent-unit-topology.png"),
-        block_effect_forest(bundle_dir, figures / "h1-block-effects.png"),
+        block_effect_forest(bundle_dir, figures / "h1-block-effects.png", sesoi=sesoi),
     )

@@ -13,9 +13,11 @@ import json
 from pathlib import Path
 from typing import Any, Literal, cast
 
+import numpy as np
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from flock.analysis.stats import equivalence_tost
 from flock.analysis.study import StudyInference, analyze_h1_study
 from flock.analysis.study_visuals import export_core_study_figures
 from flock.experiments.verify import RunVerification, verify_run
@@ -30,6 +32,27 @@ class PreregistrationRef(BaseModel):
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     immutable_uri: str = Field(min_length=1)
     git_sha: str = Field(min_length=7)
+
+
+class H1StatisticalContract(BaseModel):
+    """Frozen practical thresholds for the primary H1 estimand."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    estimand_id: Literal["H1-kappa-technology-contrast"] = (
+        "H1-kappa-technology-contrast"
+    )
+    sesoi: float = Field(gt=0, le=2)
+    equivalence_lower: float = Field(ge=-2, lt=0)
+    equivalence_upper: float = Field(gt=0, le=2)
+    noninferiority_lower: float = Field(ge=-2, lt=0)
+    alpha: float = Field(gt=0, lt=0.5)
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> H1StatisticalContract:
+        if self.equivalence_lower >= self.equivalence_upper:
+            raise ValueError("equivalence_lower must be smaller than equivalence_upper")
+        return self
 
 
 class StudyBundleSpec(BaseModel):
@@ -67,13 +90,30 @@ CORE_ARTIFACTS = (
     "independent_units.parquet",
     "block_effects.parquet",
     "effects.parquet",
+    "missingness_failures.parquet",
+    "sensitivity_results.parquet",
     "multiplicity.json",
+    "equivalence_noninferiority.json",
+    "estimand_registry.json",
     "statistical_verification.json",
     "claims.json",
     "figures/independent-unit-topology.png",
     "figures/h1-block-effects.png",
 )
-RUN_INPUTS = ("manifest.json", "decisions.jsonl", "fills.parquet", "portfolio.parquet")
+RUN_INPUTS = (
+    "manifest.json",
+    "decisions.jsonl",
+    "fills.parquet",
+    "portfolio.parquet",
+    "market_events.jsonl",
+)
+DEFAULT_H1_STATISTICAL_CONTRACT = H1StatisticalContract(
+    sesoi=0.10,
+    equivalence_lower=-0.05,
+    equivalence_upper=0.05,
+    noninferiority_lower=-0.05,
+    alpha=0.05,
+)
 
 
 def _json(path: Path) -> dict[str, Any]:
@@ -185,6 +225,103 @@ def _check_preregistration(spec: StudyBundleSpec, source_dir: Path) -> None:
         raise ValueError("preregistration hash does not match the frozen reference")
 
 
+def _statistical_contract(
+    spec: StudyBundleSpec,
+    source_dir: Path,
+    *,
+    require_frozen: bool,
+) -> tuple[H1StatisticalContract, Literal["provisional-default", "frozen-preregistered"]]:
+    """Resolve thresholds without treating an observed result as calibration data."""
+    if spec.preregistration is None:
+        if require_frozen:
+            raise ValueError("paper export requires a preregistered statistical_contract")
+        return DEFAULT_H1_STATISTICAL_CONTRACT, "provisional-default"
+
+    _check_preregistration(spec, source_dir)
+    prereg_path = _resolve(source_dir, spec.preregistration.path)
+    try:
+        preregistration = _json(prereg_path)
+    except (json.JSONDecodeError, ValueError):
+        if require_frozen:
+            raise ValueError(
+                "paper export requires a JSON preregistration with statistical_contract"
+            ) from None
+        return DEFAULT_H1_STATISTICAL_CONTRACT, "provisional-default"
+
+    raw_contract = preregistration.get("statistical_contract")
+    if raw_contract is None:
+        if require_frozen:
+            raise ValueError("paper export requires a preregistered statistical_contract")
+        return DEFAULT_H1_STATISTICAL_CONTRACT, "provisional-default"
+    contract = H1StatisticalContract.model_validate(raw_contract)
+    return contract, "frozen-preregistered"
+
+
+def _noninferiority_result(
+    values: list[float], lower_margin: float, alpha: float
+) -> dict[str, Any]:
+    """One-sided test that the mean effect exceeds the adverse lower margin."""
+    from scipy.stats import t
+
+    effects = np.asarray(values, dtype=float)
+    estimate = float(effects.mean())
+    standard_error = float(effects.std(ddof=1) / np.sqrt(len(effects)))
+    if standard_error == 0:
+        p_value = 0.0 if estimate > lower_margin else 1.0
+    else:
+        p_value = float(t.sf((estimate - lower_margin) / standard_error, len(effects) - 1))
+    return {
+        "estimate": estimate,
+        "adverse_lower_margin": lower_margin,
+        "p_value": p_value,
+        "alpha": alpha,
+        "statistically_noninferior": p_value < alpha,
+        "direction": "mean effect is greater than the adverse lower margin",
+    }
+
+
+def _sensitivity_rows(
+    study_id: str,
+    block_effects: dict[str, float],
+    sesoi: float,
+) -> list[dict[str, Any]]:
+    ordered = sorted(block_effects.items())
+
+    def row(
+        specification_id: str,
+        values: list[float],
+        omitted_block: str | None,
+        *,
+        estimate: float | None = None,
+    ) -> dict[str, Any]:
+        estimate = float(np.mean(values)) if estimate is None else estimate
+        if estimate >= sesoi:
+            classification = "at-or-above-positive-sesoi"
+        elif estimate <= -sesoi:
+            classification = "at-or-below-negative-sesoi"
+        else:
+            classification = "inside-practical-null-band"
+        return {
+            "study_id": study_id,
+            "estimand_id": "H1-kappa-technology-contrast",
+            "specification_id": specification_id,
+            "estimate": estimate,
+            "independent_n": len(values),
+            "omitted_block": omitted_block,
+            "sesoi": sesoi,
+            "practical_classification": classification,
+            "confirmatory": specification_id == "primary-mean",
+        }
+
+    values = [effect for _, effect in ordered]
+    rows = [row("primary-mean", values, None)]
+    rows.append(row("block-median", values, None, estimate=float(np.median(values))))
+    for omitted, _ in ordered:
+        retained = [effect for block, effect in ordered if block != omitted]
+        rows.append(row(f"leave-one-block-out:{omitted}", retained, omitted))
+    return rows
+
+
 def analyze_study_bundle(
     source_manifest: Path,
     output_dir: Path | None = None,
@@ -202,6 +339,9 @@ def analyze_study_bundle(
         if spec.evidence_kind != "real" or evidence_kind != "real":
             raise ValueError("paper export rejects mock evidence")
         _check_preregistration(spec, source_manifest.parent)
+    contract, margin_status = _statistical_contract(
+        spec, source_manifest.parent, require_frozen=paper
+    )
 
     inference: StudyInference = analyze_h1_study(run_dirs, seed=seed)
     actual_blocks = set(inference.block_effects)
@@ -259,9 +399,125 @@ def analyze_study_bundle(
                 "reject": inference.reject,
                 "independent_n": inference.n_blocks,
                 "evidence_kind": evidence_kind,
+                "sesoi": contract.sesoi,
+                "equivalence_lower": contract.equivalence_lower,
+                "equivalence_upper": contract.equivalence_upper,
+                "noninferiority_lower": contract.noninferiority_lower,
+                "margin_status": margin_status,
             }
         ]
     ).to_parquet(destination / "effects.parquet", index=False)
+    missingness_rows: list[dict[str, Any]] = []
+    for run_dir, manifest, check in zip(run_dirs, manifests, run_checks, strict=True):
+        config = cast(dict[str, Any], manifest["config"])
+        missingness_rows.append(
+            {
+                "study_id": spec.study_id,
+                "independent_block": str(config["independent_block"]),
+                "run_id": str(manifest.get("run_id", run_dir.name)),
+                "run_complete": manifest.get("status") == "complete",
+                "verification_ok": check.ok,
+                "missing_independent_unit": False,
+                "terminal_failure": False,
+                "decision_rows": check.decisions,
+                "fill_rows": check.fills,
+                "portfolio_rows": check.portfolio_rows,
+                "error_count": len(check.errors),
+                "warning_count": len(check.warnings),
+                "errors_json": json.dumps(check.errors, sort_keys=True),
+                "warnings_json": json.dumps(check.warnings, sort_keys=True),
+                "scope_note": (
+                    "run-level completeness; parse and provider failure states remain in "
+                    "the hash-locked run inputs"
+                ),
+            }
+        )
+    pd.DataFrame(missingness_rows).to_parquet(
+        destination / "missingness_failures.parquet", index=False
+    )
+    pd.DataFrame(
+        _sensitivity_rows(spec.study_id, inference.block_effects, contract.sesoi)
+    ).to_parquet(destination / "sensitivity_results.parquet", index=False)
+
+    ordered_effects = [inference.block_effects[block] for block in sorted(inference.block_effects)]
+    tost = equivalence_tost(
+        ordered_effects,
+        contract.equivalence_lower,
+        contract.equivalence_upper,
+        alpha=contract.alpha,
+    )
+    noninferiority = _noninferiority_result(
+        ordered_effects, contract.noninferiority_lower, contract.alpha
+    )
+    margins_provisional = margin_status == "provisional-default"
+    _write_json(
+        destination / "equivalence_noninferiority.json",
+        {
+            "study_id": spec.study_id,
+            "estimand_id": contract.estimand_id,
+            "margin_status": margin_status,
+            "margins_provisional": margins_provisional,
+            "equivalence": {
+                **tost.__dict__,
+                "decision_rule": "both TOST one-sided p-values must be below alpha",
+                "paper_claim_allowed": tost.equivalent and not margins_provisional,
+            },
+            "noninferiority": {
+                **noninferiority,
+                "paper_claim_allowed": (
+                    bool(noninferiority["statistically_noninferior"])
+                    and not margins_provisional
+                ),
+            },
+            "interpretation_rule": (
+                "nonsignificance is never evidence of equivalence; provisional margins "
+                "cannot support paper claims"
+            ),
+        },
+    )
+    _write_json(
+        destination / "estimand_registry.json",
+        {
+            "study_id": spec.study_id,
+            "estimands": [
+                {
+                    "estimand_id": contract.estimand_id,
+                    "question": (
+                        "How much does matched LLM technology change Cohen's kappa relative "
+                        "to matched classical technology within the frozen ecology contrast?"
+                    ),
+                    "outcome": "Cohen's kappa",
+                    "contrast": "LLM minus matched classical block effect",
+                    "independent_unit": (
+                        "independently generated market trajectory or nonoverlapping "
+                        "historical market-window cluster"
+                    ),
+                    "nested_units_not_independent": [
+                        "model seed",
+                        "agent",
+                        "pair",
+                        "step",
+                        "call",
+                        "retry",
+                    ],
+                    "inference": inference.method,
+                    "sesoi": contract.sesoi,
+                    "equivalence_bounds": [
+                        contract.equivalence_lower,
+                        contract.equivalence_upper,
+                    ],
+                    "noninferiority_lower": contract.noninferiority_lower,
+                    "alpha": contract.alpha,
+                    "margin_status": margin_status,
+                    "margins_provisional": margins_provisional,
+                    "limitations": [
+                        "sampled dated model releases and classical families only",
+                        "block-effect sign flips require the stated symmetry assumption",
+                    ],
+                }
+            ],
+        },
+    )
     _write_json(
         destination / "multiplicity.json",
         {
@@ -278,6 +534,14 @@ def analyze_study_bundle(
             "independent_unit": "market trajectory or nonoverlapping window cluster",
             "nested_units_not_counted": ["model seed", "agent", "pair", "step", "call", "retry"],
             "inference_method": inference.method,
+            "margin_status": margin_status,
+            "margins_frozen_before_analysis": not margins_provisional,
+            "required_statistical_artifacts": [
+                "estimand_registry.json",
+                "equivalence_noninferiority.json",
+                "missingness_failures.parquet",
+                "sensitivity_results.parquet",
+            ],
             "run_verifications": [check.model_dump() for check in run_checks],
         },
     )
@@ -289,6 +553,10 @@ def analyze_study_bundle(
                     "claim_id": "H1-result",
                     "estimand_id": "H1-kappa-technology-contrast",
                     "effect_artifact": "effects.parquet",
+                    "estimand_artifact": "estimand_registry.json",
+                    "missingness_artifact": "missingness_failures.parquet",
+                    "sensitivity_artifact": "sensitivity_results.parquet",
+                    "equivalence_artifact": "equivalence_noninferiority.json",
                     "figures": ["figures/h1-block-effects.png"],
                     "limitations": [
                         "inference is limited to the sampled dated models and classical families",
@@ -298,11 +566,12 @@ def analyze_study_bundle(
                         "paper-eligible" if paper else "verified-diagnostic"
                     ),
                     "evidence_kind": evidence_kind,
+                    "margin_status": margin_status,
                 }
             ]
         },
     )
-    export_core_study_figures(destination)
+    export_core_study_figures(destination, sesoi=contract.sesoi)
     artifact_hashes = {name: _sha256(destination / name) for name in CORE_ARTIFACTS}
     run_input_hashes = {
         str(run_dir): {name: _sha256(run_dir / name) for name in RUN_INPUTS}
@@ -312,7 +581,7 @@ def analyze_study_bundle(
     _write_json(
         destination / "release-manifest.json",
         {
-            "schema_version": 1,
+            "schema_version": 2,
             "study_id": spec.study_id,
             "status": "complete",
             "evidence_kind": evidence_kind,
@@ -320,6 +589,8 @@ def analyze_study_bundle(
             "analysis_seed": seed,
             "expected_independent_blocks": sorted(expected_blocks),
             "preregistration": preregistration,
+            "statistical_contract": contract.model_dump(),
+            "margin_status": margin_status,
             "source_manifest": str(source_manifest),
             "source_manifest_sha256": _sha256(source_manifest),
             "run_input_sha256": run_input_hashes,
@@ -349,8 +620,15 @@ def verify_study_bundle(
             errors=["missing release-manifest.json"],
         )
     release = _json(release_path)
+    if release.get("schema_version") != 2:
+        errors.append("release manifest schema is not the complete study-bundle version")
     if release.get("status") != "complete":
         errors.append("release manifest is incomplete")
+    try:
+        contract = H1StatisticalContract.model_validate(release.get("statistical_contract"))
+    except ValueError:
+        contract = None
+        errors.append("release manifest lacks a valid statistical contract")
     evidence_kind = cast(
         Literal["mock", "real", "unknown"], release.get("evidence_kind", "unknown")
     )
@@ -397,6 +675,134 @@ def verify_study_bundle(
         stats = _json(stats_path)
         if stats.get("verified") is not True or stats.get("independent_n") != independent_n:
             errors.append("statistical verification is absent or inconsistent")
+        if stats.get("margin_status") != release.get("margin_status"):
+            errors.append("statistical verification margin status is inconsistent")
+
+    missingness_path = bundle_dir / "missingness_failures.parquet"
+    if missingness_path.is_file():
+        missingness = pd.read_parquet(missingness_path)
+        required = {
+            "independent_block",
+            "run_complete",
+            "verification_ok",
+            "missing_independent_unit",
+            "terminal_failure",
+        }
+        if not required.issubset(missingness.columns):
+            errors.append("missingness artifact lacks required run-level fields")
+        else:
+            missing_blocks = set(
+                cast(pd.Series, missingness["independent_block"]).astype(str)
+            )
+            expected_blocks = set(
+                cast(list[str], release.get("expected_independent_blocks", []))
+            )
+            if missing_blocks != expected_blocks or len(missingness) != independent_n:
+                errors.append("missingness artifact does not reconcile to independent units")
+            complete = cast(pd.Series, missingness["run_complete"]).astype(bool)
+            verified = cast(pd.Series, missingness["verification_ok"]).astype(bool)
+            absent = cast(pd.Series, missingness["missing_independent_unit"]).astype(bool)
+            terminal = cast(pd.Series, missingness["terminal_failure"]).astype(bool)
+            if not complete.all() or not verified.all() or absent.any() or terminal.any():
+                errors.append("study bundle contains an incomplete or failed independent unit")
+
+    sensitivity_path = bundle_dir / "sensitivity_results.parquet"
+    effects_path = bundle_dir / "effects.parquet"
+    if sensitivity_path.is_file() and effects_path.is_file():
+        sensitivity = pd.read_parquet(sensitivity_path)
+        effects = pd.read_parquet(effects_path)
+        if "specification_id" not in sensitivity or "estimate" not in sensitivity:
+            errors.append("sensitivity artifact lacks specification estimates")
+        else:
+            primary = sensitivity.loc[
+                cast(pd.Series, sensitivity["specification_id"]) == "primary-mean"
+            ]
+            if len(primary) != 1 or len(effects) != 1 or not np.isclose(
+                float(primary.iloc[0]["estimate"]), float(effects.iloc[0]["estimate"])
+            ):
+                errors.append("sensitivity primary estimate does not match effects")
+
+    equivalence_path = bundle_dir / "equivalence_noninferiority.json"
+    if equivalence_path.is_file():
+        equivalence = _json(equivalence_path)
+        result = cast(dict[str, Any], equivalence.get("equivalence", {}))
+        noninferiority = cast(dict[str, Any], equivalence.get("noninferiority", {}))
+        try:
+            alpha = float(result["alpha"])
+            p_lower = float(result["p_lower"])
+            p_upper = float(result["p_upper"])
+            established = bool(result["equivalent"])
+            expected_established = p_lower < alpha and p_upper < alpha
+            provisional = bool(equivalence["margins_provisional"])
+            claim_allowed = bool(result["paper_claim_allowed"])
+        except (KeyError, TypeError, ValueError):
+            errors.append("equivalence artifact is incomplete")
+        else:
+            if (
+                not all(np.isfinite(value) and 0 <= value <= 1 for value in (p_lower, p_upper))
+                or not 0 < alpha < 0.5
+            ):
+                errors.append("equivalence artifact contains invalid probabilities")
+            if established != expected_established:
+                errors.append("equivalence decision does not implement both TOST tests")
+            if claim_allowed != (established and not provisional):
+                errors.append("equivalence paper-claim gate is inconsistent")
+            if equivalence.get("margin_status") != release.get("margin_status"):
+                errors.append("equivalence margin status is inconsistent")
+            block_path = bundle_dir / "block_effects.parquet"
+            if contract is not None and block_path.is_file():
+                blocks = pd.read_parquet(block_path).sort_values("independent_block")
+                values = cast(pd.Series, blocks["effect"]).astype(float).tolist()
+                recomputed = equivalence_tost(
+                    values,
+                    contract.equivalence_lower,
+                    contract.equivalence_upper,
+                    alpha=contract.alpha,
+                )
+                fields = (
+                    ("estimate", recomputed.estimate),
+                    ("lower_bound", recomputed.lower_bound),
+                    ("upper_bound", recomputed.upper_bound),
+                    ("p_lower", recomputed.p_lower),
+                    ("p_upper", recomputed.p_upper),
+                    ("alpha", recomputed.alpha),
+                )
+                try:
+                    matches_tost = all(
+                        np.isclose(float(result[name]), expected) for name, expected in fields
+                    ) and bool(result["equivalent"]) == recomputed.equivalent
+                    expected_noninferiority = _noninferiority_result(
+                        values, contract.noninferiority_lower, contract.alpha
+                    )
+                    matches_noninferiority = np.isclose(
+                        float(noninferiority["p_value"]),
+                        float(expected_noninferiority["p_value"]),
+                    ) and bool(noninferiority["statistically_noninferior"]) == bool(
+                        expected_noninferiority["statistically_noninferior"]
+                    )
+                except (KeyError, TypeError, ValueError):
+                    matches_tost = False
+                    matches_noninferiority = False
+                if not matches_tost:
+                    errors.append("equivalence result does not reproduce from block effects")
+                if not matches_noninferiority:
+                    errors.append("noninferiority result does not reproduce from block effects")
+
+    registry_path = bundle_dir / "estimand_registry.json"
+    if registry_path.is_file():
+        registry = _json(registry_path)
+        estimands = cast(list[dict[str, Any]], registry.get("estimands", []))
+        if len(estimands) != 1:
+            errors.append("estimand registry must contain exactly one primary H1 estimand")
+        elif estimands[0].get("margin_status") != release.get("margin_status"):
+            errors.append("estimand registry margin status is inconsistent")
+        elif contract is not None and (
+            estimands[0].get("sesoi") != contract.sesoi
+            or estimands[0].get("equivalence_bounds")
+            != [contract.equivalence_lower, contract.equivalence_upper]
+            or estimands[0].get("noninferiority_lower") != contract.noninferiority_lower
+        ):
+            errors.append("estimand registry thresholds differ from the release contract")
 
     claims_path = bundle_dir / "claims.json"
     if claims_path.is_file() and require_paper:
@@ -407,12 +813,20 @@ def verify_study_bundle(
         if not claims or claims_unverified:
             errors.append("paper claims are not verification-eligible")
 
-    paper_eligible = not errors and evidence_kind == "real" and bool(release.get("preregistration"))
+    paper_eligible = (
+        not errors
+        and evidence_kind == "real"
+        and bool(release.get("preregistration"))
+        and bool(release.get("paper_requested"))
+        and release.get("margin_status") == "frozen-preregistered"
+    )
     if require_paper:
         if evidence_kind != "real":
             errors.append("paper verification rejects mock evidence")
         if not release.get("paper_requested"):
             errors.append("bundle was not generated through the paper gate")
+        if release.get("margin_status") != "frozen-preregistered":
+            errors.append("paper verification requires preregistered statistical margins")
         prereg = release.get("preregistration")
         if not prereg:
             errors.append("paper verification requires an immutable preregistration")
@@ -422,6 +836,19 @@ def verify_study_bundle(
                 source_path = (source_manifest.parent / source_path).resolve()
             if not source_path.is_file() or _sha256(source_path) != prereg["sha256"]:
                 errors.append("preregistration is missing or its hash changed")
+            else:
+                try:
+                    prereg_payload = _json(source_path)
+                    prereg_contract = H1StatisticalContract.model_validate(
+                        prereg_payload.get("statistical_contract")
+                    )
+                except (json.JSONDecodeError, ValueError):
+                    errors.append("preregistration lacks a valid statistical contract")
+                else:
+                    if contract is None or prereg_contract != contract:
+                        errors.append(
+                            "release statistical contract differs from preregistration"
+                        )
         paper_eligible = not errors
     return StudyBundleVerification(
         bundle_dir=str(bundle_dir),

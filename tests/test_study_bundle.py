@@ -48,6 +48,7 @@ def _source(
         (run_dir / "decisions.jsonl").write_text("{}\n")
         (run_dir / "fills.parquet").write_bytes(b"test-fill-input")
         (run_dir / "portfolio.parquet").write_bytes(b"test-portfolio-input")
+        (run_dir / "market_events.jsonl").write_text("{}\n")
         run_dirs.append(run_dir.name)
         blocks.append(manifest["config"]["independent_block"])
     payload = {
@@ -87,6 +88,17 @@ def _inference() -> StudyInference:
     )
 
 
+def _frozen_statistical_contract() -> dict:
+    return {
+        "estimand_id": "H1-kappa-technology-contrast",
+        "sesoi": 0.08,
+        "equivalence_lower": -0.04,
+        "equivalence_upper": 0.04,
+        "noninferiority_lower": -0.04,
+        "alpha": 0.05,
+    }
+
+
 def test_bundle_emits_hash_locked_independent_unit_artifacts(tmp_path, monkeypatch):
     source = _source(
         tmp_path,
@@ -109,6 +121,25 @@ def test_bundle_emits_hash_locked_independent_unit_artifacts(tmp_path, monkeypat
     assert result.ok
     assert result.independent_units == 2
     assert not result.paper_eligible
+
+    missingness = pd.read_parquet(bundle / "missingness_failures.parquet")
+    assert set(missingness["independent_block"]) == {"block-a", "block-b"}
+    assert missingness["verification_ok"].all()
+    sensitivities = pd.read_parquet(bundle / "sensitivity_results.parquet")
+    assert set(sensitivities["specification_id"]) == {
+        "primary-mean",
+        "block-median",
+        "leave-one-block-out:block-a",
+        "leave-one-block-out:block-b",
+    }
+    equivalence = json.loads((bundle / "equivalence_noninferiority.json").read_text())
+    assert equivalence["margin_status"] == "provisional-default"
+    assert equivalence["margins_provisional"] is True
+    assert equivalence["equivalence"]["equivalent"] is False
+    assert equivalence["equivalence"]["paper_claim_allowed"] is False
+    registry = json.loads((bundle / "estimand_registry.json").read_text())
+    assert registry["estimands"][0]["sesoi"] == 0.10
+    assert registry["estimands"][0]["margins_provisional"] is True
 
 
 def test_release_reproduces_byte_identical_core_artifacts(tmp_path, monkeypatch):
@@ -215,7 +246,15 @@ def test_paper_bundle_requires_frozen_preregistration_and_detects_tampering(
     tmp_path, monkeypatch
 ):
     prereg = tmp_path / "preregistration.json"
-    prereg.write_text('{"frozen": true}\n')
+    prereg.write_text(
+        json.dumps(
+            {
+                "frozen": True,
+                "statistical_contract": _frozen_statistical_contract(),
+            }
+        )
+        + "\n"
+    )
     digest = hashlib.sha256(prereg.read_bytes()).hexdigest()
     source = _source(
         tmp_path,
@@ -234,6 +273,23 @@ def test_paper_bundle_requires_frozen_preregistration_and_detects_tampering(
 
     bundle = analyze_study_bundle(source, paper=True)
     assert verify_study_bundle(bundle, require_paper=True).paper_eligible
+    registry = json.loads((bundle / "estimand_registry.json").read_text())
+    assert registry["estimands"][0]["sesoi"] == 0.08
+    assert registry["estimands"][0]["margin_status"] == "frozen-preregistered"
+
+    release_path = bundle / "release-manifest.json"
+    release = json.loads(release_path.read_text())
+    release["statistical_contract"]["sesoi"] = 0.09
+    release_path.write_text(json.dumps(release, indent=2, sort_keys=True) + "\n")
+    contract_tampering = verify_study_bundle(bundle, require_paper=True)
+    assert not contract_tampering.ok
+    assert (
+        "release statistical contract differs from preregistration"
+        in contract_tampering.errors
+    )
+
+    release["statistical_contract"]["sesoi"] = 0.08
+    release_path.write_text(json.dumps(release, indent=2, sort_keys=True) + "\n")
 
     effects = pd.read_parquet(bundle / "effects.parquet")
     effects.loc[0, "estimate"] = 99
@@ -241,3 +297,61 @@ def test_paper_bundle_requires_frozen_preregistration_and_detects_tampering(
     result = verify_study_bundle(bundle, require_paper=True)
     assert not result.ok
     assert "artifact hash mismatch: effects.parquet" in result.errors
+
+
+def test_paper_gate_rejects_preregistration_without_frozen_margins(tmp_path, monkeypatch):
+    prereg = tmp_path / "preregistration.json"
+    prereg.write_text('{"frozen": true}\n')
+    source = _source(
+        tmp_path,
+        [_manifest("block-a", "trajectory-a"), _manifest("block-b", "trajectory-b")],
+        preregistration={
+            "path": prereg.name,
+            "sha256": hashlib.sha256(prereg.read_bytes()).hexdigest(),
+            "immutable_uri": "https://osf.io/example/registrations/1",
+            "git_sha": "0123456789abcdef",
+        },
+    )
+    monkeypatch.setattr("flock.analysis.bundle.verify_run", lambda _path: _verified())
+
+    with pytest.raises(ValueError, match="requires a preregistered statistical_contract"):
+        analyze_study_bundle(source, paper=True)
+
+
+def test_bundle_fails_closed_on_missing_or_false_equivalence_artifacts(tmp_path, monkeypatch):
+    source = _source(
+        tmp_path,
+        [_manifest("block-a", "trajectory-a"), _manifest("block-b", "trajectory-b")],
+    )
+    monkeypatch.setattr("flock.analysis.bundle.verify_run", lambda _path: _verified())
+    monkeypatch.setattr(
+        "flock.analysis.bundle.analyze_h1_study", lambda _paths, seed=0: _inference()
+    )
+    bundle = analyze_study_bundle(source)
+
+    sensitivity_path = bundle / "sensitivity_results.parquet"
+    sensitivity_path.unlink()
+    missing = verify_study_bundle(bundle)
+    assert not missing.ok
+    assert "missing core artifact: sensitivity_results.parquet" in missing.errors
+
+    bundle = analyze_study_bundle(source)
+    equivalence_path = bundle / "equivalence_noninferiority.json"
+    equivalence = json.loads(equivalence_path.read_text())
+    equivalence["equivalence"]["p_lower"] = 0.001
+    equivalence["equivalence"]["p_upper"] = 0.001
+    equivalence["equivalence"]["equivalent"] = True
+    equivalence_path.write_text(json.dumps(equivalence, indent=2, sort_keys=True) + "\n")
+    release_path = bundle / "release-manifest.json"
+    release = json.loads(release_path.read_text())
+    release["artifact_sha256"]["equivalence_noninferiority.json"] = hashlib.sha256(
+        equivalence_path.read_bytes()
+    ).hexdigest()
+    release_path.write_text(json.dumps(release, indent=2, sort_keys=True) + "\n")
+
+    false_equivalence = verify_study_bundle(bundle)
+    assert not false_equivalence.ok
+    assert (
+        "equivalence result does not reproduce from block effects"
+        in false_equivalence.errors
+    )
