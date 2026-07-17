@@ -15,7 +15,7 @@ it does not mean a paid study, empirical result, independent review, or paper re
 | Paper stress test | Agent/call-level inference was pseudoreplication; design and claims exceeded the independent evidence | Block-level inference, duplicate trajectory/dependence rejection, nested power, mock/paper separation, claim lock | Freeze the exact top-level model and margins after pilot nuisance estimates |
 | Prior-art overlap | Broad LLM convergence, reduced dispersion, herding, common errors, and simulated instability are occupied | Title and contribution narrowed to matched technology-by-ecology controls and component decomposition; real bibliography added | Refresh the evidence map at preregistration and submission |
 | Cost/authenticity | Existing totals mixed formulas and agent counts; full H1–H12 scope was not priced | Deterministic call matrix, dated catalog, canary/pilot authorization, high retry envelope, runtime dollar/token/request guard | Reprice exact live endpoints immediately before each authorized stage |
-| End-to-end repository audit | Provider retries, cache billing, data hashes, ledger reservations, self-trades, replay gaps, resume behavior, and strict schemas had failure modes | Atomic attempts/cache, classified retry contract, complete bundle hashes, conservation checks, strict configs, terminal manifests, and deterministic assignment materialization | Resolve and execute the complete compiled matrix; finish asynchronous prediction-market and H5 mechanics |
+| End-to-end repository audit | Provider retries, cache billing, data hashes, ledger reservations, self-trades, replay gaps, resume behavior, and strict schemas had failure modes | Atomic attempts/cache, classified retry contract, complete bundle hashes, conservation checks, strict configs, terminal manifests, deterministic assignment materialization, and asynchronous binary-contract replay | Resolve and execute the complete compiled matrix; finish H5 mechanics |
 | Admissions/authenticity | The repository looked like an ambitious lab agenda rather than completed owned research | Authorship statement, dated research log, public mistake case study, review-response template, and walkthrough/release checklist | Execute one narrow corrected study and obtain three real independent reviews |
 
 ## Implemented and verified
@@ -59,6 +59,12 @@ it does not mean a paid study, empirical result, independent review, or paper re
 - The first-paper estimator family-balances all four `technology × ecology` cells, reports both
   within-ecology technology contrasts and their interaction, estimates provider-stratified H3 and
   Hamming-one H4 effects, and applies one frozen Holm correction across H1/H3/H4.
+- MPHIQ materialization now expands each cohort into explicit one-agent treatments, validates all
+  five factor levels and assignment digests, rejects balance/confounding drift, and propagates the
+  treatment into each decision manifest.
+- Binary prediction replay uses the union of asynchronous contract timestamps, exposes only active
+  contracts with sufficient own history, hides terminal outcome bars, rejects inactive orders,
+  prevents truncated-run settlement leakage, and settles internal YES holdings at 0/1.
 - Nested simulation power includes blocks, agents, steps, provider heterogeneity, missing blocks,
   and the exact/Monte-Carlo sign-flip boundary. The old normal approximation is diagnostic-only.
 
@@ -67,6 +73,9 @@ it does not mean a paid study, empirical result, independent review, or paper re
 - A verified bundle writes independent units, block effects, effects, multiplicity, missingness and
   failures, sensitivities, estimand registry, equivalence/noninferiority results, statistical
   verification, claims, and two claim-linked core figures.
+- Paper mode consumes the complete crossed H1/H3/H4 family, requires every aggregate row to cite
+  verified treatment runs with matching lineage, hashes every contributing run, and proves that
+  nested treatment runs cannot increase independent `n`.
 - Paper mode rejects incomplete, unverified, single-run, mock, or preregistration-missing evidence.
 - `flock reproduce` regenerates into an empty directory and requires byte-identical core hashes.
 - The manuscript contains methods, robustness, limitations, ethics, reproducibility/data
@@ -77,7 +86,7 @@ it does not mean a paid study, empirical result, independent review, or paper re
 
 ## Current verification evidence
 
-- `pytest`: **verification count is refreshed by the final clean-room run for this branch**.
+- Clean-room `pytest`: **165 passed**.
 - Ruff: **all checks passed**.
 - Pyright: **0 errors, 0 warnings**.
 - Clean offline smoke run: **720 decisions, 1,236 fills, 720 portfolio rows; verification passed**.
@@ -90,16 +99,16 @@ it does not mean a paid study, empirical result, independent review, or paper re
 
 1. Hydrate or relocate the iCloud `dataless` result artifact detected by `flock doctor`; never
    delete it as an automated workaround.
-2. Install provider SDK extras, add keys through the environment, and run bounded metadata-only
-   live probes for every exact endpoint. Do not substitute a mutable alias.
+2. Add keys through the environment and run bounded metadata-only live probes for every exact
+   endpoint. Provider/data SDK extras are installed; do not substitute a mutable alias.
 3. Acquire and hash the exact equity windows; acquire a legally usable prediction panel only if
    H2/H1 prediction-market harmonization remains in scope.
-4. Resolve the materialized assignments into experiment configs. The assignment compiler now
-   reconciles every cell and call, but MPHIQ per-agent treatments and H5 capital weighting are not
-   represented by the current `ExperimentConfig`/runner contract and therefore remain blocked.
-5. Connect the implemented crossed H1/H3/H4 estimators to the verified release bundle. The legacy
-   bundle path remains a conservative one-estimand H1 diagnostic and cannot represent the full
-   final multiplicity family.
+4. Resolve the materialized assignments into experiment configs. MPHIQ per-agent treatments are
+   now executable, but live model registry mappings and datasets remain unresolved; H5 capital
+   weighting is still not represented by the current `ExperimentConfig`/runner contract.
+5. Add the deterministic raw-run-to-crossed-aggregate compiler. The paper bundle now verifies and
+   reproduces a complete provenance-linked 12-estimand family, but it intentionally does not trust
+   or manufacture the three required aggregate input tables from raw decisions yet.
 6. Run the full internally feasible compiled matrix with mocks and prove every planned cell reaches
    one terminal state before enabling provider calls.
 
@@ -110,11 +119,11 @@ it does not mean a paid study, empirical result, independent review, or paper re
 2. Freeze the commit and rendered inputs, register immutably on OSF, and record the URI/SHA/tag
    before confirmatory calls.
 3. Add power artifacts plus the action raster, provider heatmap, and full specification-curve
-   figures. Missingness/failure, equivalence/noninferiority, and sensitivity artifacts now exist,
-   but the complete crossed estimator family must be wired into them before paper use.
-4. Implement timestamp-aligned asynchronous listing and inactive-contract policies before
-   interpreting prediction replay. Contract question/rules/expiry, binary settlement, and YES/NO
-   semantics now survive the current exact-intersection replay path.
+   figures. Missingness/failure, equivalence/noninferiority, sensitivity, and the complete crossed
+   multiplicity family are now wired into paper verification.
+4. Rebuild any external prediction dataset under the strict timestamp/rules/terminal-payout
+   schema before use. Replay now handles asynchronous listings and YES settlement; direct NO-share
+   trading remains unsupported and must not be implied.
 5. Keep H5 disabled until persistent orders, cancel/expiry events, seeded fundamental/noise/
    liquidity demand, reconstructable book exports, calibration targets, and all ODD/STRESS checks
    pass. The current exchange is a step-synchronous intra-step book, not a validated continuous

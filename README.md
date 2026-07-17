@@ -141,11 +141,13 @@ uv run flock reproduce results/paper-core/bundle/release-manifest.json \
 ```
 
 The bundle contains independent-unit and block-effect tables, missingness/failure and sensitivity
-tables, frozen estimand and equivalence/noninferiority records, multiplicity and verification
-records, claim links, an experimental-topology figure, and a block-level forest plot. Reproduction
-regenerates into an empty directory and requires byte-identical core artifacts. The crossed
-H1/H3/H4 estimator exists as a tested analysis module; connecting its complete multiplicity family
-to the release bundle remains an explicit paper blocker.
+tables, frozen estimand and equivalence/noninferiority records, one crossed H1/H3/H4 multiplicity
+family, claim links, an experimental-topology figure, and a block-level forest plot. Every crossed
+aggregate row must cite verified treatment runs with the same block lineage, and every contributing
+run is hash-locked without increasing independent `n`. Reproduction regenerates into an empty
+directory and requires byte-identical core artifacts. A deterministic raw-decision-to-crossed-input
+compiler remains a paper blocker; externally assembled aggregate tables are never accepted without
+complete run provenance.
 
 ## Publication gates
 
