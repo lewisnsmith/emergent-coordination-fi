@@ -37,10 +37,15 @@ class GoogleChatModel:
         )
         usage = resp.usage_metadata
         input_tokens = getattr(usage, "prompt_token_count", 0) or 0
-        output_tokens = getattr(usage, "candidates_token_count", 0) or 0
+        visible_output_tokens = getattr(usage, "candidates_token_count", 0) or 0
+        reasoning_tokens = getattr(usage, "thoughts_token_count", 0) or 0
+        output_tokens = visible_output_tokens + reasoning_tokens
         return ChatResponse(
             text=resp.text or "",
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             cost_usd=cost_usd(self.model_id, input_tokens, output_tokens),
+            request_id=str(getattr(resp, "response_id", "") or ""),
+            visible_output_tokens=visible_output_tokens,
+            reasoning_tokens=reasoning_tokens,
         )

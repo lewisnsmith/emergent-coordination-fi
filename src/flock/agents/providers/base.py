@@ -18,6 +18,13 @@ class ChatResponse:
     input_tokens: int = 0
     output_tokens: int = 0
     cost_usd: float = 0.0
+    request_id: str = ""
+    cached_input_tokens: int = 0
+    cache_write_tokens: int = 0
+    visible_output_tokens: int = 0
+    reasoning_tokens: int = 0
+    attempts: int = 1
+    retry_errors: tuple[str, ...] = ()
 
 
 class ChatModel(Protocol):
