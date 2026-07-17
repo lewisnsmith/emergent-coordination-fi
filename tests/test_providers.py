@@ -2,6 +2,7 @@
 
 import sys
 from types import ModuleType, SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
@@ -32,7 +33,10 @@ def test_anthropic_adapter_parses_response():
     def create(**kwargs):
         calls.update(kwargs)
         return SimpleNamespace(
-            content=[SimpleNamespace(type="text", text='{"orders": []}')],
+            content=[
+                SimpleNamespace(type="thinking", thinking="internal"),
+                SimpleNamespace(type="text", text='{"orders": []}'),
+            ],
             usage=SimpleNamespace(input_tokens=100, output_tokens=20),
         )
 
@@ -186,9 +190,9 @@ def test_google_adapter_bills_thinking_tokens(monkeypatch):
     google = ModuleType("google")
     genai = ModuleType("google.genai")
     fake_types = ModuleType("google.genai.types")
-    fake_types.GenerateContentConfig = lambda **kwargs: kwargs
-    genai.types = fake_types
-    google.genai = genai
+    cast(Any, fake_types).GenerateContentConfig = lambda **kwargs: kwargs
+    cast(Any, genai).types = fake_types
+    cast(Any, google).genai = genai
     monkeypatch.setitem(sys.modules, "google", google)
     monkeypatch.setitem(sys.modules, "google.genai", genai)
     monkeypatch.setitem(sys.modules, "google.genai.types", fake_types)

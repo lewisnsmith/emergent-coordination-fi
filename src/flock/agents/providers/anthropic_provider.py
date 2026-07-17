@@ -7,6 +7,14 @@ from flock.agents.providers.pricing import cost_usd
 from flock.core.config import ModelSpec
 
 
+def _text_content(block: object) -> str:
+    """Extract only Anthropic text blocks across evolving SDK union types."""
+    if getattr(block, "type", None) != "text":
+        return ""
+    value = getattr(block, "text", None)
+    return value if isinstance(value, str) else ""
+
+
 class AnthropicChatModel:
     def __init__(self, model_key: str, spec: ModelSpec, client=None):
         self.model_key = model_key
@@ -31,7 +39,7 @@ class AnthropicChatModel:
             system=system,
             messages=[{"role": "user", "content": user}],
         )
-        text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
+        text = "".join(_text_content(block) for block in msg.content)
         return ChatResponse(
             text=text,
             input_tokens=msg.usage.input_tokens,

@@ -22,6 +22,8 @@ def build_equities(
     raw = yf.download(
         symbols, start=start, end=end, auto_adjust=True, group_by="ticker", progress=False
     )
+    if raw is None or not isinstance(raw, pd.DataFrame):
+        raise ValueError("yfinance returned no tabular data for the requested symbols/window")
     bars = flatten_yfinance(raw, symbols)
     meta = {
         "builder": "equities",
