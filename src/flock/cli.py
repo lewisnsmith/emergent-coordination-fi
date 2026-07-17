@@ -244,6 +244,18 @@ def verify_study_command(
         raise typer.Exit(code=1)
 
 
+@app.command("reproduce")
+def reproduce_command(
+    release_manifest: Path = typer.Argument(..., help="Verified release-manifest.json"),
+    output: Path = typer.Option(..., help="Empty output directory for clean regeneration"),
+) -> None:
+    """Regenerate a study bundle and require byte-identical core artifacts."""
+    from flock.analysis.bundle import reproduce_study_bundle
+
+    reproduced = reproduce_study_bundle(release_manifest, output)
+    typer.echo(f"byte-identical reproduction -> {reproduced}")
+
+
 @app.command()
 def version() -> None:
     """Print flock version."""

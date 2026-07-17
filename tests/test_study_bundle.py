@@ -8,6 +8,7 @@ import pytest
 from flock.analysis.bundle import (
     CORE_ARTIFACTS,
     analyze_study_bundle,
+    reproduce_study_bundle,
     verify_study_bundle,
 )
 from flock.analysis.study import StudyInference
@@ -106,6 +107,52 @@ def test_bundle_emits_hash_locked_independent_unit_artifacts(tmp_path, monkeypat
     assert result.ok
     assert result.independent_units == 2
     assert not result.paper_eligible
+
+
+def test_release_reproduces_byte_identical_core_artifacts(tmp_path, monkeypatch):
+    source = _source(
+        tmp_path / "source",
+        [_manifest("block-a", "trajectory-a"), _manifest("block-b", "trajectory-b")],
+    )
+    monkeypatch.setattr("flock.analysis.bundle.verify_run", lambda _path: _verified())
+    monkeypatch.setattr(
+        "flock.analysis.bundle.analyze_h1_study", lambda _paths, seed=0: _inference()
+    )
+    bundle = analyze_study_bundle(source, seed=739)
+
+    reproduced = reproduce_study_bundle(
+        bundle / "release-manifest.json", tmp_path / "clean-reproduction"
+    )
+
+    original_release = json.loads((bundle / "release-manifest.json").read_text())
+    reproduced_release = json.loads((reproduced / "release-manifest.json").read_text())
+    assert original_release["analysis_seed"] == 739
+    assert reproduced_release["analysis_seed"] == 739
+    assert original_release["artifact_sha256"] == reproduced_release["artifact_sha256"]
+    verification = json.loads(
+        (reproduced / "reproduction-verification.json").read_text()
+    )
+    assert verification["verified"] is True
+
+
+def test_reproduction_rejects_nonempty_or_in_place_output(tmp_path, monkeypatch):
+    source = _source(
+        tmp_path / "source",
+        [_manifest("block-a", "trajectory-a"), _manifest("block-b", "trajectory-b")],
+    )
+    monkeypatch.setattr("flock.analysis.bundle.verify_run", lambda _path: _verified())
+    monkeypatch.setattr(
+        "flock.analysis.bundle.analyze_h1_study", lambda _paths, seed=0: _inference()
+    )
+    bundle = analyze_study_bundle(source)
+    release = bundle / "release-manifest.json"
+    with pytest.raises(ValueError, match="must differ"):
+        reproduce_study_bundle(release, bundle)
+    occupied = tmp_path / "occupied"
+    occupied.mkdir()
+    (occupied / "keep.txt").write_text("do not overwrite")
+    with pytest.raises(ValueError, match="must be empty"):
+        reproduce_study_bundle(release, occupied)
 
 
 def test_bundle_rejects_repeated_trajectory_under_new_seed_and_label(tmp_path, monkeypatch):

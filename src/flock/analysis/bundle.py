@@ -312,6 +312,7 @@ def analyze_study_bundle(
             "status": "complete",
             "evidence_kind": evidence_kind,
             "paper_requested": paper,
+            "analysis_seed": seed,
             "expected_independent_blocks": sorted(expected_blocks),
             "preregistration": preregistration,
             "source_manifest": str(source_manifest),
@@ -425,3 +426,52 @@ def verify_study_bundle(
         independent_units=independent_n,
         errors=errors,
     )
+
+
+def reproduce_study_bundle(release_manifest: Path, output_dir: Path) -> Path:
+    """Regenerate a release into a clean directory and require byte-identical artifacts."""
+    release_manifest = release_manifest.resolve()
+    if release_manifest.name != "release-manifest.json" or not release_manifest.is_file():
+        raise ValueError("reproduce requires an existing release-manifest.json")
+    original_dir = release_manifest.parent
+    original_release = _json(release_manifest)
+    require_paper = bool(original_release.get("paper_requested"))
+    original_verification = verify_study_bundle(
+        original_dir, require_paper=require_paper
+    )
+    if not original_verification.ok:
+        raise ValueError(
+            f"source release does not verify: {original_verification.errors}"
+        )
+    output_dir = output_dir.resolve()
+    if output_dir == original_dir:
+        raise ValueError("reproduction output must differ from the source bundle")
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise ValueError("reproduction output directory must be empty")
+    source_manifest = Path(str(original_release["source_manifest"]))
+    reproduced = analyze_study_bundle(
+        source_manifest,
+        output_dir=output_dir,
+        paper=require_paper,
+        seed=int(original_release.get("analysis_seed", 0)),
+    )
+    reproduced_release = _json(reproduced / "release-manifest.json")
+    expected_hashes = cast(dict[str, str], original_release["artifact_sha256"])
+    actual_hashes = cast(dict[str, str], reproduced_release["artifact_sha256"])
+    if actual_hashes != expected_hashes:
+        mismatches = sorted(
+            name
+            for name in set(expected_hashes) | set(actual_hashes)
+            if expected_hashes.get(name) != actual_hashes.get(name)
+        )
+        raise ValueError(f"reproduction is not byte-identical: {mismatches}")
+    _write_json(
+        reproduced / "reproduction-verification.json",
+        {
+            "verified": True,
+            "source_release_manifest": str(release_manifest),
+            "source_release_manifest_sha256": _sha256(release_manifest),
+            "artifact_sha256": actual_hashes,
+        },
+    )
+    return reproduced
