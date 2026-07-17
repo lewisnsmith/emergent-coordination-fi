@@ -100,6 +100,8 @@ def test_bundle_emits_hash_locked_independent_unit_artifacts(tmp_path, monkeypat
     bundle = analyze_study_bundle(source)
 
     assert all((bundle / artifact).is_file() for artifact in CORE_ARTIFACTS)
+    assert (bundle / "figures/h1-block-effects.png").stat().st_size > 10_000
+    assert (bundle / "figures/independent-unit-topology.png").stat().st_size > 10_000
     units = pd.read_parquet(bundle / "independent_units.parquet")
     assert len(units) == 2
     assert set(units["nested_model_seed"]) == {1}

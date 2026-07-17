@@ -17,6 +17,7 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from flock.analysis.study import StudyInference, analyze_h1_study
+from flock.analysis.study_visuals import export_core_study_figures
 from flock.experiments.verify import RunVerification, verify_run
 
 
@@ -69,6 +70,8 @@ CORE_ARTIFACTS = (
     "multiplicity.json",
     "statistical_verification.json",
     "claims.json",
+    "figures/independent-unit-topology.png",
+    "figures/h1-block-effects.png",
 )
 RUN_INPUTS = ("manifest.json", "decisions.jsonl", "fills.parquet", "portfolio.parquet")
 
@@ -286,6 +289,7 @@ def analyze_study_bundle(
                     "claim_id": "H1-result",
                     "estimand_id": "H1-kappa-technology-contrast",
                     "effect_artifact": "effects.parquet",
+                    "figures": ["figures/h1-block-effects.png"],
                     "limitations": [
                         "inference is limited to the sampled dated models and classical families",
                         "the sign-flip test assumes symmetric/exchangeable block effects",
@@ -298,6 +302,7 @@ def analyze_study_bundle(
             ]
         },
     )
+    export_core_study_figures(destination)
     artifact_hashes = {name: _sha256(destination / name) for name in CORE_ARTIFACTS}
     run_input_hashes = {
         str(run_dir): {name: _sha256(run_dir / name) for name in RUN_INPUTS}
