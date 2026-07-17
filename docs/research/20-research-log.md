@@ -111,4 +111,3 @@ Do not collapse these into one retrospective success narrative. Add separate ent
 
 The conceptual consequence of the first two redesigns is documented in
 [21 — Mistake Case Study](21-mistake-case-study.md).
-

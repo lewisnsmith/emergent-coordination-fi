@@ -89,4 +89,3 @@ and retained in the public history. The defensible story is therefore one of err
 scientific revision, not retrospective perfection. The dated reconstruction is in
 [20 — Research Log](20-research-log.md), and human reviewers should challenge the correction using
 [22 — Independent Review and Response](22-independent-review-response.md).
-

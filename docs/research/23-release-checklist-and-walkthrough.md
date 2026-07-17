@@ -119,4 +119,3 @@ review, clean-room reproduction, or release-derived mistake comparison. Exact li
 dataset readiness must also pass their gates. Consequently, this package may support planning and
 show methodological revision, but it cannot yet support a paper-results or completed-research
 claim.
-

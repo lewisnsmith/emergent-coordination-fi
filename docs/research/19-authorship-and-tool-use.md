@@ -80,4 +80,3 @@ been frozen, a human expert has reviewed the project, a result has replicated, o
 accepted. Passing mock tests demonstrates software behavior under synthetic fixtures, not an
 empirical finding about frontier models or markets. Current milestones and blockers are recorded
 in [20 — Research Log](20-research-log.md) and [23 — Release Checklist and Walkthrough](23-release-checklist-and-walkthrough.md).
-

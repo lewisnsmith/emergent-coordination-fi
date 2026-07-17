@@ -98,4 +98,3 @@ This section remains blank until real reviews exist:
 
 The release owner verifies these facts in
 [23 — Release Checklist and Walkthrough](23-release-checklist-and-walkthrough.md).
-
