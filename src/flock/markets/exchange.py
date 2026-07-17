@@ -23,11 +23,12 @@ prices become endogenous from the first step onward.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import cast
 
 import numpy as np
 import pandas as pd
 
-from flock.core.types import Bar, Fill, NewsEvent, Order
+from flock.core.types import Bar, Fill, NewsEvent, Order, Side
 from flock.markets.base import MarketState
 
 ORDER_LIFETIME = "step"
@@ -38,7 +39,7 @@ class RestingOrderSnapshot:
     """One auditable order in the end-of-step book before expiry."""
 
     symbol: str
-    side: str
+    side: Side
     price: float
     quantity: float
     agent_id: str
@@ -66,7 +67,7 @@ class _Resting:
     price: float
     arrival: int
     agent_id: str = field(compare=False)
-    side: str = field(compare=False)
+    side: Side = field(compare=False)
     quantity: float = field(compare=False)
 
     def __post_init__(self):
@@ -101,7 +102,7 @@ class ExchangeMarket:
         self.timestamps: list[str] = sorted(bars["ts"].unique().tolist())
         self.symbols: tuple[str, ...] = tuple(sorted(bars["symbol"].unique().tolist()))
         seeded = {
-            s: [Bar(**row) for row in g.to_dict("records")][: self.window]
+            cast(str, s): [Bar(**row) for row in g.to_dict("records")][: self.window]
             for s, g in bars.groupby("symbol")
         }
         self._history: dict[str, list[Bar]] = seeded
@@ -244,15 +245,18 @@ class ExchangeMarket:
 
     @staticmethod
     def _crosses(incoming: Order, resting: _Resting) -> bool:
+        limit_price = incoming.limit_price
+        if limit_price is None:
+            return True
         if incoming.side == "buy":
-            return resting.price <= incoming.limit_price
-        return resting.price >= incoming.limit_price
+            return resting.price <= limit_price
+        return resting.price >= limit_price
 
     def _snap(self, price: float) -> float:
         return round(round(price / self.tick) * self.tick, 10)
 
     def _fill(
-        self, agent_id: str, ts: str, symbol: str, side: str, qty: float, price: float
+        self, agent_id: str, ts: str, symbol: str, side: Side, qty: float, price: float
     ) -> Fill:
         fee = abs(price * qty) * self.fee_bps / 1e4
         return Fill(agent_id, self._step, ts, symbol, side, qty, price, fee)

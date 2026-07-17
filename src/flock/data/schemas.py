@@ -9,7 +9,9 @@ A dataset is a directory containing:
 from __future__ import annotations
 
 import json
+from collections.abc import Hashable
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -26,7 +28,10 @@ def write_dataset(
 ) -> int:
     """Write a dataset directory; returns bar row count."""
     path.mkdir(parents=True, exist_ok=True)
-    bars = bars[BAR_COLUMNS].sort_values(["ts", "symbol"]).reset_index(drop=True)
+    bar_columns = cast(list[Hashable], BAR_COLUMNS)
+    sort_columns = cast(list[Hashable], ["ts", "symbol"])
+    bars = cast(pd.DataFrame, bars.loc[:, bar_columns])
+    bars = bars.sort_values(by=sort_columns).reset_index(drop=True)
     if bars.duplicated(["ts", "symbol"]).any():
         raise ValueError("bars contain duplicate (ts, symbol) rows")
     prices = bars[["open", "high", "low", "close"]]
@@ -39,7 +44,9 @@ def write_dataset(
         raise ValueError("bar OHLC bounds are inconsistent")
     bars.to_parquet(path / "bars.parquet", index=False)
     if events is not None and len(events):
-        events = events[EVENT_COLUMNS].sort_values("ts").reset_index(drop=True)
+        event_columns = cast(list[Hashable], EVENT_COLUMNS)
+        events = cast(pd.DataFrame, events.loc[:, event_columns])
+        events = events.sort_values(by="ts").reset_index(drop=True)
         if events.isna().any().any():
             raise ValueError("events contain missing required values")
         events.to_parquet(path / "events.parquet", index=False)
@@ -49,14 +56,16 @@ def write_dataset(
 
 
 def read_bars(path: Path) -> pd.DataFrame:
-    return pd.read_parquet(path / "bars.parquet")[BAR_COLUMNS]
+    frame = pd.read_parquet(path / "bars.parquet")
+    return cast(pd.DataFrame, frame.loc[:, cast(list[Hashable], BAR_COLUMNS)])
 
 
 def read_events(path: Path) -> pd.DataFrame | None:
     p = path / "events.parquet"
     if not p.exists():
         return None
-    return pd.read_parquet(p)[EVENT_COLUMNS]
+    frame = pd.read_parquet(p)
+    return cast(pd.DataFrame, frame.loc[:, cast(list[Hashable], EVENT_COLUMNS)])
 
 
 def read_meta(path: Path) -> dict:

@@ -9,6 +9,8 @@ exceed the amount the ledger reserved at submission.
 
 from __future__ import annotations
 
+from typing import cast
+
 import pandas as pd
 
 from flock.core.types import Bar, Fill, NewsEvent, Order
@@ -43,8 +45,12 @@ class ReplayMarket:
             )
 
         bars = bars.sort_values(["ts", "symbol"])
-        self.symbols: tuple[str, ...] = tuple(sorted(bars["symbol"].unique().tolist()))
-        timestamp_sets = [set(group["ts"]) for _, group in bars.groupby("symbol")]
+        symbols = cast(list[str], bars["symbol"].unique().tolist())
+        self.symbols: tuple[str, ...] = tuple(sorted(symbols))
+        timestamp_sets = [
+            set(cast(list[str], group["ts"].tolist()))
+            for _, group in bars.groupby("symbol")
+        ]
         common_timestamps = set.intersection(*timestamp_sets) if timestamp_sets else set()
         self.timestamps: list[str] = sorted(common_timestamps)
 
@@ -56,9 +62,11 @@ class ReplayMarket:
                 f"found {len(self.timestamps)}"
             )
 
-        bars = bars[bars["ts"].isin(common_timestamps)]
+        bars = cast(
+            pd.DataFrame, bars.loc[bars["ts"].isin(list(common_timestamps)), :]
+        )
         self._bars_by_symbol: dict[str, list[Bar]] = {
-            s: [Bar(**row) for row in g.to_dict("records")]
+            cast(str, s): [Bar(**row) for row in g.to_dict("records")]
             for s, g in bars.groupby("symbol")
         }
         self._events_by_ts: dict[str, list[NewsEvent]] = {}
