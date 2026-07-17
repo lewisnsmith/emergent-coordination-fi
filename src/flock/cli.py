@@ -10,6 +10,7 @@ Commands:
     flock design                 Print/export MPHIQ and prompt-pressure cells.
     flock compile-study          Compile a strict study YAML to a frozen JSON plan.
     flock validate-study         Recompile and validate a frozen study plan.
+    flock materialize-study      Export deterministic run assignments/configs.
 """
 
 from pathlib import Path
@@ -175,6 +176,48 @@ def validate_study_command(
         f"valid study plan: {plan.study_id} ({plan.exact_runs} runs, "
         f"{plan.exact_calls} calls, hash {plan.plan_hash})"
     )
+
+
+@app.command("materialize-study")
+def materialize_study_command(
+    plan_path: Path = typer.Argument(..., help="Frozen compiled study-plan JSON"),
+    output: Path = typer.Option(..., help="Materialized assignment-bundle JSON"),
+    resolution: Path = typer.Option(
+        None, help="Explicit execution-resolution YAML (no defaults are inferred)"
+    ),
+    root: Path = typer.Option(Path("."), help="Repository root for registries and assets"),
+    allow_unresolved: bool = typer.Option(
+        False,
+        "--allow-unresolved",
+        help="Export assignment records even when runner configs cannot be resolved",
+    ),
+) -> None:
+    """Materialize every frozen run cell without executing provider calls."""
+    from flock.experiments.materialize import (
+        materialize_study_file,
+        write_materialized_study,
+    )
+
+    materialized = materialize_study_file(
+        plan_path,
+        resolution,
+        root=root,
+        require_executable=False,
+    )
+    write_materialized_study(materialized, output)
+    typer.echo(
+        f"assignments -> {output} ({materialized.exact_runs} runs, "
+        f"{materialized.exact_calls} calls, {materialized.executable_runs} executable, "
+        f"hash {materialized.materialization_hash})"
+    )
+    if materialized.executable_runs != materialized.exact_runs and not allow_unresolved:
+        unresolved = materialized.exact_runs - materialized.executable_runs
+        typer.echo(
+            f"blocked: {unresolved} assignment(s) lack explicit execution mappings; "
+            "inspect execution_blockers or use --allow-unresolved for assignments-only export",
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command("estimate")
