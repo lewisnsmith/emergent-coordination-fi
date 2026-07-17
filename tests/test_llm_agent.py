@@ -100,6 +100,31 @@ def test_prompt_contains_observation_block():
     assert "never invent" in prompt
 
 
+def test_prompt_includes_prediction_contract_semantics():
+    observation = _obs()
+    observation = Observation(
+        step=observation.step,
+        ts=observation.ts,
+        symbols=observation.symbols,
+        bars=observation.bars,
+        prices=observation.prices,
+        news=observation.news,
+        portfolio=observation.portfolio,
+        instrument_context={
+            "X": {
+                "question": "Will X occur?",
+                "close_ts": "2030-12-31T00:00:00Z",
+                "rules": "Resolves Yes only if X occurs.",
+                "price_semantics": "YES probability in [0,1]",
+            }
+        },
+    )
+    prompt = render_user_prompt(observation)
+    assert "Will X occur?" in prompt
+    assert "2030-12-31" in prompt
+    assert "Resolves Yes only" in prompt
+
+
 def test_grounding_rejects_fabricated_evidence_and_numeric_claims():
     verdict = validate_grounding(
         _obs(),

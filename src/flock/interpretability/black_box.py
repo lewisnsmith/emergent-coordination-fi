@@ -35,6 +35,7 @@ def intervention_observation(obs: Observation, feature: str) -> Observation:
             prices=obs.prices,
             news=obs.news,
             portfolio=obs.portfolio,
+            instrument_context=obs.instrument_context,
         )
     raise ValueError(f"unknown black-box intervention '{feature}'")
 

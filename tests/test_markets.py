@@ -131,6 +131,21 @@ def test_replay_rejects_duplicate_symbol_timestamp():
         ReplayMarket(bars, observation_window=2)
 
 
+def test_replay_exposes_prediction_question_expiry_and_rules():
+    context = {
+        "X": {
+            "question": "Will X occur?",
+            "close_ts": "2030-01-06T00:00:00Z",
+            "rules": "Resolves Yes if X occurs.",
+            "price_semantics": "YES probability in [0,1]",
+        }
+    }
+    market = ReplayMarket(
+        _tiny_bars(), observation_window=2, instrument_context=context
+    )
+    assert market.state().instrument_context == context
+
+
 def test_simultaneous_orders_cannot_create_capacity_for_each_other():
     empty = Ledger(initial_cash=1000.0, max_position_per_symbol=10.0, fee_bps=0.0)
     clipped = empty.clip_orders(

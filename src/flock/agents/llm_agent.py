@@ -67,6 +67,7 @@ def render_observation_json(obs: Observation) -> str:
         "news": [
             {"symbol": n.symbol or "MARKET", "headline": n.headline} for n in obs.news
         ],
+        "instrument_context": obs.instrument_context,
         "portfolio": {
             "cash": round(obs.portfolio.cash, 2),
             "equity": round(obs.portfolio.equity, 2),
@@ -86,6 +87,17 @@ def render_user_prompt(obs: Observation) -> str:
     if obs.news:
         lines.append("News:")
         lines.extend(f"  - [{n.symbol or 'MARKET'}] {n.headline}" for n in obs.news)
+    if obs.instrument_context:
+        lines.append("Contract definitions:")
+        for symbol in obs.symbols:
+            context = obs.instrument_context.get(symbol)
+            if context is None:
+                continue
+            lines.append(
+                f"  - {symbol}: {context.get('question', '')} | "
+                f"closes {context.get('close_ts', '')} | "
+                f"rules: {context.get('rules', '')}"
+            )
     lines.append(f"Cash: {obs.portfolio.cash:.2f}  Equity: {obs.portfolio.equity:.2f}")
     if obs.portfolio.positions:
         lines.append("Positions:")
