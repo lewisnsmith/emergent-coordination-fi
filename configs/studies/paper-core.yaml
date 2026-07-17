@@ -1,7 +1,7 @@
 schema_version: 1
 study_id: paper-core-v1
 title: Matched-control study of LLM trading convergence and market impact
-max_stages: 4
+max_stages: 5
 
 dependence_clusters:
   - cluster_id: synthetic-trend-family-v1
@@ -96,6 +96,7 @@ cohorts:
         revision: "2026-07-13"
         provider: anthropic
         family: claude-opus
+        pricing_key: claude-opus-4-8
         count: 8
   - cohort_id: llm-homogeneous-claude-sonnet-v1
     technology: llm
@@ -105,6 +106,7 @@ cohorts:
         revision: "2026-07-13"
         provider: anthropic
         family: claude-sonnet
+        pricing_key: claude-sonnet-5
         count: 8
   - cohort_id: llm-homogeneous-gpt-v1
     technology: llm
@@ -114,6 +116,7 @@ cohorts:
         revision: "2026-07-13"
         provider: openai
         family: gpt-5.6-sol
+        pricing_key: gpt-5.6-sol
         count: 8
   - cohort_id: llm-homogeneous-gemini-v1
     technology: llm
@@ -123,6 +126,7 @@ cohorts:
         revision: "2026-07-13"
         provider: google
         family: gemini-3.1
+        pricing_key: gemini-3.1-pro-preview
         count: 8
   - cohort_id: llm-heterogeneous-v1
     technology: llm
@@ -132,21 +136,25 @@ cohorts:
         revision: "2026-07-13"
         provider: anthropic
         family: claude-opus
+        pricing_key: claude-opus-4-8
         count: 2
       - model_id: claude-sonnet-5
         revision: "2026-07-13"
         provider: anthropic
         family: claude-sonnet
+        pricing_key: claude-sonnet-5
         count: 2
       - model_id: gpt-5.6-sol
         revision: "2026-07-13"
         provider: openai
         family: gpt-5.6-sol
+        pricing_key: gpt-5.6-sol
         count: 2
       - model_id: gemini-3.1-pro-20260713
         revision: "2026-07-13"
         provider: google
         family: gemini-3.1
+        pricing_key: gemini-3.1-pro-preview
         count: 2
   - cohort_id: classical-homogeneous-momentum-v1
     technology: classical
@@ -320,8 +328,23 @@ required_outputs:
     estimand_ids: [h1-kappa-contrast, h4-mphiq-effects, h5-capital-dose-response]
 
 stages:
-  - stage_id: calibration-replay
+  - stage_id: provider-canary
     order: 1
+    authorization_stage: canary
+    design: replay
+    trajectory_ids: [synthetic-trend-2026-v1]
+    cohort_ids: [llm-homogeneous-claude-opus-v1, llm-homogeneous-claude-sonnet-v1, llm-homogeneous-gpt-v1, llm-homogeneous-gemini-v1, llm-heterogeneous-v1, classical-homogeneous-momentum-v1, classical-homogeneous-mean-reversion-v1, classical-homogeneous-market-maker-v1, classical-homogeneous-buy-hold-v1, classical-heterogeneous-v1, random-null-v1]
+    seeds: [1001]
+    steps_per_run: 1
+    calls_per_llm_agent_step: 1
+    estimand_ids: [h1-kappa-contrast]
+    output_ids: [frozen-plan]
+    expected_counts: {runs: 1, steps: 1, agents_per_run: 88, agent_steps: 88, calls: 40}
+    planned_cost_usd: 10.0
+    budget_cap: {max_calls: 50, max_cost_usd: 50.0}
+  - stage_id: calibration-replay
+    order: 2
+    authorization_stage: pilot
     design: replay
     trajectory_ids: [synthetic-trend-2026-v1, synthetic-reversal-2026-v1]
     cohort_ids: [llm-homogeneous-claude-opus-v1, llm-homogeneous-claude-sonnet-v1, llm-homogeneous-gpt-v1, llm-homogeneous-gemini-v1, llm-heterogeneous-v1, classical-homogeneous-momentum-v1, classical-homogeneous-mean-reversion-v1, classical-homogeneous-market-maker-v1, classical-homogeneous-buy-hold-v1, classical-heterogeneous-v1, random-null-v1]
@@ -334,7 +357,8 @@ stages:
     planned_cost_usd: 750.0
     budget_cap: {max_calls: 10000, max_cost_usd: 1000.0}
   - stage_id: confirmatory-replay
-    order: 2
+    order: 3
+    authorization_stage: confirmatory
     design: replay
     trajectory_ids: [equities-2018-h1-v1, equities-2019-h2-v1, equities-2020-crisis-v1, equities-2022-bear-v1]
     cohort_ids: [llm-homogeneous-claude-opus-v1, llm-homogeneous-claude-sonnet-v1, llm-homogeneous-gpt-v1, llm-homogeneous-gemini-v1, llm-heterogeneous-v1, classical-homogeneous-momentum-v1, classical-homogeneous-mean-reversion-v1, classical-homogeneous-market-maker-v1, classical-homogeneous-buy-hold-v1, classical-heterogeneous-v1, random-null-v1]
@@ -347,7 +371,8 @@ stages:
     planned_cost_usd: 6250.0
     budget_cap: {max_calls: 65000, max_cost_usd: 7000.0}
   - stage_id: mphiq-factorial
-    order: 3
+    order: 4
+    authorization_stage: confirmatory
     design: mphiq
     trajectory_ids: [equities-2019-h2-v1, equities-2022-bear-v1]
     cohort_ids: [llm-heterogeneous-v1]
@@ -361,7 +386,8 @@ stages:
     planned_cost_usd: 6000.0
     budget_cap: {max_calls: 83000, max_cost_usd: 7000.0}
   - stage_id: h5-capital-share
-    order: 4
+    order: 5
+    authorization_stage: confirmatory
     design: capital_share
     trajectory_ids: [exchange-trend-2026-v1, exchange-stress-2026-v1]
     cohort_ids: [llm-heterogeneous-v1, classical-heterogeneous-v1]

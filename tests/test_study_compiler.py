@@ -26,12 +26,13 @@ def test_paper_core_compiles_deterministically_to_json_serializable_frozen_plan(
 
     assert first.plan_hash == second.plan_hash
     assert len(first.plan_hash) == 64
-    assert first.exact_runs == 196
-    assert first.exact_steps == 21_680
-    assert first.exact_agent_steps == 397_440
-    assert first.exact_calls == 232_320
-    assert first.planned_cost_usd == 18_800.0
-    assert len(first.stages[2].design_cells) == 32
+    assert first.exact_runs == 197
+    assert first.exact_steps == 21_681
+    assert first.exact_agent_steps == 397_528
+    assert first.exact_calls == 232_360
+    assert first.planned_cost_usd == 18_810.0
+    assert sum(first.stages[0].calls_by_pricing_key.values()) == 40
+    assert len(first.stages[3].design_cells) == 32
     assert json.loads(json.dumps(first.to_jsonable()))["plan_hash"] == first.plan_hash
     with pytest.raises(ValidationError, match="frozen"):
         first.exact_calls = 0
@@ -100,7 +101,7 @@ def test_rejects_unmatched_h1_family_rotation_and_unknown_holdout():
 
 def test_rejects_stage_cap_count_drift_and_budget_overrun():
     too_many_stages = _raw_spec()
-    too_many_stages["max_stages"] = 3
+    too_many_stages["max_stages"] = 4
     with pytest.raises(ValueError, match="exceeding stage cap"):
         _compile_raw(too_many_stages)
 
@@ -113,3 +114,16 @@ def test_rejects_stage_cap_count_drift_and_budget_overrun():
     over_budget["stages"][0]["budget_cap"]["max_calls"] = 1
     with pytest.raises(ValueError, match="stage call cap"):
         _compile_raw(over_budget)
+
+
+def test_rejects_missing_pricing_and_preconfirmatory_spend_overruns():
+    missing_price = _raw_spec()
+    missing_price["cohorts"][0]["allocations"][0]["pricing_key"] = "unpriced-model"
+    with pytest.raises(ValueError, match="no dated pricing"):
+        _compile_raw(missing_price)
+
+    excessive_canary = _raw_spec()
+    excessive_canary["stages"][0]["planned_cost_usd"] = 51.0
+    excessive_canary["stages"][0]["budget_cap"]["max_cost_usd"] = 51.0
+    with pytest.raises(ValueError, match=r"\$50 hard ceiling"):
+        _compile_raw(excessive_canary)

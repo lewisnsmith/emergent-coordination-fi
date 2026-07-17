@@ -11,17 +11,20 @@ import yaml
 from pydantic import Field
 
 from flock.core.study import ExactCountsSpec, StageSpec, StrictFrozenModel, StudySpec
+from flock.experiments.costs import PricingCatalog, load_pricing
 
 
 class CompiledStage(StrictFrozenModel):
     stage_id: str
     order: int
+    authorization_stage: str
     design: str
     trajectory_ids: tuple[str, ...]
     cohort_ids: tuple[str, ...]
     seeds: tuple[int, ...]
     design_cells: tuple[str, ...]
     exact_counts: ExactCountsSpec
+    calls_by_pricing_key: dict[str, int]
     planned_cost_usd: float
     estimand_ids: tuple[str, ...]
     output_ids: tuple[str, ...]
@@ -109,6 +112,21 @@ def _compile_stage(
         agent_steps=steps * agents_per_run,
         calls=steps * llm_agents_per_run * stage.calls_per_llm_agent_step,
     )
+    calls_by_pricing_key: dict[str, int] = {}
+    for cohort in cohorts:
+        if cohort.technology != "llm":
+            continue
+        for allocation in cohort.allocations:
+            if allocation.pricing_key is None:
+                raise ValueError(
+                    f"{stage.stage_id}: LLM allocation {allocation.model_id} lacks pricing_key"
+                )
+            calls_by_pricing_key[allocation.pricing_key] = (
+                calls_by_pricing_key.get(allocation.pricing_key, 0)
+                + steps * allocation.count * stage.calls_per_llm_agent_step
+            )
+    if sum(calls_by_pricing_key.values()) != exact.calls:
+        raise ValueError(f"{stage.stage_id}: model call allocation does not reconcile")
     if exact != stage.expected_counts:
         raise ValueError(
             f"{stage.stage_id}: declared exact counts do not match compiler counts; "
@@ -121,12 +139,14 @@ def _compile_stage(
     return CompiledStage(
         stage_id=stage.stage_id,
         order=stage.order,
+        authorization_stage=stage.authorization_stage,
         design=stage.design,
         trajectory_ids=tuple(sorted(stage.trajectory_ids)),
         cohort_ids=tuple(sorted(stage.cohort_ids)),
         seeds=tuple(sorted(stage.seeds)),
         design_cells=cells,
         exact_counts=exact,
+        calls_by_pricing_key=calls_by_pricing_key,
         planned_cost_usd=stage.planned_cost_usd,
         estimand_ids=tuple(sorted(stage.estimand_ids)),
         output_ids=tuple(sorted(stage.output_ids)),
@@ -178,7 +198,9 @@ def load_study_spec(path: Path = Path("configs/studies/paper-core.yaml")) -> Stu
     return StudySpec.model_validate(raw)
 
 
-def compile_study(spec: StudySpec) -> FrozenStudyPlan:
+def compile_study(
+    spec: StudySpec, pricing: PricingCatalog | None = None
+) -> FrozenStudyPlan:
     """Validate cross-references and deterministically freeze exact execution counts."""
     if len(spec.stages) > spec.max_stages:
         raise ValueError(
@@ -199,6 +221,10 @@ def compile_study(spec: StudySpec) -> FrozenStudyPlan:
     orders = [stage.order for stage in spec.stages]
     if sorted(orders) != list(range(1, len(spec.stages) + 1)):
         raise ValueError("stage order must be unique and contiguous from one")
+    authorization_order = {"canary": 0, "pilot": 1, "confirmatory": 2}
+    authorizations = [authorization_order[stage.authorization_stage] for stage in spec.stages]
+    if authorizations != sorted(authorizations):
+        raise ValueError("authorization stages must progress canary to pilot to confirmatory")
 
     for trajectory in spec.trajectories:
         if trajectory.dependence_cluster_id not in cluster_index:
@@ -220,6 +246,19 @@ def compile_study(spec: StudySpec) -> FrozenStudyPlan:
         raise ValueError(
             f"held-out model families are not in the design: {sorted(unknown_held_out)}"
         )
+
+    pricing = pricing or load_pricing()
+    llm_pricing_keys = {
+        allocation.pricing_key
+        for cohort in spec.cohorts
+        if cohort.technology == "llm"
+        for allocation in cohort.allocations
+    }
+    if None in llm_pricing_keys:
+        raise ValueError("every LLM allocation requires a pricing_key")
+    missing_prices = llm_pricing_keys - set(pricing.api)
+    if missing_prices:
+        raise ValueError(f"LLM allocations have no dated pricing: {sorted(missing_prices)}")
 
     shares = [level.ai_share_bps for level in spec.capital_share_levels]
     _require_unique(shares, "H5 capital-share levels")
@@ -268,6 +307,20 @@ def compile_study(spec: StudySpec) -> FrozenStudyPlan:
     exact_agent_steps = sum(stage.exact_counts.agent_steps for stage in compiled_stages)
     exact_calls = sum(stage.exact_counts.calls for stage in compiled_stages)
     planned_cost = sum(stage.planned_cost_usd for stage in compiled_stages)
+    canary_cost = sum(
+        stage.planned_cost_usd
+        for stage in compiled_stages
+        if stage.authorization_stage == "canary"
+    )
+    pilot_cost = sum(
+        stage.planned_cost_usd
+        for stage in compiled_stages
+        if stage.authorization_stage == "pilot"
+    )
+    if canary_cost > 50:
+        raise ValueError("canary authorization exceeds the $50 hard ceiling")
+    if pilot_cost > 5_200:
+        raise ValueError("pilot authorization exceeds the $5,200 hard ceiling")
     if exact_calls > spec.budget_cap.max_calls:
         raise ValueError("design exceeds global call cap")
     if planned_cost > spec.budget_cap.max_cost_usd:

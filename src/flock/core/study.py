@@ -106,6 +106,7 @@ class ModelAllocationSpec(StrictFrozenModel):
     revision: Annotated[str, StringConstraints(strip_whitespace=True, min_length=4, max_length=80)]
     provider: Identifier
     family: Identifier
+    pricing_key: Identifier | None = None
     count: Annotated[int, Field(ge=1, le=10_000)]
 
     @field_validator("model_id")
@@ -213,6 +214,7 @@ class ExactCountsSpec(StrictFrozenModel):
 class StageSpec(StrictFrozenModel):
     stage_id: Identifier
     order: Annotated[int, Field(ge=1)]
+    authorization_stage: Literal["canary", "pilot", "confirmatory"]
     design: Literal["replay", "mphiq", "capital_share"]
     trajectory_ids: list[Identifier] = Field(min_length=1)
     cohort_ids: list[Identifier] = Field(min_length=1)
