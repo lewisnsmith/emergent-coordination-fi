@@ -17,6 +17,13 @@ import numpy as np
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from flock.analysis.crossed import (
+    H1_CONTRASTS,
+    H3_CONTRASTS,
+    H4_CONTRASTS,
+    FirstPaperEstimands,
+    analyze_first_paper_estimands,
+)
 from flock.analysis.stats import equivalence_tost
 from flock.analysis.study import StudyInference, analyze_h1_study
 from flock.analysis.study_visuals import export_core_study_figures
@@ -55,6 +62,71 @@ class H1StatisticalContract(BaseModel):
         return self
 
 
+class EstimandThresholds(BaseModel):
+    """Frozen practical thresholds for one estimand/outcome pair."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sesoi: float = Field(gt=0, le=2)
+    equivalence_lower: float = Field(ge=-2, lt=0)
+    equivalence_upper: float = Field(gt=0, le=2)
+    noninferiority_lower: float = Field(ge=-2, lt=0)
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> EstimandThresholds:
+        if self.equivalence_lower >= self.equivalence_upper:
+            raise ValueError("equivalence_lower must be smaller than equivalence_upper")
+        return self
+
+
+class FirstPaperStatisticalContract(BaseModel):
+    """Preregistered multiplicity family and margins for crossed H1/H3/H4."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    confirmatory_metrics: list[str] = Field(min_length=1)
+    estimands: dict[str, EstimandThresholds]
+    alpha: float = Field(gt=0, lt=0.5)
+
+    @model_validator(mode="after")
+    def validate_complete_family(self) -> FirstPaperStatisticalContract:
+        metrics = [metric.strip() for metric in self.confirmatory_metrics]
+        if any(not metric for metric in metrics) or len(metrics) != len(set(metrics)):
+            raise ValueError("confirmatory_metrics must be nonempty and unique")
+        expected = {
+            f"{estimand_id}::{metric}"
+            for metric in metrics
+            for estimand_id in (*H1_CONTRASTS, *H3_CONTRASTS, *H4_CONTRASTS)
+        }
+        actual = set(self.estimands)
+        if actual != expected:
+            raise ValueError(
+                "estimands must exactly freeze every H1/H3/H4 contrast and metric: "
+                f"missing={sorted(expected - actual)}, unexpected={sorted(actual - expected)}"
+            )
+        self.confirmatory_metrics = metrics
+        return self
+
+
+class HashedPaperInput(BaseModel):
+    """Content-addressed family-aggregated analysis input."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    path: str = Field(min_length=1)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class FirstPaperInputs(BaseModel):
+    """Required crossed H1, lineage H3, and Hamming-one H4 inputs."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    crossed_rows: HashedPaperInput
+    lineage_rows: HashedPaperInput
+    mphiq_rows: HashedPaperInput
+
+
 class StudyBundleSpec(BaseModel):
     """Strict source manifest for one complete study bundle."""
 
@@ -66,14 +138,17 @@ class StudyBundleSpec(BaseModel):
     expected_independent_blocks: list[str] = Field(min_length=2)
     run_dirs: list[str] = Field(min_length=2)
     preregistration: PreregistrationRef | None = None
+    first_paper_inputs: FirstPaperInputs | None = None
 
     @model_validator(mode="after")
     def validate_counts(self) -> StudyBundleSpec:
         blocks = [block.strip() for block in self.expected_independent_blocks]
         if any(not block for block in blocks) or len(blocks) != len(set(blocks)):
             raise ValueError("expected independent blocks must be nonempty and unique")
-        if len(self.run_dirs) != len(blocks):
+        if self.first_paper_inputs is None and len(self.run_dirs) != len(blocks):
             raise ValueError("one run directory is required per expected independent block")
+        if self.first_paper_inputs is not None and len(self.run_dirs) < len(blocks):
+            raise ValueError("paper studies require at least one treatment run per block")
         return self
 
 
@@ -187,7 +262,11 @@ def _validate_source_runs(
     run_dirs = [_resolve(source_dir, value) for value in spec.run_dirs]
     manifests: list[dict[str, Any]] = []
     verifications: list[RunVerification] = []
-    trajectories: set[str] = set()
+    run_ids: set[str] = set()
+    block_identities: dict[str, tuple[str, str]] = {}
+    cluster_blocks: dict[str, str] = {}
+    trajectory_blocks: dict[str, str] = {}
+    expected_blocks = set(spec.expected_independent_blocks)
     for run_dir in run_dirs:
         manifest_path = run_dir / "manifest.json"
         if not manifest_path.is_file():
@@ -198,15 +277,37 @@ def _validate_source_runs(
         verification = verify_run(run_dir)
         if not verification.ok:
             raise ValueError(f"run failed verification: {run_dir}: {verification.errors}")
+        run_id = str(manifest.get("run_id", "")).strip()
+        if not run_id or run_id in run_ids:
+            raise ValueError(f"paper source run IDs must be nonempty and unique: {run_id!r}")
+        run_ids.add(run_id)
+        config = cast(dict[str, Any], manifest.get("config", {}))
+        block = str(config.get("independent_block", "")).strip()
+        cluster = str(config.get("dependence_cluster", "")).strip()
         trajectory = _trajectory_identity(manifest)
-        if trajectory in trajectories:
+        if block not in expected_blocks or not cluster:
+            raise ValueError(f"run has invalid independent-block lineage: {run_dir}")
+        identity = (cluster, trajectory)
+        if block in block_identities and block_identities[block] != identity:
+            raise ValueError(f"nested treatment runs disagree on lineage for block {block!r}")
+        prior_cluster_block = cluster_blocks.get(cluster)
+        prior_trajectory_block = trajectory_blocks.get(trajectory)
+        if (
+            (prior_cluster_block is not None and prior_cluster_block != block)
+            or (prior_trajectory_block is not None and prior_trajectory_block != block)
+        ):
             raise ValueError(
-                "duplicate market trajectory; block labels or model seeds do not create "
-                f"independent evidence: {trajectory}"
+                "a trajectory or dependence cluster cannot cross independent blocks; "
+                "block labels or model seeds do not create independent evidence: "
+                f"{trajectory}"
             )
-        trajectories.add(trajectory)
+        block_identities[block] = identity
+        cluster_blocks[cluster] = block
+        trajectory_blocks[trajectory] = block
         manifests.append(manifest)
         verifications.append(verification)
+    if set(block_identities) != expected_blocks:
+        raise ValueError("verified runs do not cover every expected independent block")
     detected: Literal["mock", "real"] = (
         "mock" if any(_is_mock_manifest(manifest) for manifest in manifests) else "real"
     )
@@ -255,6 +356,96 @@ def _statistical_contract(
         return DEFAULT_H1_STATISTICAL_CONTRACT, "provisional-default"
     contract = H1StatisticalContract.model_validate(raw_contract)
     return contract, "frozen-preregistered"
+
+
+def _first_paper_contract(
+    spec: StudyBundleSpec, source_dir: Path
+) -> FirstPaperStatisticalContract:
+    """Load the complete H1/H3/H4 contract from the immutable preregistration."""
+    _check_preregistration(spec, source_dir)
+    assert spec.preregistration is not None
+    preregistration = _json(_resolve(source_dir, spec.preregistration.path))
+    raw_contract = preregistration.get("first_paper_statistical_contract")
+    if raw_contract is None:
+        raise ValueError(
+            "paper export requires a preregistered first_paper_statistical_contract"
+        )
+    return FirstPaperStatisticalContract.model_validate(raw_contract)
+
+
+def _paper_input_frames(
+    spec: StudyBundleSpec, source_dir: Path
+) -> tuple[dict[str, Path], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Resolve and authenticate all frozen family-aggregated paper inputs."""
+    if spec.first_paper_inputs is None:
+        raise ValueError("paper export requires frozen first_paper_inputs")
+    paths: dict[str, Path] = {}
+    frames: dict[str, pd.DataFrame] = {}
+    for name in ("crossed_rows", "lineage_rows", "mphiq_rows"):
+        reference = cast(HashedPaperInput, getattr(spec.first_paper_inputs, name))
+        path = _resolve(source_dir, reference.path)
+        if not path.is_file():
+            raise ValueError(f"paper analysis input is missing: {path}")
+        if _sha256(path) != reference.sha256:
+            raise ValueError(f"paper analysis input hash does not match: {name}")
+        try:
+            frame = pd.read_parquet(path)
+        except Exception as error:
+            raise ValueError(f"paper analysis input is not readable parquet: {name}") from error
+        paths[name] = path
+        frames[name] = frame
+    return paths, frames["crossed_rows"], frames["lineage_rows"], frames["mphiq_rows"]
+
+
+def _validate_aggregate_provenance(
+    frames: dict[str, pd.DataFrame], manifests: list[dict[str, Any]]
+) -> None:
+    """Require exact, block-consistent run provenance for every aggregate row."""
+    run_lineage: dict[str, tuple[str, str, str]] = {}
+    for manifest in manifests:
+        run_id = str(manifest.get("run_id", "")).strip()
+        config = cast(dict[str, Any], manifest.get("config", {}))
+        lineage = (
+            str(config.get("independent_block", "")).strip(),
+            str(config.get("dependence_cluster", "")).strip(),
+            _trajectory_identity(manifest),
+        )
+        if not run_id or run_id in run_lineage:
+            raise ValueError("aggregate provenance requires unique verified run IDs")
+        run_lineage[run_id] = lineage
+
+    cited: set[str] = set()
+    for name, frame in frames.items():
+        if "source_run_ids" not in frame.columns:
+            raise ValueError(f"{name} requires source_run_ids on every aggregate row")
+        for row_index, row in enumerate(frame.to_dict("records")):
+            raw_ids = row.get("source_run_ids")
+            if not isinstance(raw_ids, (list, tuple, np.ndarray)):
+                raise ValueError(f"{name} row {row_index} has invalid source_run_ids")
+            source_ids = [str(value).strip() for value in raw_ids]
+            if not source_ids or any(not value for value in source_ids):
+                raise ValueError(f"{name} row {row_index} has empty source_run_ids")
+            if len(source_ids) != len(set(source_ids)):
+                raise ValueError(f"{name} row {row_index} repeats a source run ID")
+            row_lineage = (
+                str(row.get("independent_block", "")).strip(),
+                str(row.get("dependence_cluster", "")).strip(),
+                str(row.get("trajectory_id", "")).strip(),
+            )
+            for run_id in source_ids:
+                if run_id not in run_lineage:
+                    raise ValueError(f"{name} cites an unverified source run ID {run_id!r}")
+                if run_lineage[run_id] != row_lineage:
+                    raise ValueError(
+                        f"{name} row {row_index} cites a source run from another block lineage"
+                    )
+                cited.add(run_id)
+    expected = set(run_lineage)
+    if cited != expected:
+        raise ValueError(
+            "aggregate source_run_ids do not exactly cover verified treatment runs: "
+            f"missing={sorted(expected - cited)}, unexpected={sorted(cited - expected)}"
+        )
 
 
 def _noninferiority_result(
@@ -322,6 +513,358 @@ def _sensitivity_rows(
     return rows
 
 
+def _crossed_sensitivity_rows(
+    study_id: str,
+    block_effects: pd.DataFrame,
+    contract: FirstPaperStatisticalContract,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for group_key, group in block_effects.groupby(["estimand_id", "metric"], sort=True):
+        estimand_id, metric = cast(tuple[Any, Any], group_key)
+        key = f"{estimand_id}::{metric}"
+        thresholds = contract.estimands[key]
+        group_records = cast(list[dict[str, Any]], group.to_dict("records"))
+        values_by_block = {
+            str(row["independent_block"]): float(row["effect"])
+            for row in group_records
+        }
+        for row in _sensitivity_rows(study_id, values_by_block, thresholds.sesoi):
+            row["estimand_id"] = str(estimand_id)
+            row["metric"] = str(metric)
+            rows.append(row)
+    return rows
+
+
+def _emit_first_paper_bundle(
+    *,
+    spec: StudyBundleSpec,
+    source_manifest: Path,
+    output_dir: Path | None,
+    run_dirs: list[Path],
+    manifests: list[dict[str, Any]],
+    run_checks: list[RunVerification],
+    evidence_kind: Literal["mock", "real"],
+    seed: int,
+) -> Path:
+    """Emit the preregistered crossed H1/H3/H4 bundle; never infer from raw agents."""
+    source_dir = source_manifest.parent
+    contract = _first_paper_contract(spec, source_dir)
+    input_paths, crossed_rows, lineage_rows, mphiq_rows = _paper_input_frames(
+        spec, source_dir
+    )
+    _validate_aggregate_provenance(
+        {
+            "crossed_rows": crossed_rows,
+            "lineage_rows": lineage_rows,
+            "mphiq_rows": mphiq_rows,
+        },
+        manifests,
+    )
+    result: FirstPaperEstimands = analyze_first_paper_estimands(
+        crossed_rows,
+        confirmatory_metrics=contract.confirmatory_metrics,
+        lineage_rows=lineage_rows,
+        mphiq_rows=mphiq_rows,
+        alpha=contract.alpha,
+        seed=seed,
+    )
+    expected_blocks = set(spec.expected_independent_blocks)
+    observed_blocks = set(result.block_effects["independent_block"].astype(str))
+    if observed_blocks != expected_blocks:
+        raise ValueError(
+            "crossed paper inputs do not match expected independent blocks: "
+            f"missing={sorted(expected_blocks - observed_blocks)}, "
+            f"unexpected={sorted(observed_blocks - expected_blocks)}"
+        )
+
+    manifest_identities: dict[str, tuple[str, str]] = {}
+    runs_by_block: dict[str, list[tuple[Path, dict[str, Any]]]] = {}
+    for run_dir, manifest in zip(run_dirs, manifests, strict=True):
+        config = cast(dict[str, Any], manifest["config"])
+        block = str(config["independent_block"])
+        cluster = str(config.get("dependence_cluster", "")).strip()
+        trajectory = _trajectory_identity(manifest)
+        if not cluster:
+            raise ValueError("paper runs require an explicit dependence_cluster")
+        manifest_identities[block] = (cluster, trajectory)
+        runs_by_block.setdefault(block, []).append((run_dir, manifest))
+    independent_rows: list[dict[str, Any]] = []
+    for block in sorted(runs_by_block):
+        cluster, trajectory = manifest_identities[block]
+        nested_runs = runs_by_block[block]
+        independent_rows.append(
+            {
+                "study_id": spec.study_id,
+                "independent_block": block,
+                "dependence_cluster": cluster,
+                "trajectory_id": trajectory,
+                "nested_run_ids_json": json.dumps(
+                    sorted(str(manifest["run_id"]) for _, manifest in nested_runs)
+                ),
+                "nested_run_dirs_json": json.dumps(
+                    sorted(str(run_dir) for run_dir, _ in nested_runs)
+                ),
+                "nested_model_seeds_json": json.dumps(
+                    [
+                        cast(dict[str, Any], manifest["config"]).get("seed")
+                        for _, manifest in sorted(
+                            nested_runs, key=lambda item: str(item[1]["run_id"])
+                        )
+                    ]
+                ),
+                "nested_treatment_runs": len(nested_runs),
+                "evidence_kind": evidence_kind,
+            }
+        )
+    identity_rows = result.block_effects[
+        ["independent_block", "dependence_cluster", "trajectory_id"]
+    ].drop_duplicates()
+    observed_identities = {
+        str(block): (str(cluster), str(trajectory))
+        for block, cluster, trajectory in identity_rows.itertuples(index=False, name=None)
+    }
+    if observed_identities != manifest_identities:
+        raise ValueError(
+            "crossed paper input block, dependence-cluster, or trajectory lineage "
+            "does not match verified run manifests"
+        )
+
+    destination = (output_dir or source_dir / "analysis").resolve()
+    destination.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(independent_rows).sort_values("independent_block").to_parquet(
+        destination / "independent_units.parquet", index=False
+    )
+    block_effects = result.block_effects.copy()
+    block_effects.insert(0, "study_id", spec.study_id)
+    block_effects["evidence_kind"] = evidence_kind
+    block_effects = block_effects.sort_values(
+        ["estimand_id", "metric", "independent_block"]
+    ).reset_index(drop=True)
+    block_effects.to_parquet(destination / "block_effects.parquet", index=False)
+
+    effects = result.effects.copy()
+    effects.insert(0, "study_id", spec.study_id)
+    effects["evidence_kind"] = evidence_kind
+    effects["margin_status"] = "frozen-preregistered"
+    for index, row in effects.iterrows():
+        thresholds = contract.estimands[f"{row['estimand_id']}::{row['metric']}"]
+        for field, value in thresholds.model_dump().items():
+            effects.at[index, field] = value
+    effects = effects.sort_values(["estimand_id", "metric"]).reset_index(drop=True)
+    effects.to_parquet(destination / "effects.parquet", index=False)
+
+    checks_by_run_id = {
+        str(manifest["run_id"]): check
+        for manifest, check in zip(manifests, run_checks, strict=True)
+    }
+    missingness_rows: list[dict[str, Any]] = []
+    for block in sorted(runs_by_block):
+        nested_runs = runs_by_block[block]
+        run_ids = sorted(str(manifest["run_id"]) for _, manifest in nested_runs)
+        checks = [checks_by_run_id[run_id] for run_id in run_ids]
+        missingness_rows.append(
+            {
+                "study_id": spec.study_id,
+                "independent_block": block,
+                "source_run_ids_json": json.dumps(run_ids),
+                "nested_treatment_runs": len(run_ids),
+                "run_complete": True,
+                "verification_ok": all(check.ok for check in checks),
+                "missing_independent_unit": False,
+                "terminal_failure": False,
+                "decision_rows": sum(check.decisions for check in checks),
+                "fill_rows": sum(check.fills for check in checks),
+                "portfolio_rows": sum(check.portfolio_rows for check in checks),
+                "error_count": sum(len(check.errors) for check in checks),
+                "warning_count": sum(len(check.warnings) for check in checks),
+                "errors_json": json.dumps(
+                    {run_id: checks_by_run_id[run_id].errors for run_id in run_ids},
+                    sort_keys=True,
+                ),
+                "warnings_json": json.dumps(
+                    {run_id: checks_by_run_id[run_id].warnings for run_id in run_ids},
+                    sort_keys=True,
+                ),
+                "scope_note": "verified run-level completeness for crossed paper inputs",
+            }
+        )
+    pd.DataFrame(missingness_rows).sort_values("independent_block").to_parquet(
+        destination / "missingness_failures.parquet", index=False
+    )
+    pd.DataFrame(
+        _crossed_sensitivity_rows(spec.study_id, block_effects, contract)
+    ).sort_values(["estimand_id", "metric", "specification_id"]).to_parquet(
+        destination / "sensitivity_results.parquet", index=False
+    )
+
+    equivalence_results: list[dict[str, Any]] = []
+    registry: list[dict[str, Any]] = []
+    claims: list[dict[str, Any]] = []
+    for effect_row in effects.to_dict("records"):
+        estimand_id = str(effect_row["estimand_id"])
+        metric = str(effect_row["metric"])
+        key = f"{estimand_id}::{metric}"
+        thresholds = contract.estimands[key]
+        values = (
+            block_effects.loc[
+                (block_effects["estimand_id"] == estimand_id)
+                & (block_effects["metric"] == metric),
+                "effect",
+            ]
+            .astype(float)
+            .tolist()
+        )
+        tost = equivalence_tost(
+            values,
+            thresholds.equivalence_lower,
+            thresholds.equivalence_upper,
+            alpha=contract.alpha,
+        )
+        noninferiority = _noninferiority_result(
+            values, thresholds.noninferiority_lower, contract.alpha
+        )
+        equivalence_results.append(
+            {
+                "estimand_id": estimand_id,
+                "metric": metric,
+                "margin_status": "frozen-preregistered",
+                "equivalence": {
+                    **tost.__dict__,
+                    "decision_rule": "both TOST one-sided p-values must be below alpha",
+                    "paper_claim_allowed": tost.equivalent,
+                },
+                "noninferiority": {
+                    **noninferiority,
+                    "paper_claim_allowed": bool(
+                        noninferiority["statistically_noninferior"]
+                    ),
+                },
+            }
+        )
+        registry.append(
+            {
+                "estimand_id": estimand_id,
+                "metric": metric,
+                "contrast": estimand_id,
+                "independent_unit": "trajectory or nonoverlapping market-window block",
+                "nested_units_not_independent": [
+                    "agent",
+                    "pair",
+                    "step",
+                    "call",
+                    "retry",
+                    "prompt variant",
+                    "response seed",
+                ],
+                "inference": "paired sign-flip test over independent block effects",
+                **thresholds.model_dump(),
+                "alpha": contract.alpha,
+                "margin_status": "frozen-preregistered",
+                "limitations": [
+                    "sampled dated model releases and classical families only",
+                    "block-effect sign flips require the stated symmetry assumption",
+                ],
+            }
+        )
+        claims.append(
+            {
+                "claim_id": key,
+                "estimand_id": estimand_id,
+                "metric": metric,
+                "effect_artifact": "effects.parquet",
+                "estimand_artifact": "estimand_registry.json",
+                "missingness_artifact": "missingness_failures.parquet",
+                "sensitivity_artifact": "sensitivity_results.parquet",
+                "equivalence_artifact": "equivalence_noninferiority.json",
+                "figures": (
+                    ["figures/h1-block-effects.png"]
+                    if key == f"{H1_CONTRASTS[0]}::{contract.confirmatory_metrics[0]}"
+                    else []
+                ),
+                "limitations": [
+                    "limited to the frozen sampled releases, families, and trajectories",
+                    "sign-flip inference assumes symmetric block effects",
+                ],
+                "verification_status": "paper-eligible",
+                "evidence_kind": evidence_kind,
+                "margin_status": "frozen-preregistered",
+            }
+        )
+
+    _write_json(
+        destination / "equivalence_noninferiority.json",
+        {
+            "study_id": spec.study_id,
+            "margin_status": "frozen-preregistered",
+            "margins_provisional": False,
+            "results": equivalence_results,
+            "interpretation_rule": "nonsignificance is never evidence of equivalence",
+        },
+    )
+    _write_json(
+        destination / "estimand_registry.json",
+        {"study_id": spec.study_id, "estimands": registry},
+    )
+    _write_json(destination / "multiplicity.json", result.multiplicity)
+    _write_json(
+        destination / "statistical_verification.json",
+        {
+            "verified": True,
+            "analysis_design": "crossed-H1-H3-H4",
+            "independent_n": len(expected_blocks),
+            "independent_unit": "trajectory or nonoverlapping market-window block",
+            "nested_units_not_counted": result.multiplicity["nested_units_not_counted"],
+            "inference_method": "paired block sign flips with unified Holm correction",
+            "margin_status": "frozen-preregistered",
+            "margins_frozen_before_analysis": True,
+            "run_verifications": [check.model_dump() for check in run_checks],
+        },
+    )
+    _write_json(destination / "claims.json", {"claims": claims})
+    primary_key = f"{H1_CONTRASTS[0]}::{contract.confirmatory_metrics[0]}"
+    primary_thresholds = contract.estimands[primary_key]
+    export_core_study_figures(
+        destination,
+        sesoi=primary_thresholds.sesoi,
+        estimand_id=H1_CONTRASTS[0],
+        metric=contract.confirmatory_metrics[0],
+    )
+    artifact_hashes = {name: _sha256(destination / name) for name in CORE_ARTIFACTS}
+    _write_json(
+        destination / "release-manifest.json",
+        {
+            "schema_version": 2,
+            "analysis_design": "crossed-H1-H3-H4",
+            "study_id": spec.study_id,
+            "status": "complete",
+            "evidence_kind": evidence_kind,
+            "paper_requested": True,
+            "analysis_seed": seed,
+            "expected_independent_blocks": sorted(expected_blocks),
+            "preregistration": spec.preregistration.model_dump()
+            if spec.preregistration
+            else None,
+            "first_paper_statistical_contract": contract.model_dump(),
+            "margin_status": "frozen-preregistered",
+            "source_manifest": str(source_manifest),
+            "source_manifest_sha256": _sha256(source_manifest),
+            "run_input_sha256": {
+                str(run_dir): {name: _sha256(run_dir / name) for name in RUN_INPUTS}
+                for run_dir in run_dirs
+            },
+            "analysis_input_sha256": {
+                name: {"path": str(path), "sha256": _sha256(path)}
+                for name, path in input_paths.items()
+            },
+            "artifact_sha256": artifact_hashes,
+        },
+    )
+    verification = verify_study_bundle(destination, require_paper=True)
+    if not verification.ok:
+        raise ValueError(f"emitted study bundle failed verification: {verification.errors}")
+    return destination
+
+
 def analyze_study_bundle(
     source_manifest: Path,
     output_dir: Path | None = None,
@@ -335,12 +878,26 @@ def analyze_study_bundle(
     run_dirs, manifests, run_checks, evidence_kind = _validate_source_runs(
         spec, source_manifest.parent
     )
+    if not paper and spec.first_paper_inputs is not None:
+        raise ValueError(
+            "crossed first-paper inputs require --paper and cannot use the legacy analyzer"
+        )
     if paper:
         if spec.evidence_kind != "real" or evidence_kind != "real":
             raise ValueError("paper export rejects mock evidence")
         _check_preregistration(spec, source_manifest.parent)
+        return _emit_first_paper_bundle(
+            spec=spec,
+            source_manifest=source_manifest,
+            output_dir=output_dir,
+            run_dirs=run_dirs,
+            manifests=manifests,
+            run_checks=run_checks,
+            evidence_kind=evidence_kind,
+            seed=seed,
+        )
     contract, margin_status = _statistical_contract(
-        spec, source_manifest.parent, require_frozen=paper
+        spec, source_manifest.parent, require_frozen=False
     )
 
     inference: StudyInference = analyze_h1_study(run_dirs, seed=seed)
@@ -603,6 +1160,226 @@ def analyze_study_bundle(
     return destination
 
 
+def _verify_crossed_artifacts(
+    bundle_dir: Path,
+    release: dict[str, Any],
+    contract: FirstPaperStatisticalContract | None,
+    independent_n: int,
+) -> list[str]:
+    errors: list[str] = []
+    if contract is None:
+        return ["release manifest lacks a valid first-paper statistical contract"]
+    effects_path = bundle_dir / "effects.parquet"
+    blocks_path = bundle_dir / "block_effects.parquet"
+    if not effects_path.is_file() or not blocks_path.is_file():
+        return errors
+    effects = pd.read_parquet(effects_path)
+    blocks = pd.read_parquet(blocks_path)
+    analysis_inputs = cast(
+        dict[str, dict[str, str]], release.get("analysis_input_sha256", {})
+    )
+    recomputed: FirstPaperEstimands | None = None
+    if set(analysis_inputs) == {"crossed_rows", "lineage_rows", "mphiq_rows"}:
+        try:
+            input_frames = {
+                name: pd.read_parquet(reference["path"])
+                for name, reference in analysis_inputs.items()
+            }
+            run_manifests = [
+                _json(Path(run_dir) / "manifest.json")
+                for run_dir in cast(dict[str, Any], release.get("run_input_sha256", {}))
+            ]
+            _validate_aggregate_provenance(input_frames, run_manifests)
+            recomputed = analyze_first_paper_estimands(
+                input_frames["crossed_rows"],
+                confirmatory_metrics=contract.confirmatory_metrics,
+                lineage_rows=input_frames["lineage_rows"],
+                mphiq_rows=input_frames["mphiq_rows"],
+                alpha=contract.alpha,
+                seed=int(release.get("analysis_seed", 0)),
+            )
+            block_columns = list(recomputed.block_effects.columns)
+            effect_columns = list(recomputed.effects.columns)
+            pd.testing.assert_frame_equal(
+                blocks.sort_values(["estimand_id", "metric", "independent_block"])[
+                    block_columns
+                ].reset_index(drop=True),
+                recomputed.block_effects.sort_values(
+                    ["estimand_id", "metric", "independent_block"]
+                )[block_columns].reset_index(drop=True),
+                check_dtype=False,
+            )
+            pd.testing.assert_frame_equal(
+                effects.sort_values(["estimand_id", "metric"])[effect_columns].reset_index(
+                    drop=True
+                ),
+                recomputed.effects.sort_values(["estimand_id", "metric"])[
+                    effect_columns
+                ].reset_index(drop=True),
+                check_dtype=False,
+            )
+        except (AssertionError, KeyError, OSError, ValueError):
+            errors.append("crossed effects do not reproduce from frozen analysis inputs")
+    effect_keys = {
+        f"{row['estimand_id']}::{row['metric']}" for row in effects.to_dict("records")
+    }
+    if len(effects) != len(effect_keys) or effect_keys != set(contract.estimands):
+        errors.append("crossed effects do not exactly match the frozen estimand family")
+    expected_blocks = set(cast(list[str], release.get("expected_independent_blocks", [])))
+    for key in sorted(effect_keys):
+        estimand_id, metric = key.rsplit("::", 1)
+        group = blocks.loc[
+            (blocks["estimand_id"].astype(str) == estimand_id)
+            & (blocks["metric"].astype(str) == metric)
+        ]
+        if (
+            len(group) != independent_n
+            or set(group["independent_block"].astype(str)) != expected_blocks
+        ):
+            errors.append(f"crossed block effects are incomplete for {key}")
+
+    multiplicity_path = bundle_dir / "multiplicity.json"
+    if multiplicity_path.is_file():
+        multiplicity = _json(multiplicity_path)
+        hypotheses = cast(dict[str, dict[str, Any]], multiplicity.get("hypotheses", {}))
+        if (
+            multiplicity.get("family") != "confirmatory-H1-H3-H4"
+            or set(cast(list[str], multiplicity.get("frozen_contrasts", [])))
+            != set(contract.estimands)
+            or set(hypotheses) != set(contract.estimands)
+        ):
+            errors.append("multiplicity artifact does not contain one frozen unified family")
+        else:
+            if recomputed is not None and multiplicity != recomputed.multiplicity:
+                errors.append("multiplicity artifact does not reproduce from frozen inputs")
+            for row in effects.to_dict("records"):
+                key = f"{row['estimand_id']}::{row['metric']}"
+                hypothesis = hypotheses[key]
+                if not (
+                    np.isclose(float(hypothesis["raw_p"]), float(row["p_value"]))
+                    and np.isclose(
+                        float(hypothesis["adjusted_p"]), float(row["p_adjusted"])
+                    )
+                    and bool(hypothesis["reject"]) == bool(row["reject"])
+                ):
+                    errors.append(f"multiplicity result differs from effects for {key}")
+
+    sensitivity_path = bundle_dir / "sensitivity_results.parquet"
+    if sensitivity_path.is_file():
+        sensitivity = pd.read_parquet(sensitivity_path)
+        primary = sensitivity.loc[sensitivity["specification_id"] == "primary-mean"]
+        primary_keys = {
+            f"{row['estimand_id']}::{row['metric']}" for row in primary.to_dict("records")
+        }
+        if len(primary) != len(effects) or primary_keys != effect_keys:
+            errors.append("crossed sensitivities lack one primary row per estimand")
+        else:
+            estimates = {
+                f"{row['estimand_id']}::{row['metric']}": float(row["estimate"])
+                for row in effects.to_dict("records")
+            }
+            if any(
+                not np.isclose(
+                    float(row["estimate"]),
+                    estimates[f"{row['estimand_id']}::{row['metric']}"],
+                )
+                for row in primary.to_dict("records")
+            ):
+                errors.append("crossed sensitivity primary estimates differ from effects")
+
+    equivalence_path = bundle_dir / "equivalence_noninferiority.json"
+    if equivalence_path.is_file():
+        payload = _json(equivalence_path)
+        results = cast(list[dict[str, Any]], payload.get("results", []))
+        result_map = {
+            f"{row.get('estimand_id')}::{row.get('metric')}": row for row in results
+        }
+        if len(results) != len(result_map) or set(result_map) != set(contract.estimands):
+            errors.append("equivalence artifact does not cover every frozen estimand")
+        else:
+            for key, thresholds in contract.estimands.items():
+                estimand_id, metric = key.rsplit("::", 1)
+                values = blocks.loc[
+                    (blocks["estimand_id"].astype(str) == estimand_id)
+                    & (blocks["metric"].astype(str) == metric),
+                    "effect",
+                ].astype(float).tolist()
+                expected_tost = equivalence_tost(
+                    values,
+                    thresholds.equivalence_lower,
+                    thresholds.equivalence_upper,
+                    alpha=contract.alpha,
+                )
+                expected_ni = _noninferiority_result(
+                    values, thresholds.noninferiority_lower, contract.alpha
+                )
+                observed = result_map[key]
+                tost = cast(dict[str, Any], observed.get("equivalence", {}))
+                ni = cast(dict[str, Any], observed.get("noninferiority", {}))
+                try:
+                    tost_ok = all(
+                        np.isclose(float(tost[field]), float(expected))
+                        for field, expected in (
+                            ("estimate", expected_tost.estimate),
+                            ("lower_bound", expected_tost.lower_bound),
+                            ("upper_bound", expected_tost.upper_bound),
+                            ("p_lower", expected_tost.p_lower),
+                            ("p_upper", expected_tost.p_upper),
+                        )
+                    ) and bool(tost["equivalent"]) == expected_tost.equivalent
+                    ni_ok = np.isclose(
+                        float(ni["p_value"]), float(expected_ni["p_value"])
+                    ) and bool(ni["statistically_noninferior"]) == bool(
+                        expected_ni["statistically_noninferior"]
+                    )
+                except (KeyError, TypeError, ValueError):
+                    tost_ok = False
+                    ni_ok = False
+                if not tost_ok:
+                    errors.append(f"equivalence result does not reproduce for {key}")
+                if not ni_ok:
+                    errors.append(f"noninferiority result does not reproduce for {key}")
+
+    registry_path = bundle_dir / "estimand_registry.json"
+    if registry_path.is_file():
+        estimands = cast(
+            list[dict[str, Any]], _json(registry_path).get("estimands", [])
+        )
+        registry_map = {
+            f"{row.get('estimand_id')}::{row.get('metric')}": row for row in estimands
+        }
+        if len(estimands) != len(registry_map) or set(registry_map) != set(
+            contract.estimands
+        ):
+            errors.append("estimand registry does not cover the frozen family")
+        else:
+            for key, thresholds in contract.estimands.items():
+                observed = registry_map[key]
+                if any(
+                    observed.get(field) != value
+                    for field, value in thresholds.model_dump().items()
+                ) or observed.get("alpha") != contract.alpha:
+                    errors.append(f"estimand registry thresholds differ for {key}")
+
+    claims_path = bundle_dir / "claims.json"
+    if claims_path.is_file():
+        claims = cast(list[dict[str, Any]], _json(claims_path).get("claims", []))
+        claim_map = {
+            f"{row.get('estimand_id')}::{row.get('metric')}": row for row in claims
+        }
+        if len(claims) != len(claim_map) or set(claim_map) != set(contract.estimands):
+            errors.append("paper claims do not exactly cover the frozen estimand family")
+        elif any(
+            row.get("claim_id") != key
+            or row.get("verification_status") != "paper-eligible"
+            or row.get("evidence_kind") != "real"
+            or row.get("margin_status") != "frozen-preregistered"
+            for key, row in claim_map.items()
+        ):
+            errors.append("paper claims contain inconsistent verification metadata")
+    return errors
+
+
 def verify_study_bundle(
     bundle_dir: Path, *, require_paper: bool = False
 ) -> StudyBundleVerification:
@@ -624,11 +1401,24 @@ def verify_study_bundle(
         errors.append("release manifest schema is not the complete study-bundle version")
     if release.get("status") != "complete":
         errors.append("release manifest is incomplete")
+    crossed_design = release.get("analysis_design") == "crossed-H1-H3-H4"
+    contract: H1StatisticalContract | None = None
+    paper_contract: FirstPaperStatisticalContract | None = None
     try:
-        contract = H1StatisticalContract.model_validate(release.get("statistical_contract"))
+        if crossed_design:
+            paper_contract = FirstPaperStatisticalContract.model_validate(
+                release.get("first_paper_statistical_contract")
+            )
+        else:
+            contract = H1StatisticalContract.model_validate(
+                release.get("statistical_contract")
+            )
     except ValueError:
-        contract = None
-        errors.append("release manifest lacks a valid statistical contract")
+        errors.append(
+            "release manifest lacks a valid first-paper statistical contract"
+            if crossed_design
+            else "release manifest lacks a valid statistical contract"
+        )
     evidence_kind = cast(
         Literal["mock", "real", "unknown"], release.get("evidence_kind", "unknown")
     )
@@ -645,6 +1435,16 @@ def verify_study_bundle(
             path = run_dir / name
             if not path.is_file() or expected_hashes.get(name) != _sha256(path):
                 errors.append(f"run input is missing or changed: {run_dir / name}")
+    if crossed_design:
+        analysis_hashes = cast(
+            dict[str, dict[str, str]], release.get("analysis_input_sha256", {})
+        )
+        if set(analysis_hashes) != {"crossed_rows", "lineage_rows", "mphiq_rows"}:
+            errors.append("release manifest lacks the complete crossed analysis inputs")
+        for name, reference in analysis_hashes.items():
+            path = Path(str(reference.get("path", "")))
+            if not path.is_file() or reference.get("sha256") != _sha256(path):
+                errors.append(f"paper analysis input is missing or changed: {name}")
     hashes = cast(dict[str, str], release.get("artifact_sha256", {}))
     for name in CORE_ARTIFACTS:
         path = bundle_dir / name
@@ -677,6 +1477,8 @@ def verify_study_bundle(
             errors.append("statistical verification is absent or inconsistent")
         if stats.get("margin_status") != release.get("margin_status"):
             errors.append("statistical verification margin status is inconsistent")
+        if crossed_design and stats.get("analysis_design") != "crossed-H1-H3-H4":
+            errors.append("statistical verification omits the crossed paper design")
 
     missingness_path = bundle_dir / "missingness_failures.parquet"
     if missingness_path.is_file():
@@ -706,9 +1508,16 @@ def verify_study_bundle(
             if not complete.all() or not verified.all() or absent.any() or terminal.any():
                 errors.append("study bundle contains an incomplete or failed independent unit")
 
+    if crossed_design:
+        errors.extend(
+            _verify_crossed_artifacts(
+                bundle_dir, release, paper_contract, independent_n
+            )
+        )
+
     sensitivity_path = bundle_dir / "sensitivity_results.parquet"
     effects_path = bundle_dir / "effects.parquet"
-    if sensitivity_path.is_file() and effects_path.is_file():
+    if not crossed_design and sensitivity_path.is_file() and effects_path.is_file():
         sensitivity = pd.read_parquet(sensitivity_path)
         effects = pd.read_parquet(effects_path)
         if "specification_id" not in sensitivity or "estimate" not in sensitivity:
@@ -723,7 +1532,7 @@ def verify_study_bundle(
                 errors.append("sensitivity primary estimate does not match effects")
 
     equivalence_path = bundle_dir / "equivalence_noninferiority.json"
-    if equivalence_path.is_file():
+    if not crossed_design and equivalence_path.is_file():
         equivalence = _json(equivalence_path)
         result = cast(dict[str, Any], equivalence.get("equivalence", {}))
         noninferiority = cast(dict[str, Any], equivalence.get("noninferiority", {}))
@@ -789,7 +1598,7 @@ def verify_study_bundle(
                     errors.append("noninferiority result does not reproduce from block effects")
 
     registry_path = bundle_dir / "estimand_registry.json"
-    if registry_path.is_file():
+    if not crossed_design and registry_path.is_file():
         registry = _json(registry_path)
         estimands = cast(list[dict[str, Any]], registry.get("estimands", []))
         if len(estimands) != 1:
@@ -819,8 +1628,11 @@ def verify_study_bundle(
         and bool(release.get("preregistration"))
         and bool(release.get("paper_requested"))
         and release.get("margin_status") == "frozen-preregistered"
+        and crossed_design
     )
     if require_paper:
+        if not crossed_design:
+            errors.append("paper verification requires the crossed H1/H3/H4 design")
         if evidence_kind != "real":
             errors.append("paper verification rejects mock evidence")
         if not release.get("paper_requested"):
@@ -839,15 +1651,15 @@ def verify_study_bundle(
             else:
                 try:
                     prereg_payload = _json(source_path)
-                    prereg_contract = H1StatisticalContract.model_validate(
-                        prereg_payload.get("statistical_contract")
+                    prereg_contract = FirstPaperStatisticalContract.model_validate(
+                        prereg_payload.get("first_paper_statistical_contract")
                     )
                 except (json.JSONDecodeError, ValueError):
                     errors.append("preregistration lacks a valid statistical contract")
                 else:
-                    if contract is None or prereg_contract != contract:
+                    if paper_contract is None or prereg_contract != paper_contract:
                         errors.append(
-                            "release statistical contract differs from preregistration"
+                            "release first-paper statistical contract differs from preregistration"
                         )
         paper_eligible = not errors
     return StudyBundleVerification(

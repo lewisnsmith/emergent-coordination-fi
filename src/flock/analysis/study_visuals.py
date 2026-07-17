@@ -71,12 +71,25 @@ def experimental_topology(path: Path) -> Path:
     return path
 
 
-def block_effect_forest(bundle_dir: Path, path: Path, sesoi: float = 0.10) -> Path:
+def block_effect_forest(
+    bundle_dir: Path,
+    path: Path,
+    sesoi: float = 0.10,
+    *,
+    estimand_id: str | None = None,
+    metric: str | None = None,
+) -> Path:
     """Plot every independent block plus the study mean and confidence interval."""
     blocks = pd.read_parquet(bundle_dir / "block_effects.parquet").sort_values(
         "independent_block"
     )
     effects = pd.read_parquet(bundle_dir / "effects.parquet")
+    if estimand_id is not None:
+        blocks = blocks.loc[blocks["estimand_id"].astype(str) == estimand_id]
+        effects = effects.loc[effects["estimand_id"].astype(str) == estimand_id]
+    if metric is not None:
+        blocks = blocks.loc[blocks["metric"].astype(str) == metric]
+        effects = effects.loc[effects["metric"].astype(str) == metric]
     if blocks.empty or len(effects) != 1:
         raise ValueError("H1 forest requires block effects and exactly one aggregate effect")
     block_names = cast(pd.Series, blocks["independent_block"]).astype(str).tolist()
@@ -103,7 +116,8 @@ def block_effect_forest(bundle_dir: Path, path: Path, sesoi: float = 0.10) -> Pa
         label="mean and 95% interval",
     )
     ax.set_yticks([*y, 0], [*block_names, "Study mean"])
-    ax.set_xlabel("LLM minus matched-classical Cohen's κ")
+    outcome = "Cohen's κ" if metric in (None, "kappa") else metric
+    ax.set_xlabel(f"Independent-block contrast ({outcome})")
     ax.set_title("H1 block-level effects; each point is one independent unit")
     ax.grid(axis="x", alpha=0.2)
     ax.legend(loc="best", frameon=False)
@@ -111,10 +125,22 @@ def block_effect_forest(bundle_dir: Path, path: Path, sesoi: float = 0.10) -> Pa
     return path
 
 
-def export_core_study_figures(bundle_dir: Path, *, sesoi: float = 0.10) -> tuple[Path, Path]:
+def export_core_study_figures(
+    bundle_dir: Path,
+    *,
+    sesoi: float = 0.10,
+    estimand_id: str | None = None,
+    metric: str | None = None,
+) -> tuple[Path, Path]:
     """Render the core figures using the bundle's resolved practical threshold."""
     figures = bundle_dir / "figures"
     return (
         experimental_topology(figures / "independent-unit-topology.png"),
-        block_effect_forest(bundle_dir, figures / "h1-block-effects.png", sesoi=sesoi),
+        block_effect_forest(
+            bundle_dir,
+            figures / "h1-block-effects.png",
+            sesoi=sesoi,
+            estimand_id=estimand_id,
+            metric=metric,
+        ),
     )
