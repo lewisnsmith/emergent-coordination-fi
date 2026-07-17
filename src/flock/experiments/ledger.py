@@ -7,7 +7,12 @@ max_position_per_symbol units.
 
 from __future__ import annotations
 
+import math
+
 from flock.core.types import Fill, Order, PortfolioView, Position
+
+_QUANTITY_PRECISION = 4
+_EPSILON = 1e-9
 
 
 class Ledger:
@@ -19,44 +24,97 @@ class Ledger:
         self.avg_price: dict[str, float] = {}
 
     def clip_orders(self, orders: tuple[Order, ...], prices: dict[str, float]) -> tuple[Order, ...]:
-        """Enforce cash / long-only / position-cap constraints, preserving order."""
+        """Enforce constraints using fill-independent reservations.
+
+        Orders in one decision are simultaneous: an unfilled buy cannot provide
+        inventory for a sell, and an unfilled sell cannot provide cash or position
+        room for a buy. Reservations are therefore tracked independently against
+        the portfolio at the start of the decision.
+        """
         clipped: list[Order] = []
-        cash = self.cash
-        qty = dict(self.qty)
+        reserved_cash = 0.0
+        reserved_buys: dict[str, float] = {}
+        reserved_sells: dict[str, float] = {}
+        fee_multiplier = 1 + self.fee_bps / 1e4
+
         for o in orders:
             ref = o.limit_price if o.limit_price is not None else prices[o.symbol]
             if ref <= 0:
                 continue
             if o.side == "buy":
-                room = self.max_position - qty.get(o.symbol, 0.0)
-                affordable = cash / (ref * (1 + self.fee_bps / 1e4))
-                q = max(0.0, min(o.quantity, room, affordable))
-                if q < 1e-9:
+                room = (
+                    self.max_position
+                    - self.qty.get(o.symbol, 0.0)
+                    - reserved_buys.get(o.symbol, 0.0)
+                )
+                available_cash = self.cash - reserved_cash
+                affordable = available_cash / (ref * fee_multiplier)
+                quantity = self._floor_quantity(
+                    max(0.0, min(o.quantity, room, affordable))
+                )
+                if quantity < _EPSILON:
                     continue
-                cash -= q * ref * (1 + self.fee_bps / 1e4)
-                qty[o.symbol] = qty.get(o.symbol, 0.0) + q
-                clipped.append(Order(o.symbol, "buy", round(q, 4), o.limit_price))
+                reserved_cash += quantity * ref * fee_multiplier
+                reserved_buys[o.symbol] = reserved_buys.get(o.symbol, 0.0) + quantity
+                clipped.append(Order(o.symbol, "buy", quantity, o.limit_price))
             else:
-                q = min(o.quantity, qty.get(o.symbol, 0.0))
-                if q < 1e-9:
+                available_inventory = (
+                    self.qty.get(o.symbol, 0.0) - reserved_sells.get(o.symbol, 0.0)
+                )
+                quantity = self._floor_quantity(
+                    max(0.0, min(o.quantity, available_inventory))
+                )
+                if quantity < _EPSILON:
                     continue
-                qty[o.symbol] = qty.get(o.symbol, 0.0) - q
-                clipped.append(Order(o.symbol, "sell", round(q, 4), o.limit_price))
+                reserved_sells[o.symbol] = reserved_sells.get(o.symbol, 0.0) + quantity
+                clipped.append(Order(o.symbol, "sell", quantity, o.limit_price))
         return tuple(clipped)
 
+    @staticmethod
+    def _floor_quantity(quantity: float) -> float:
+        """Quantize without rounding above an available constraint."""
+        scale = 10**_QUANTITY_PRECISION
+        return math.floor((quantity + _EPSILON) * scale) / scale
+
     def apply(self, fill: Fill) -> None:
+        """Apply one fill atomically, rejecting any portfolio invariant violation."""
+        if fill.quantity < 0 or fill.fee < 0:
+            raise ValueError("Fill quantity and fee must be non-negative")
+
         cost = fill.price * fill.quantity
+        held = self.qty.get(fill.symbol, 0.0)
         if fill.side == "buy":
-            held = self.qty.get(fill.symbol, 0.0)
-            total = held + fill.quantity
-            self.avg_price[fill.symbol] = (
-                (self.avg_price.get(fill.symbol, 0.0) * held + cost) / total if total else 0.0
-            )
-            self.qty[fill.symbol] = total
-            self.cash -= cost + fill.fee
+            new_quantity = held + fill.quantity
+            new_cash = self.cash - cost - fill.fee
         else:
-            self.qty[fill.symbol] = self.qty.get(fill.symbol, 0.0) - fill.quantity
-            self.cash += cost - fill.fee
+            new_quantity = held - fill.quantity
+            new_cash = self.cash + cost - fill.fee
+
+        if new_cash < -_EPSILON:
+            raise ValueError(
+                f"Fill would make cash negative: {self.cash} -> {new_cash}"
+            )
+        if new_quantity < -_EPSILON:
+            raise ValueError(
+                f"Fill would create a short position in {fill.symbol}: "
+                f"{held} -> {new_quantity}"
+            )
+        if new_quantity > self.max_position + _EPSILON:
+            raise ValueError(
+                f"Fill would exceed the {fill.symbol} position cap: "
+                f"{new_quantity} > {self.max_position}"
+            )
+
+        new_cash = max(new_cash, 0.0)
+        new_quantity = min(max(new_quantity, 0.0), self.max_position)
+        if fill.side == "buy":
+            self.avg_price[fill.symbol] = (
+                (self.avg_price.get(fill.symbol, 0.0) * held + cost) / new_quantity
+                if new_quantity
+                else 0.0
+            )
+        self.qty[fill.symbol] = new_quantity
+        self.cash = new_cash
 
     def equity(self, prices: dict[str, float]) -> float:
         return self.cash + sum(q * prices.get(s, 0.0) for s, q in self.qty.items())

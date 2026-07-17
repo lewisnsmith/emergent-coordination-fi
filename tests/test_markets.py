@@ -1,7 +1,8 @@
 import pandas as pd
 import pytest
 
-from flock.core.types import Order
+from flock.core.types import Fill, Order
+from flock.experiments.ledger import Ledger
 from flock.markets.replay import ReplayMarket
 
 
@@ -21,6 +22,22 @@ def _tiny_bars() -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows)
+
+
+def _symbol_bars(symbol: str, days: range) -> list[dict]:
+    multiplier = 1 if symbol == "X" else 10
+    return [
+        {
+            "ts": f"2030-01-{day:02d}",
+            "symbol": symbol,
+            "open": day * multiplier,
+            "high": day * multiplier + 1,
+            "low": day * multiplier - 1,
+            "close": day * multiplier,
+            "volume": 1000,
+        }
+        for day in days
+    ]
 
 
 def test_replay_market_fill_at_next_open_with_slippage():
@@ -59,3 +76,114 @@ def test_replay_terminates(replay_market):
         replay_market.step()
         n += 1
     assert n == replay_market.n_steps
+
+
+def test_replay_market_buy_preserves_reserved_notional_across_upward_gap():
+    bars = _tiny_bars()
+    bars.loc[3, ["open", "high", "low", "close"]] = [200.0, 201.0, 199.0, 200.0]
+    m = ReplayMarket(bars, observation_window=2, fee_bps=0.0, slippage_bps=0.0)
+    ledger = Ledger(initial_cash=1000.0, max_position_per_symbol=100.0, fee_bps=0.0)
+    order = ledger.clip_orders((Order("X", "buy", 100),), m.state().prices)
+
+    m.submit("agent", order)
+    fill = m.step()[0]
+    ledger.apply(fill)
+
+    assert fill.price == 200.0
+    assert fill.quantity < order[0].quantity
+    assert fill.price * fill.quantity == pytest.approx(103.0 * order[0].quantity)
+    assert ledger.cash >= 0.0
+
+
+def test_replay_aligns_staggered_symbol_histories_on_exact_intersection():
+    bars = pd.DataFrame(
+        _symbol_bars("X", range(1, 8)) + _symbol_bars("Y", range(2, 9))
+    )
+    m = ReplayMarket(bars, observation_window=2, fee_bps=0.0, slippage_bps=0.0)
+
+    state = m.state()
+
+    assert m.timestamps == [f"2030-01-{day:02d}" for day in range(2, 8)]
+    assert state.ts == "2030-01-04"
+    assert tuple(bar.ts for bar in state.bars["X"]) == ("2030-01-03", "2030-01-04")
+    assert tuple(bar.ts for bar in state.bars["Y"]) == ("2030-01-03", "2030-01-04")
+    m.submit("agent", (Order("X", "buy", 1), Order("Y", "buy", 1)))
+    assert {fill.ts for fill in m.step()} == {"2030-01-05"}
+
+
+def test_replay_rejects_insufficient_common_history():
+    bars = pd.DataFrame(
+        _symbol_bars("X", range(1, 6)) + _symbol_bars("Y", range(3, 6))
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"observation_window \+ 2 \(4\).*found 3",
+    ):
+        ReplayMarket(bars, observation_window=2)
+
+
+def test_replay_rejects_duplicate_symbol_timestamp():
+    bars = _tiny_bars()
+    bars = pd.concat([bars, bars.iloc[[0]]], ignore_index=True)
+
+    with pytest.raises(ValueError, match=r"duplicate \(symbol, ts\)"):
+        ReplayMarket(bars, observation_window=2)
+
+
+def test_simultaneous_orders_cannot_create_capacity_for_each_other():
+    empty = Ledger(initial_cash=1000.0, max_position_per_symbol=10.0, fee_bps=0.0)
+    clipped = empty.clip_orders(
+        (Order("X", "buy", 5), Order("X", "sell", 5)),
+        {"X": 100.0},
+    )
+    assert [(order.side, order.quantity) for order in clipped] == [("buy", 5)]
+
+    capped = Ledger(initial_cash=1000.0, max_position_per_symbol=10.0, fee_bps=0.0)
+    capped.qty["X"] = 10.0
+    clipped = capped.clip_orders(
+        (Order("X", "sell", 5), Order("X", "buy", 5)),
+        {"X": 100.0},
+    )
+    assert [(order.side, order.quantity) for order in clipped] == [("sell", 5)]
+
+    cashless = Ledger(initial_cash=0.0, max_position_per_symbol=20.0, fee_bps=0.0)
+    cashless.qty["X"] = 10.0
+    clipped = cashless.clip_orders(
+        (Order("X", "sell", 5), Order("X", "buy", 5)),
+        {"X": 100.0},
+    )
+    assert [(order.side, order.quantity) for order in clipped] == [("sell", 5)]
+
+
+def test_ledger_apply_rejects_invariant_violations_before_mutation():
+    insufficient_cash = Ledger(50.0, 10.0, 0.0)
+    short_sale = Ledger(1000.0, 10.0, 0.0)
+    short_sale.qty["X"] = 1.0
+    short_sale.avg_price["X"] = 90.0
+    over_cap = Ledger(1000.0, 10.0, 0.0)
+    over_cap.qty["X"] = 9.0
+    over_cap.avg_price["X"] = 90.0
+    cases = (
+        (
+            insufficient_cash,
+            Fill("a", 0, "2030-01-01", "X", "buy", 1, 100.0, 0.0),
+            "cash negative",
+        ),
+        (
+            short_sale,
+            Fill("a", 0, "2030-01-01", "X", "sell", 2, 100.0, 0.0),
+            "short position",
+        ),
+        (
+            over_cap,
+            Fill("a", 0, "2030-01-01", "X", "buy", 2, 100.0, 0.0),
+            "position cap",
+        ),
+    )
+
+    for ledger, fill, message in cases:
+        before = (ledger.cash, dict(ledger.qty), dict(ledger.avg_price))
+        with pytest.raises(ValueError, match=message):
+            ledger.apply(fill)
+        assert (ledger.cash, ledger.qty, ledger.avg_price) == before

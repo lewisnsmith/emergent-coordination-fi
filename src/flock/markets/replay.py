@@ -2,7 +2,9 @@
 
 No price impact. Orders submitted at step t fill at bar t+1's open (no
 lookahead) adjusted by slippage, plus fees. Limit orders fill only if the
-next bar's range crosses the limit.
+next bar's range crosses the limit. A market buy that gaps above its
+submission reference receives fewer shares so its executed notional does not
+exceed the amount the ledger reserved at submission.
 """
 
 from __future__ import annotations
@@ -27,9 +29,34 @@ class ReplayMarket:
         self.slippage_bps = slippage_bps
         self.window = observation_window
 
+        duplicate_rows = bars.duplicated(["symbol", "ts"], keep=False)
+        if duplicate_rows.any():
+            duplicate_keys = (
+                bars.loc[duplicate_rows, ["symbol", "ts"]]
+                .drop_duplicates()
+                .sort_values(["symbol", "ts"])
+                .to_dict("records")
+            )
+            raise ValueError(
+                "Replay bars contain duplicate (symbol, ts) rows: "
+                f"{duplicate_keys}"
+            )
+
         bars = bars.sort_values(["ts", "symbol"])
-        self.timestamps: list[str] = sorted(bars["ts"].unique().tolist())
         self.symbols: tuple[str, ...] = tuple(sorted(bars["symbol"].unique().tolist()))
+        timestamp_sets = [set(group["ts"]) for _, group in bars.groupby("symbol")]
+        common_timestamps = set.intersection(*timestamp_sets) if timestamp_sets else set()
+        self.timestamps: list[str] = sorted(common_timestamps)
+
+        required_bars = self.window + 2
+        if len(self.timestamps) < required_bars:
+            raise ValueError(
+                "ReplayMarket requires at least "
+                f"observation_window + 2 ({required_bars}) timestamps common to every symbol; "
+                f"found {len(self.timestamps)}"
+            )
+
+        bars = bars[bars["ts"].isin(common_timestamps)]
         self._bars_by_symbol: dict[str, list[Bar]] = {
             s: [Bar(**row) for row in g.to_dict("records")]
             for s, g in bars.groupby("symbol")
@@ -48,7 +75,7 @@ class ReplayMarket:
 
     def reset(self) -> None:
         self._step = 0
-        self._pending: list[tuple[str, Order]] = []
+        self._pending: list[tuple[str, Order, float]] = []
 
     @property
     def done(self) -> bool:
@@ -76,22 +103,32 @@ class ReplayMarket:
         )
 
     def submit(self, agent_id: str, orders: tuple[Order, ...]) -> None:
-        self._pending.extend((agent_id, o) for o in orders)
+        t = self._t_index()
+        self._pending.extend(
+            (agent_id, order, self._bar(order.symbol, t).close) for order in orders
+        )
 
     def step(self) -> list[Fill]:
         """Advance one bar; fill pending orders at the next bar."""
         t_next = self._t_index() + 1
         fills: list[Fill] = []
-        for agent_id, order in self._pending:
+        for agent_id, order, submission_reference in self._pending:
             nxt = self._bar(order.symbol, t_next)
             price = self._fill_price(order, nxt)
             if price is None:
                 continue
-            fee = abs(price * order.quantity) * self.fee_bps / 1e4
+            quantity = order.quantity
+            if (
+                order.side == "buy"
+                and order.limit_price is None
+                and price > submission_reference
+            ):
+                quantity *= submission_reference / price
+            fee = abs(price * quantity) * self.fee_bps / 1e4
             fills.append(
                 Fill(
                     agent_id, self._step, nxt.ts, order.symbol, order.side,
-                    order.quantity, price, fee,
+                    quantity, price, fee,
                 )
             )
         self._pending = []
