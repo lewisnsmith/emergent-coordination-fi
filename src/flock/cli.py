@@ -21,6 +21,20 @@ data_app = typer.Typer(no_args_is_help=True)
 app.add_typer(data_app, name="data", help="Build and list versioned local datasets.")
 
 
+@app.command("doctor")
+def doctor_command(
+    live: bool = typer.Option(False, "--live", help="Probe model metadata; never generate"),
+    root: Path = typer.Option(Path("."), help="Repository root"),
+) -> None:
+    """Check SDKs, credentials, endpoints, data, pricing, storage, and iCloud state."""
+    from flock.experiments.doctor import run_doctor
+
+    report = run_doctor(root, live=live)
+    typer.echo(report.model_dump_json(indent=2))
+    if not report.ok:
+        raise typer.Exit(code=1)
+
+
 @data_app.command("build")
 def data_build(
     builder: str = typer.Argument(
@@ -169,9 +183,19 @@ def estimate(
     matrix: Path = typer.Option(
         Path("configs/budgets/run-matrix.yaml"), help="Staged run-matrix YAML"
     ),
+    plan_path: Path = typer.Option(None, "--plan", help="Frozen compiled study-plan JSON"),
+    stage: str = typer.Option("pilot", help="canary|pilot|confirmatory"),
 ) -> None:
     """Print the dated credit envelope for a staged experiment scenario."""
-    from flock.experiments.costs import load_run_matrix
+    from flock.experiments.costs import estimate_plan_costs, load_pricing, load_run_matrix
+    from flock.experiments.study import load_study_plan
+
+    if plan_path is not None:
+        plan_estimate = estimate_plan_costs(load_study_plan(plan_path), stage, load_pricing())
+        typer.echo(plan_estimate.model_dump_json(indent=2))
+        if not plan_estimate.within_stage_hard_cap:
+            raise typer.Exit(code=1)
+        return
 
     plan = load_run_matrix(matrix)
     if scenario not in plan.scenarios:

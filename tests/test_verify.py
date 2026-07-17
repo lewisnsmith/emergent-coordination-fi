@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 
 from flock.cli import app
 from flock.experiments.design import generate_mphiq_schemes
+from flock.experiments.doctor import run_doctor
 from flock.experiments.verify import verify_run
 
 
@@ -45,3 +46,18 @@ def test_existing_smoke_run_passes_logical_verification():
         "missing symbol universe" in error or "dataset hash" in error
         for error in result.errors
     )
+
+
+def test_offline_doctor_never_exposes_credentials(monkeypatch):
+    for name in (
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    report = run_doctor(live=False)
+    rendered = report.model_dump_json()
+    assert "not present" in rendered
+    assert "sk-" not in rendered
+    assert all(not check.name.startswith("endpoint:") for check in report.checks)

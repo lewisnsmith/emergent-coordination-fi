@@ -10,6 +10,8 @@ from flock.experiments.costs import (
     VMPrice,
     Workload,
     estimate_costs,
+    estimate_plan_costs,
+    load_pricing,
     load_run_matrix,
     load_workload,
 )
@@ -18,6 +20,7 @@ from flock.experiments.design import (
     generate_mphiq_schemes,
     generate_pressure_cells,
 )
+from flock.experiments.study import compile_study_file
 
 
 def test_all_mphiq_schemes_exist_with_documented_bit_semantics():
@@ -139,3 +142,21 @@ def test_effective_dated_price_changes_estimate():
 def test_legacy_run_matrix_cannot_masquerade_as_calculable_workload():
     with pytest.raises(ValueError, match="legacy summary"):
         load_workload()
+
+
+def test_compiled_plan_estimate_reconciles_calls_and_hard_caps():
+    plan = compile_study_file()
+    canary = estimate_plan_costs(plan, "canary", load_pricing())
+    pilot = estimate_plan_costs(plan, "pilot", load_pricing())
+    assert canary.incremental.calls == 40
+    assert pilot.incremental.calls == 9_600
+    assert pilot.cumulative.calls == 9_640
+    assert canary.within_stage_hard_cap
+    assert canary.incremental.total_low_usd < canary.incremental.total_high_usd
+
+
+def test_token_cases_are_strict_and_bounded():
+    with pytest.raises(ValueError):
+        TokenCase(input_tokens=-1, output_tokens=1)
+    with pytest.raises(ValueError):
+        TokenCase(input_tokens=1, output_tokens=1, retry_rate=6)

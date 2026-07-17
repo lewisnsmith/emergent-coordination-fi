@@ -11,27 +11,32 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class TokenCase(BaseModel):
-    input_tokens: int
-    output_tokens: int
-    retry_rate: float = 0.0
+    model_config = ConfigDict(extra="forbid")
+
+    input_tokens: int = Field(ge=0)
+    cached_input_tokens: int = Field(default=0, ge=0)
+    cache_write_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(ge=0)
+    reasoning_tokens: int = Field(default=0, ge=0)
+    retry_rate: float = Field(default=0.0, ge=0, le=5.0)
 
 
 class EffectiveRate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     effective_from: date
-    input_per_million_usd: float
-    output_per_million_usd: float
+    input_per_million_usd: float = Field(ge=0, allow_inf_nan=False)
+    output_per_million_usd: float = Field(ge=0, allow_inf_nan=False)
 
 
 class APIPrice(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    input_per_million_usd: float
-    output_per_million_usd: float
-    batch_discount: float = 0.0
-    cached_input_per_million_usd: float | None = None
-    cache_write_multiplier: float = 1.0
+    input_per_million_usd: float = Field(ge=0, allow_inf_nan=False)
+    output_per_million_usd: float = Field(ge=0, allow_inf_nan=False)
+    batch_discount: float = Field(default=0.0, ge=0, le=1, allow_inf_nan=False)
+    cached_input_per_million_usd: float | None = Field(default=None, ge=0)
+    cache_write_multiplier: float = Field(default=1.0, ge=0, allow_inf_nan=False)
     future_rates: list[EffectiveRate] = Field(default_factory=list)
     source: str
     verified_on: str
@@ -49,8 +54,8 @@ class APIPrice(BaseModel):
 class VMPrice(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    hourly_usd: float
-    gpu_count: int
+    hourly_usd: float = Field(ge=0, allow_inf_nan=False)
+    gpu_count: int = Field(ge=0)
     gpu_type: str
     source: str
     verified_on: str
@@ -67,12 +72,12 @@ class PricingCatalog(BaseModel):
 class Workload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    calls: int
+    calls: int = Field(gt=0)
     model_mix: dict[str, float]
     token_cases: dict[str, TokenCase]
     local_gpu_hours: dict[str, float] = Field(default_factory=dict)
-    storage_usd: float = 0.0
-    contingency: float = 0.2
+    storage_usd: float = Field(default=0.0, ge=0, allow_inf_nan=False)
+    contingency: float = Field(default=0.2, ge=0, allow_inf_nan=False)
 
 
 class CreditEnvelope(BaseModel):
@@ -164,9 +169,12 @@ def estimate_costs(
             price = pricing.api[model]
             input_rate, output_rate = price.rates_on(as_of)
             discount_factor = 1 - price.batch_discount
+            cached_rate = price.cached_input_per_million_usd or input_rate
             total += calls * weight * discount_factor * (
                 case.input_tokens * input_rate
-                + case.output_tokens * output_rate
+                + case.cached_input_tokens * cached_rate
+                + case.cache_write_tokens * input_rate * price.cache_write_multiplier
+                + (case.output_tokens + case.reasoning_tokens) * output_rate
             ) / 1_000_000
         return total
 
@@ -193,4 +201,74 @@ def estimate_costs(
         total_high_usd=total(api["high"]),
         pricing_version=pricing.version,
         priced_on=as_of.isoformat(),
+    )
+
+
+class PlanCostEstimate(BaseModel):
+    stage: str
+    incremental: CostRange
+    cumulative: CostRange
+    stage_hard_cap_usd: float
+    within_stage_hard_cap: bool
+
+
+def _plan_workload(stages, token_cases: dict[str, TokenCase]) -> Workload:
+    calls_by_model: dict[str, int] = {}
+    for stage in stages:
+        for model, calls in stage.calls_by_pricing_key.items():
+            calls_by_model[model] = calls_by_model.get(model, 0) + calls
+    total_calls = sum(calls_by_model.values())
+    if total_calls <= 0:
+        raise ValueError("selected plan stage has no priced model calls")
+    return Workload(
+        calls=total_calls,
+        model_mix={model: calls / total_calls for model, calls in calls_by_model.items()},
+        token_cases=token_cases,
+        contingency=0.2,
+    )
+
+
+def estimate_plan_costs(plan, stage: str, pricing: PricingCatalog) -> PlanCostEstimate:
+    """Price incremental and cumulative compiled-plan calls under explicit envelopes."""
+    order = {"canary": 0, "pilot": 1, "confirmatory": 2}
+    if stage not in order:
+        raise ValueError(f"unknown stage {stage!r}; choose {sorted(order)}")
+    token_cases = {
+        "low": TokenCase(
+            input_tokens=800,
+            output_tokens=200,
+            reasoning_tokens=100,
+            retry_rate=0.02,
+        ),
+        "expected": TokenCase(
+            input_tokens=1_800,
+            cached_input_tokens=800,
+            output_tokens=400,
+            reasoning_tokens=600,
+            retry_rate=0.15,
+        ),
+        "high": TokenCase(
+            input_tokens=4_000,
+            output_tokens=1_000,
+            reasoning_tokens=2_500,
+            retry_rate=5.0,
+        ),
+    }
+    incremental_stages = [item for item in plan.stages if item.authorization_stage == stage]
+    cumulative_stages = [
+        item for item in plan.stages if order[item.authorization_stage] <= order[stage]
+    ]
+    stage_cap = sum(
+        item.budget_cap.max_cost_usd
+        for item in plan.source_spec.stages
+        if item.authorization_stage == stage
+    )
+    incremental = estimate_costs(_plan_workload(incremental_stages, token_cases), pricing)
+    cumulative = estimate_costs(_plan_workload(cumulative_stages, token_cases), pricing)
+    return PlanCostEstimate(
+        stage=stage,
+        incremental=incremental,
+        cumulative=cumulative,
+        stage_hard_cap_usd=stage_cap,
+        within_stage_hard_cap=incremental.total_high_usd <= stage_cap,
     )
