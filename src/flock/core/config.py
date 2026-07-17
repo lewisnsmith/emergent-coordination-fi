@@ -16,6 +16,8 @@ CONFIG_DIR = Path("configs")
 class ModelSpec(BaseModel):
     """One entry in configs/models.yaml."""
 
+    model_config = ConfigDict(extra="forbid")
+
     provider: Literal["mock", "anthropic", "openai", "google", "openai_compatible"]
     model_id: str
     max_tokens: int = 1024
@@ -34,6 +36,8 @@ class ModelSpec(BaseModel):
 class PersonaConfig(BaseModel):
     """One persona YAML in configs/personas/."""
 
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     system_prompt: str
     risk_tolerance: Literal["low", "medium", "high"] = "medium"
@@ -49,6 +53,8 @@ class PersonaConfig(BaseModel):
 
 class AgentGroup(BaseModel):
     """A homogeneous group of agents inside a cohort."""
+
+    model_config = ConfigDict(extra="forbid")
 
     kind: Literal[
         "llm", "momentum", "mean_reversion", "market_maker", "buy_hold", "random"
@@ -69,11 +75,15 @@ class AgentGroup(BaseModel):
 
 
 class CohortConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     agents: list[AgentGroup]
 
 
 class MarketConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     kind: Literal["replay", "exchange"] = "replay"
     fee_bps: float = 5.0
     slippage_bps: float = 2.0  # replay only
@@ -98,6 +108,8 @@ class RuntimeBudget(BaseModel):
 
 
 class ExperimentConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     seed: int = 42
     dataset: str  # name in datasets/manifests.json
@@ -113,6 +125,11 @@ class ExperimentConfig(BaseModel):
     runtime_budget: RuntimeBudget | None = None
     hypothesis_ids: list[str] = Field(default_factory=list)
     independent_block: str = "unspecified"
+    dependence_cluster: str | None = None
+    trajectory_id: str | None = None
+    market_replica_id: str | None = None
+    window_start: str | None = None
+    window_end: str | None = None
     cohorts: list[CohortConfig]
 
     @model_validator(mode="after")
@@ -128,6 +145,8 @@ class ExperimentConfig(BaseModel):
 
 class SweepConfig(BaseModel):
     """Grid sweep: base experiment x models x personas x seeds."""
+
+    model_config = ConfigDict(extra="forbid")
 
     name: str
     base: str  # path to base ExperimentConfig YAML

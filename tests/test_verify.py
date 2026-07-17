@@ -1,9 +1,12 @@
 import json
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from flock.cli import app
+from flock.core.config import ExperimentConfig
 from flock.experiments.design import generate_mphiq_schemes
 from flock.experiments.doctor import run_doctor
 from flock.experiments.verify import verify_run
@@ -17,6 +20,23 @@ def test_design_cli_exports_all_cells(tmp_path):
     assert len(payload["mphiq"]) == 32
     assert len(payload["prompt_pressure"]) == 24
     assert payload["mphiq"][0]["code"] == generate_mphiq_schemes()[0].code
+
+
+def test_experiment_schema_rejects_unknown_fields_and_preserves_unit_lineage():
+    payload = {
+        "name": "lineage-check",
+        "dataset": "example",
+        "model_policy": "mock_only",
+        "independent_block": "window-1",
+        "dependence_cluster": "nonoverlap-1",
+        "trajectory_id": "trajectory-1",
+        "cohorts": [],
+    }
+    config = ExperimentConfig.model_validate(payload)
+    assert config.model_dump()["dependence_cluster"] == "nonoverlap-1"
+    assert config.model_dump()["trajectory_id"] == "trajectory-1"
+    with pytest.raises(ValidationError, match="unknown_field"):
+        ExperimentConfig.model_validate({**payload, "unknown_field": True})
 
 
 def test_validate_cli_writes_machine_readable_report(tmp_path):
