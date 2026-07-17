@@ -1,0 +1,380 @@
+schema_version: 1
+study_id: paper-core-v1
+title: Matched-control study of LLM trading convergence and market impact
+max_stages: 4
+
+dependence_clusters:
+  - cluster_id: synthetic-trend-family-v1
+    independent_unit: trajectory
+    description: Seeded trending trajectories analyzed as one synthetic regime family.
+  - cluster_id: synthetic-reversal-family-v1
+    independent_unit: trajectory
+    description: Seeded mean-reverting trajectories analyzed as one synthetic regime family.
+  - cluster_id: equities-2018-h1
+    independent_unit: market_window
+    description: Non-overlapping United States equity replay window for early 2018.
+  - cluster_id: equities-2019-h2
+    independent_unit: market_window
+    description: Non-overlapping United States equity replay window for late 2019.
+  - cluster_id: equities-2020-crisis
+    independent_unit: market_window
+    description: Pandemic crisis equity replay window with no overlap with adjacent windows.
+  - cluster_id: equities-2022-bear
+    independent_unit: market_window
+    description: Inflation and tightening equity replay window during the 2022 bear market.
+  - cluster_id: exchange-trend-family-v1
+    independent_unit: market_replica
+    description: Shared-exchange trending replicas randomized independently at market level.
+  - cluster_id: exchange-stress-family-v1
+    independent_unit: market_replica
+    description: Shared-exchange stressed-liquidity replicas randomized at market level.
+
+trajectories:
+  - trajectory_id: synthetic-trend-2026-v1
+    window_id: synthetic-trend-calibration-v1
+    source: synthetic
+    market_id: us-equities-synthetic
+    start_date: "2026-01-01"
+    end_date: "2026-12-31"
+    dependence_cluster_id: synthetic-trend-family-v1
+  - trajectory_id: synthetic-reversal-2026-v1
+    window_id: synthetic-reversal-calibration-v1
+    source: synthetic
+    market_id: us-equities-synthetic
+    start_date: "2026-01-01"
+    end_date: "2026-12-31"
+    dependence_cluster_id: synthetic-reversal-family-v1
+  - trajectory_id: equities-2018-h1-v1
+    window_id: equities-2018-01-02--2018-06-29
+    source: real
+    market_id: us-equities-daily
+    start_date: "2018-01-02"
+    end_date: "2018-06-29"
+    dependence_cluster_id: equities-2018-h1
+  - trajectory_id: equities-2019-h2-v1
+    window_id: equities-2019-07-01--2019-12-31
+    source: real
+    market_id: us-equities-daily
+    start_date: "2019-07-01"
+    end_date: "2019-12-31"
+    dependence_cluster_id: equities-2019-h2
+  - trajectory_id: equities-2020-crisis-v1
+    window_id: equities-2020-02-03--2020-06-30
+    source: real
+    market_id: us-equities-daily
+    start_date: "2020-02-03"
+    end_date: "2020-06-30"
+    dependence_cluster_id: equities-2020-crisis
+  - trajectory_id: equities-2022-bear-v1
+    window_id: equities-2022-01-03--2022-06-30
+    source: real
+    market_id: us-equities-daily
+    start_date: "2022-01-03"
+    end_date: "2022-06-30"
+    dependence_cluster_id: equities-2022-bear
+  - trajectory_id: exchange-trend-2026-v1
+    window_id: exchange-trend-dose-response-v1
+    source: synthetic
+    market_id: us-equities-exchange
+    start_date: "2026-01-01"
+    end_date: "2026-12-31"
+    dependence_cluster_id: exchange-trend-family-v1
+  - trajectory_id: exchange-stress-2026-v1
+    window_id: exchange-stress-dose-response-v1
+    source: synthetic
+    market_id: us-equities-exchange
+    start_date: "2026-01-01"
+    end_date: "2026-12-31"
+    dependence_cluster_id: exchange-stress-family-v1
+
+cohorts:
+  - cohort_id: llm-homogeneous-claude-opus-v1
+    technology: llm
+    ecology: homogeneous
+    allocations:
+      - model_id: claude-opus-4-8
+        revision: "2026-07-13"
+        provider: anthropic
+        family: claude-opus
+        count: 8
+  - cohort_id: llm-homogeneous-claude-sonnet-v1
+    technology: llm
+    ecology: homogeneous
+    allocations:
+      - model_id: claude-sonnet-5
+        revision: "2026-07-13"
+        provider: anthropic
+        family: claude-sonnet
+        count: 8
+  - cohort_id: llm-homogeneous-gpt-v1
+    technology: llm
+    ecology: homogeneous
+    allocations:
+      - model_id: gpt-5.6-sol
+        revision: "2026-07-13"
+        provider: openai
+        family: gpt-5.6-sol
+        count: 8
+  - cohort_id: llm-homogeneous-gemini-v1
+    technology: llm
+    ecology: homogeneous
+    allocations:
+      - model_id: gemini-3.1-pro-20260713
+        revision: "2026-07-13"
+        provider: google
+        family: gemini-3.1
+        count: 8
+  - cohort_id: llm-heterogeneous-v1
+    technology: llm
+    ecology: heterogeneous
+    allocations:
+      - model_id: claude-opus-4-8
+        revision: "2026-07-13"
+        provider: anthropic
+        family: claude-opus
+        count: 2
+      - model_id: claude-sonnet-5
+        revision: "2026-07-13"
+        provider: anthropic
+        family: claude-sonnet
+        count: 2
+      - model_id: gpt-5.6-sol
+        revision: "2026-07-13"
+        provider: openai
+        family: gpt-5.6-sol
+        count: 2
+      - model_id: gemini-3.1-pro-20260713
+        revision: "2026-07-13"
+        provider: google
+        family: gemini-3.1
+        count: 2
+  - cohort_id: classical-homogeneous-momentum-v1
+    technology: classical
+    ecology: homogeneous
+    allocations:
+      - model_id: momentum-strategy-v1
+        revision: "git-v1"
+        provider: classical
+        family: momentum
+        count: 8
+  - cohort_id: classical-homogeneous-mean-reversion-v1
+    technology: classical
+    ecology: homogeneous
+    allocations:
+      - model_id: mean-reversion-strategy-v1
+        revision: "git-v1"
+        provider: classical
+        family: mean-reversion
+        count: 8
+  - cohort_id: classical-homogeneous-market-maker-v1
+    technology: classical
+    ecology: homogeneous
+    allocations:
+      - model_id: market-maker-strategy-v1
+        revision: "git-v1"
+        provider: classical
+        family: market-maker
+        count: 8
+  - cohort_id: classical-homogeneous-buy-hold-v1
+    technology: classical
+    ecology: homogeneous
+    allocations:
+      - model_id: buy-hold-strategy-v1
+        revision: "git-v1"
+        provider: classical
+        family: buy-hold
+        count: 8
+  - cohort_id: classical-heterogeneous-v1
+    technology: classical
+    ecology: heterogeneous
+    allocations:
+      - model_id: momentum-strategy-v1
+        revision: "git-v1"
+        provider: classical
+        family: momentum
+        count: 2
+      - model_id: mean-reversion-strategy-v1
+        revision: "git-v1"
+        provider: classical
+        family: mean-reversion
+        count: 2
+      - model_id: market-maker-strategy-v1
+        revision: "git-v1"
+        provider: classical
+        family: market-maker
+        count: 2
+      - model_id: buy-hold-strategy-v1
+        revision: "git-v1"
+        provider: classical
+        family: buy-hold
+        count: 2
+  - cohort_id: random-null-v1
+    technology: "null"
+    ecology: homogeneous
+    allocations:
+      - model_id: seeded-random-strategy-v1
+        revision: "git-v1"
+        provider: "null"
+        family: seeded-random
+        count: 8
+
+held_out_families: [gemini-3.1]
+
+# This deterministic Gray-code chain covers all 32 MPHIQ schemes. Every edge is
+# an exact paired contrast differing at one declared factor only.
+mphiq_pairs:
+  - {pair_id: mphiq-edge-01, factor: Q, different_code: "00000", same_code: "00001", assignment_seed: 8001}
+  - {pair_id: mphiq-edge-02, factor: I, different_code: "00001", same_code: "00011", assignment_seed: 8002}
+  - {pair_id: mphiq-edge-03, factor: Q, different_code: "00010", same_code: "00011", assignment_seed: 8003}
+  - {pair_id: mphiq-edge-04, factor: H, different_code: "00010", same_code: "00110", assignment_seed: 8004}
+  - {pair_id: mphiq-edge-05, factor: Q, different_code: "00110", same_code: "00111", assignment_seed: 8005}
+  - {pair_id: mphiq-edge-06, factor: I, different_code: "00101", same_code: "00111", assignment_seed: 8006}
+  - {pair_id: mphiq-edge-07, factor: Q, different_code: "00100", same_code: "00101", assignment_seed: 8007}
+  - {pair_id: mphiq-edge-08, factor: P, different_code: "00100", same_code: "01100", assignment_seed: 8008}
+  - {pair_id: mphiq-edge-09, factor: Q, different_code: "01100", same_code: "01101", assignment_seed: 8009}
+  - {pair_id: mphiq-edge-10, factor: I, different_code: "01101", same_code: "01111", assignment_seed: 8010}
+  - {pair_id: mphiq-edge-11, factor: Q, different_code: "01110", same_code: "01111", assignment_seed: 8011}
+  - {pair_id: mphiq-edge-12, factor: H, different_code: "01010", same_code: "01110", assignment_seed: 8012}
+  - {pair_id: mphiq-edge-13, factor: Q, different_code: "01010", same_code: "01011", assignment_seed: 8013}
+  - {pair_id: mphiq-edge-14, factor: I, different_code: "01001", same_code: "01011", assignment_seed: 8014}
+  - {pair_id: mphiq-edge-15, factor: Q, different_code: "01000", same_code: "01001", assignment_seed: 8015}
+  - {pair_id: mphiq-edge-16, factor: M, different_code: "01000", same_code: "11000", assignment_seed: 8016}
+  - {pair_id: mphiq-edge-17, factor: Q, different_code: "11000", same_code: "11001", assignment_seed: 8017}
+  - {pair_id: mphiq-edge-18, factor: I, different_code: "11001", same_code: "11011", assignment_seed: 8018}
+  - {pair_id: mphiq-edge-19, factor: Q, different_code: "11010", same_code: "11011", assignment_seed: 8019}
+  - {pair_id: mphiq-edge-20, factor: H, different_code: "11010", same_code: "11110", assignment_seed: 8020}
+  - {pair_id: mphiq-edge-21, factor: Q, different_code: "11110", same_code: "11111", assignment_seed: 8021}
+  - {pair_id: mphiq-edge-22, factor: I, different_code: "11101", same_code: "11111", assignment_seed: 8022}
+  - {pair_id: mphiq-edge-23, factor: Q, different_code: "11100", same_code: "11101", assignment_seed: 8023}
+  - {pair_id: mphiq-edge-24, factor: P, different_code: "10100", same_code: "11100", assignment_seed: 8024}
+  - {pair_id: mphiq-edge-25, factor: Q, different_code: "10100", same_code: "10101", assignment_seed: 8025}
+  - {pair_id: mphiq-edge-26, factor: I, different_code: "10101", same_code: "10111", assignment_seed: 8026}
+  - {pair_id: mphiq-edge-27, factor: Q, different_code: "10110", same_code: "10111", assignment_seed: 8027}
+  - {pair_id: mphiq-edge-28, factor: H, different_code: "10010", same_code: "10110", assignment_seed: 8028}
+  - {pair_id: mphiq-edge-29, factor: Q, different_code: "10010", same_code: "10011", assignment_seed: 8029}
+  - {pair_id: mphiq-edge-30, factor: I, different_code: "10001", same_code: "10011", assignment_seed: 8030}
+  - {pair_id: mphiq-edge-31, factor: Q, different_code: "10000", same_code: "10001", assignment_seed: 8031}
+
+capital_share_levels:
+  - {level_id: ai-share-0000, ai_share_bps: 0, total_capital_usd: 10000000, ai_capital_usd: 0, background_capital_usd: 10000000}
+  - {level_id: ai-share-1000, ai_share_bps: 1000, total_capital_usd: 10000000, ai_capital_usd: 1000000, background_capital_usd: 9000000}
+  - {level_id: ai-share-2500, ai_share_bps: 2500, total_capital_usd: 10000000, ai_capital_usd: 2500000, background_capital_usd: 7500000}
+  - {level_id: ai-share-5000, ai_share_bps: 5000, total_capital_usd: 10000000, ai_capital_usd: 5000000, background_capital_usd: 5000000}
+  - {level_id: ai-share-7500, ai_share_bps: 7500, total_capital_usd: 10000000, ai_capital_usd: 7500000, background_capital_usd: 2500000}
+  - {level_id: ai-share-10000, ai_share_bps: 10000, total_capital_usd: 10000000, ai_capital_usd: 10000000, background_capital_usd: 0}
+
+estimands:
+  - estimand_id: h1-kappa-contrast
+    hypothesis_id: H1
+    outcome: Chance-corrected per-symbol action agreement.
+    contrast: LLM technology minus matched classical technology within ecology and trajectory blocks.
+    independent_unit: Independent trajectory or nonoverlapping market-window dependence cluster.
+    estimator: Family-balanced paired contrast with cluster-aware small-sample inference.
+  - estimand_id: h3-provider-contrast
+    hypothesis_id: H3
+    outcome: Pairwise decision and forecast-error agreement.
+    contrast: Same-model and same-provider pairs minus provider-balanced cross-family pairs.
+    independent_unit: Independent trajectory or nonoverlapping market-window dependence cluster.
+    estimator: Blocked pair contrast with model-family cluster bootstrap and Holm correction.
+  - estimand_id: h4-mphiq-effects
+    hypothesis_id: H4
+    outcome: Per-symbol agreement and constrained-oracle regret.
+    contrast: Paired same-minus-different effect for each MPHIQ factor and locked interactions.
+    independent_unit: Independent trajectory or nonoverlapping market-window dependence cluster.
+    estimator: Full-factorial contrasts with paired Hamming-one comparisons and hierarchical FDR.
+  - estimand_id: h5-capital-dose-response
+    hypothesis_id: H5
+    outcome: Impact, volatility, spread, depth, cascades, and convergence breadth.
+    contrast: Each randomized AI-capital-share level minus the paired zero-AI market.
+    independent_unit: Independently randomized whole-market replica.
+    estimator: Paired dose-response curve with simultaneous threshold confidence band.
+
+required_outputs:
+  - output_id: frozen-plan
+    path: results/paper-core/study-plan.json
+    format: json
+    estimand_ids: [h1-kappa-contrast, h3-provider-contrast, h4-mphiq-effects, h5-capital-dose-response]
+  - output_id: h1-effects
+    path: results/paper-core/h1-effects.parquet
+    format: parquet
+    estimand_ids: [h1-kappa-contrast]
+  - output_id: mphiq-assignments
+    path: results/paper-core/mphiq-assignments.parquet
+    format: parquet
+    estimand_ids: [h3-provider-contrast, h4-mphiq-effects]
+  - output_id: mphiq-effects
+    path: results/paper-core/mphiq-effects.parquet
+    format: parquet
+    estimand_ids: [h3-provider-contrast, h4-mphiq-effects]
+  - output_id: h5-share-outcomes
+    path: results/paper-core/h5-share-outcomes.parquet
+    format: parquet
+    estimand_ids: [h5-capital-dose-response]
+  - output_id: confirmatory-inference
+    path: results/paper-core/confirmatory-inference.json
+    format: json
+    estimand_ids: [h1-kappa-contrast, h3-provider-contrast, h4-mphiq-effects, h5-capital-dose-response]
+  - output_id: paper-figures
+    path: results/paper-core/primary-effects.png
+    format: png
+    estimand_ids: [h1-kappa-contrast, h4-mphiq-effects, h5-capital-dose-response]
+
+stages:
+  - stage_id: calibration-replay
+    order: 1
+    design: replay
+    trajectory_ids: [synthetic-trend-2026-v1, synthetic-reversal-2026-v1]
+    cohort_ids: [llm-homogeneous-claude-opus-v1, llm-homogeneous-claude-sonnet-v1, llm-homogeneous-gpt-v1, llm-homogeneous-gemini-v1, llm-heterogeneous-v1, classical-homogeneous-momentum-v1, classical-homogeneous-mean-reversion-v1, classical-homogeneous-market-maker-v1, classical-homogeneous-buy-hold-v1, classical-heterogeneous-v1, random-null-v1]
+    seeds: [1101, 1102]
+    steps_per_run: 60
+    calls_per_llm_agent_step: 1
+    estimand_ids: [h1-kappa-contrast]
+    output_ids: [frozen-plan, h1-effects]
+    expected_counts: {runs: 4, steps: 240, agents_per_run: 88, agent_steps: 21120, calls: 9600}
+    planned_cost_usd: 750.0
+    budget_cap: {max_calls: 10000, max_cost_usd: 1000.0}
+  - stage_id: confirmatory-replay
+    order: 2
+    design: replay
+    trajectory_ids: [equities-2018-h1-v1, equities-2019-h2-v1, equities-2020-crisis-v1, equities-2022-bear-v1]
+    cohort_ids: [llm-homogeneous-claude-opus-v1, llm-homogeneous-claude-sonnet-v1, llm-homogeneous-gpt-v1, llm-homogeneous-gemini-v1, llm-heterogeneous-v1, classical-homogeneous-momentum-v1, classical-homogeneous-mean-reversion-v1, classical-homogeneous-market-maker-v1, classical-homogeneous-buy-hold-v1, classical-heterogeneous-v1, random-null-v1]
+    seeds: [2101, 2102, 2103, 2104]
+    steps_per_run: 100
+    calls_per_llm_agent_step: 1
+    estimand_ids: [h1-kappa-contrast, h3-provider-contrast]
+    output_ids: [frozen-plan, h1-effects, confirmatory-inference, paper-figures]
+    expected_counts: {runs: 16, steps: 1600, agents_per_run: 88, agent_steps: 140800, calls: 64000}
+    planned_cost_usd: 6250.0
+    budget_cap: {max_calls: 65000, max_cost_usd: 7000.0}
+  - stage_id: mphiq-factorial
+    order: 3
+    design: mphiq
+    trajectory_ids: [equities-2019-h2-v1, equities-2022-bear-v1]
+    cohort_ids: [llm-heterogeneous-v1]
+    seeds: [3101, 3102]
+    steps_per_run: 80
+    calls_per_llm_agent_step: 1
+    mphiq_pair_ids: [mphiq-edge-01, mphiq-edge-02, mphiq-edge-03, mphiq-edge-04, mphiq-edge-05, mphiq-edge-06, mphiq-edge-07, mphiq-edge-08, mphiq-edge-09, mphiq-edge-10, mphiq-edge-11, mphiq-edge-12, mphiq-edge-13, mphiq-edge-14, mphiq-edge-15, mphiq-edge-16, mphiq-edge-17, mphiq-edge-18, mphiq-edge-19, mphiq-edge-20, mphiq-edge-21, mphiq-edge-22, mphiq-edge-23, mphiq-edge-24, mphiq-edge-25, mphiq-edge-26, mphiq-edge-27, mphiq-edge-28, mphiq-edge-29, mphiq-edge-30, mphiq-edge-31]
+    estimand_ids: [h3-provider-contrast, h4-mphiq-effects]
+    output_ids: [frozen-plan, mphiq-assignments, mphiq-effects, confirmatory-inference, paper-figures]
+    expected_counts: {runs: 128, steps: 10240, agents_per_run: 8, agent_steps: 81920, calls: 81920}
+    planned_cost_usd: 6000.0
+    budget_cap: {max_calls: 83000, max_cost_usd: 7000.0}
+  - stage_id: h5-capital-share
+    order: 4
+    design: capital_share
+    trajectory_ids: [exchange-trend-2026-v1, exchange-stress-2026-v1]
+    cohort_ids: [llm-heterogeneous-v1, classical-heterogeneous-v1]
+    seeds: [4101, 4102, 4103, 4104]
+    steps_per_run: 200
+    calls_per_llm_agent_step: 1
+    capital_share_level_ids: [ai-share-0000, ai-share-1000, ai-share-2500, ai-share-5000, ai-share-7500, ai-share-10000]
+    estimand_ids: [h5-capital-dose-response]
+    output_ids: [frozen-plan, h5-share-outcomes, confirmatory-inference, paper-figures]
+    expected_counts: {runs: 48, steps: 9600, agents_per_run: 16, agent_steps: 153600, calls: 76800}
+    planned_cost_usd: 5800.0
+    budget_cap: {max_calls: 78000, max_cost_usd: 6500.0}
+
+budget_cap:
+  max_calls: 250000
+  max_cost_usd: 25000.0
