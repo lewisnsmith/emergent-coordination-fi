@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from flock.agents.cache import ResponseCache
 from flock.agents.grounding import validate_grounding
 from flock.agents.llm_agent import LLMAgent, parse_response, render_user_prompt
@@ -77,6 +79,18 @@ def test_cache_roundtrip(tmp_path):
     cache.put(key, ChatResponse(text="hello", cost_usd=0.01))
     got = cache.get(key)
     assert got is not None and got.text == "hello" and got.cost_usd == 0.01
+
+
+def test_cache_concurrent_writes_are_atomic_and_first_writer_wins(tmp_path):
+    cache = ResponseCache(root=tmp_path)
+    key = ResponseCache.key("m", "mid", 0.7, 1, 100, "sys", "user")
+    responses = [ChatResponse(text=f"response-{index}") for index in range(12)]
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        list(pool.map(lambda response: cache.put(key, response), responses))
+    stored = cache.get(key)
+    assert stored is not None
+    assert stored.text in {response.text for response in responses}
+    assert not list(tmp_path.rglob("*.tmp"))
 
 
 def test_prompt_contains_observation_block():

@@ -167,6 +167,17 @@ def run_config(
     results_root: Path = RESULTS_DIR,
     use_cache: bool = True,
 ) -> RunResult:
+    run_id = make_run_id(cfg)
+    completed_manifest = results_root / run_id / "manifest.json"
+    if completed_manifest.exists():
+        manifest = json.loads(completed_manifest.read_text())
+        return RunResult(
+            run_id,
+            completed_manifest.parent,
+            manifest["n_steps"],
+            manifest["n_agents"],
+        )
+
     registry = Registry()
     market, dataset_entry = build_market(cfg, registry)
     cache = ResponseCache() if use_cache else None
@@ -182,52 +193,56 @@ def run_config(
                 ledger.qty[symbol] = cfg.initial_position_per_symbol
                 ledger.avg_price[symbol] = price
 
-    run_id = make_run_id(cfg)
     writer = RunWriter(run_id, results_root)
     t_start = time.time()
 
     n_steps = 0
     total_cost = 0.0
-    while not market.done:
-        state = market.state()
-        for agent in agents:
-            ledger = ledgers[agent.agent_id]
-            obs = Observation(
-                step=state.step,
-                ts=state.ts,
-                symbols=state.symbols,
-                bars=state.bars,
-                prices=state.prices,
-                news=state.news,
-                portfolio=ledger.view(state.prices),
-            )
-            if getattr(agent, "kind", "") == "llm":
-                obs = apply_information_policy(obs, agent.information_policy)
-            decision = agent.decide(obs)
-            total_cost += decision.usage.cost_usd
-            clipped = ledger.clip_orders(decision.orders, state.prices)
-            market.submit(agent.agent_id, clipped)
-            writer.log_decision(decision, obs, agent.describe(), agent.cohort, clipped)
+    try:
+        while not market.done:
+            state = market.state()
+            for agent in agents:
+                ledger = ledgers[agent.agent_id]
+                obs = Observation(
+                    step=state.step,
+                    ts=state.ts,
+                    symbols=state.symbols,
+                    bars=state.bars,
+                    prices=state.prices,
+                    news=state.news,
+                    portfolio=ledger.view(state.prices),
+                )
+                if getattr(agent, "kind", "") == "llm":
+                    obs = apply_information_policy(obs, agent.information_policy)
+                decision = agent.decide(obs)
+                total_cost += decision.usage.cost_usd
+                clipped = ledger.clip_orders(decision.orders, state.prices)
+                market.submit(agent.agent_id, clipped)
+                writer.log_decision(decision, obs, agent.describe(), agent.cohort, clipped)
 
-        fills = market.step()
-        for fill in fills:
-            ledgers[fill.agent_id].apply(fill)
-            writer.log_fill(fill)
+            fills = market.step()
+            for fill in fills:
+                ledgers[fill.agent_id].apply(fill)
+                writer.log_fill(fill)
 
-        mark_prices = state.prices if market.done else market.state().prices
-        mark_ts = state.ts if market.done else market.state().ts
-        for agent in agents:
-            ledger = ledgers[agent.agent_id]
-            writer.log_portfolio(
-                n_steps,
-                mark_ts,
-                agent.agent_id,
-                agent.cohort,
-                ledger.cash,
-                ledger.equity(mark_prices),
-                ledger.weights(mark_prices),
-            )
-        n_steps += 1
+            mark_prices = state.prices if market.done else market.state().prices
+            mark_ts = state.ts if market.done else market.state().ts
+            for agent in agents:
+                ledger = ledgers[agent.agent_id]
+                writer.log_portfolio(
+                    n_steps,
+                    mark_ts,
+                    agent.agent_id,
+                    agent.cohort,
+                    ledger.cash,
+                    ledger.equity(mark_prices),
+                    ledger.weights(mark_prices),
+                )
+            n_steps += 1
+            writer.checkpoint(n_steps, total_cost)
+    except BaseException as error:
+        writer.fail(error)
+        raise
 
     manifest = {
         "run_id": run_id,
