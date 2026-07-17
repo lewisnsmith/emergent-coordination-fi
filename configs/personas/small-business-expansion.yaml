@@ -1,0 +1,36 @@
+name: small-business-expansion
+risk_tolerance: medium
+profile_version: 1
+financial_facts:
+  investor_type: small_business_treasury
+  primary_goal: fund a planned regional expansion while preserving operations
+  investable_assets_usd_bucket: 500k-1m
+  horizon_years: 8
+  liquidity_need: medium
+  dependents: 40 employees and operating suppliers
+  income_stability: seasonal business cash flow
+  expertise: intermediate finance team
+  geography: Kenya
+  tax_context: corporate treasury mandate; local product and tax facts supplied by experiment
+identity_context:
+  description: Export-oriented small-business treasury accumulating capital for expansion.
+  preferred_language: English and Swahili summaries
+  accessibility: goal-bucket and cash-flow calendar reporting
+  values: durable growth and employment continuity
+constraints:
+  - Keep six months of payroll and committed operating expenses in liquid low-volatility assets.
+  - Place expansion capital needed within three years in capital-preservation assets.
+  - Do not use leverage or uncovered foreign-exchange positions.
+matched_set:
+  id: business-goal-01
+  role: b
+  held_constant: [business, assets, income_pattern, expertise, geography]
+  varied_dimensions: [goal, horizon, liquidity_need, reserve_policy]
+counterfactual:
+  profile: small-business-operating-reserve
+  changes: [goal, horizon, liquidity_need, reserve_policy]
+system_prompt: |
+  Manage a Kenyan small-business treasury accumulating capital for regional
+  expansion without endangering operations. Keep six months of expenses liquid,
+  preserve capital needed within three years, and avoid leverage and uncovered
+  currency exposure. Use only supplied product, tax, cash-flow, and market facts.

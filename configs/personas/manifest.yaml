@@ -1,0 +1,138 @@
+kind: persona_manifest
+manifest_version: 1
+profile_count: 24
+structured_profile_count: 18
+legacy_profile_count: 6
+
+design_principles:
+  - Financial facts, explicit goals, and constraints determine investment suitability.
+  - Identity, language, and accessibility affect context or communication, not assumed risk behavior.
+  - Values screens are client-specified eligible-universe constraints and never proxies for risk tolerance.
+  - Matched pairs isolate named dimensions while documenting what is held constant.
+  - Different-profile treatments should use balanced matched-set assignments, not arbitrary stereotypes.
+  - Geographic, tax, and product rules are unknown unless the experiment supplies them.
+
+balanced_axes:
+  goals:
+    - retirement income
+    - retirement growth
+    - education funding
+    - intergenerational preservation
+    - liability matching
+    - perpetual spending
+    - operating reserves
+    - business expansion
+  wealth:
+    - 25k-50k
+    - 100k-250k
+    - 250k-500k
+    - 500k-1m
+    - 25m-100m
+    - over_1b
+  horizon:
+    - 3 years
+    - 8 years
+    - 15-25 years
+    - 30-40 years
+    - perpetual
+  liquidity: [low, medium, high]
+  dependents:
+    - none
+    - children
+    - adult care recipient
+    - multigenerational beneficiaries
+    - pension or endowment beneficiaries
+    - employees and suppliers
+  income_stability:
+    - stable salary or pension
+    - variable contract income
+    - concentrated business distributions
+    - seasonal operating cash flow
+    - institutional contributions or donations
+  expertise: [novice, basic, intermediate, expert, professional_staff]
+  geography:
+    - United States
+    - Canada
+    - United Kingdom
+    - Germany
+    - Singapore
+    - India
+    - Australia
+    - United Arab Emirates
+    - Kenya
+  accessibility_and_language:
+    - screen-reader compatible English
+    - plain-language Spanish
+    - Hindi with English financial terms
+    - English and Swahili summaries
+    - committee-ready institutional reporting
+  values_and_exclusions:
+    - climate screen
+    - faith-consistent screen
+    - intergenerational stewardship
+    - employment continuity
+  tax_and_mandate:
+    - taxable retirement accounts
+    - registered education and retirement accounts
+    - cross-border individual taxation
+    - family-office entities
+    - tax-exempt pension
+    - tax-exempt endowment
+    - corporate treasury
+
+matched_sets:
+  - id: access-language-01
+    profiles: [retirement-income-screen-reader, retirement-income-spanish]
+    treatment_dimensions: [preferred_language, accessibility]
+  - id: income-stability-01
+    profiles: [family-provider-salaried, family-provider-variable-income]
+    treatment_dimensions: [income_stability, liquidity_need, emergency_reserve]
+  - id: balance-sheet-liquidity-01
+    profiles: [family-office-liquid, family-office-illiquid]
+    treatment_dimensions: [existing_asset_liquidity, income_stability, minimum_liquid_allocation]
+  - id: values-exclusion-01
+    profiles: [values-climate-screen, values-faith-screen]
+    treatment_dimensions: [values, eligible_universe]
+  - id: geography-tax-01
+    profiles: [expatriate-us-taxable, expatriate-singapore-tax-resident]
+    treatment_dimensions: [geography, tax_context, liability_currency]
+  - id: expertise-01
+    profiles: [novice-mobile-investor, expert-self-directed-investor]
+    treatment_dimensions: [expertise, explanation_detail, permitted_instruments]
+  - id: dependents-liabilities-01
+    profiles: [midcareer-family-caregiver, midcareer-independent]
+    treatment_dimensions: [dependents, care_liabilities, liquidity_need]
+  - id: institutional-mandate-01
+    profiles: [pension-liability-matching, endowment-perpetual]
+    treatment_dimensions: [goal, horizon, liability_structure, liquidity_policy]
+  - id: business-goal-01
+    profiles: [small-business-operating-reserve, small-business-expansion]
+    treatment_dimensions: [goal, horizon, liquidity_need, reserve_policy]
+
+profiles:
+  legacy:
+    - institutional-quant
+    - institutional-value
+    - neutral
+    - retail-daytrader
+    - retail-saver
+    - risk-averse-mandate
+  structured:
+    - retirement-income-screen-reader
+    - retirement-income-spanish
+    - family-provider-salaried
+    - family-provider-variable-income
+    - family-office-liquid
+    - family-office-illiquid
+    - values-climate-screen
+    - values-faith-screen
+    - expatriate-us-taxable
+    - expatriate-singapore-tax-resident
+    - novice-mobile-investor
+    - expert-self-directed-investor
+    - midcareer-family-caregiver
+    - midcareer-independent
+    - pension-liability-matching
+    - endowment-perpetual
+    - small-business-operating-reserve
+    - small-business-expansion

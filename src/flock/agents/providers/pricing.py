@@ -7,15 +7,16 @@ longest model-id prefix.
 
 from __future__ import annotations
 
+# Synchronous standard-tier prices verified against official provider pages on
+# 2026-07-13. Preflight estimates use configs/budgets/pricing.yaml. Unknown
+# metered models fail closed instead of silently being recorded as free.
 # model-id prefix -> (input $/Mtok, output $/Mtok)
 PRICES: dict[str, tuple[float, float]] = {
-    "claude-sonnet-5": (3.0, 15.0),
-    "claude-haiku-4-5": (1.0, 5.0),
-    "claude-opus": (15.0, 75.0),
-    "gpt-5": (1.25, 10.0),
-    "gpt-4o": (2.5, 10.0),
-    "gemini-2.5-pro": (1.25, 10.0),
-    "gemini-2.5-flash": (0.30, 2.5),
+    "claude-opus-4-8": (5.0, 25.0),
+    "claude-sonnet-5": (2.0, 10.0),
+    "gpt-5.6-sol": (5.0, 30.0),
+    "gpt-5.6-terra": (2.5, 15.0),
+    "gemini-3.1-pro-preview": (2.0, 12.0),
 }
 
 
@@ -25,6 +26,6 @@ def cost_usd(model_id: str, input_tokens: int, output_tokens: int) -> float:
         if model_id.startswith(prefix) and len(prefix) > len(best):
             best = prefix
     if not best:
-        return 0.0
+        raise ValueError(f"no verified token price for metered model '{model_id}'")
     p_in, p_out = PRICES[best]
     return (input_tokens * p_in + output_tokens * p_out) / 1e6

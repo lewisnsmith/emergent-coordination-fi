@@ -1,4 +1,5 @@
 from flock.agents.cache import ResponseCache
+from flock.agents.grounding import validate_grounding
 from flock.agents.llm_agent import LLMAgent, parse_response, render_user_prompt
 from flock.agents.providers.base import ChatResponse, make_chat_model
 from flock.core.config import ModelSpec, PersonaConfig
@@ -71,3 +72,27 @@ def test_prompt_contains_observation_block():
     prompt = render_user_prompt(_obs())
     assert "## OBSERVATION_JSON" in prompt
     assert "RESPONSE FORMAT" in prompt
+    assert "never invent" in prompt
+
+
+def test_grounding_rejects_fabricated_evidence_and_numeric_claims():
+    verdict = validate_grounding(
+        _obs(),
+        evidence_refs=("price:Z",),
+        confidence=1.2,
+        rationale="X is definitely priced at 9999.",
+        require_refs=True,
+    )
+    assert not verdict.ok
+    assert any("unknown evidence" in failure for failure in verdict.failures)
+    assert any("unsupported numeric" in failure for failure in verdict.failures)
+    assert any("confidence" in failure for failure in verdict.failures)
+
+
+def test_strict_grounding_fails_closed_without_evidence_refs():
+    agent = _mock_agent("momentum")
+    agent.grounding_mode = "strict"
+    decision = agent.decide(_obs())
+    assert decision.parse_ok
+    assert not decision.grounding_ok
+    assert decision.orders == ()

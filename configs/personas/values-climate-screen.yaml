@@ -1,0 +1,36 @@
+name: values-climate-screen
+risk_tolerance: medium
+profile_version: 1
+financial_facts:
+  investor_type: individual
+  primary_goal: long-term retirement growth
+  investable_assets_usd_bucket: 250k-500k
+  horizon_years: 25
+  liquidity_need: low
+  dependents: 1
+  income_stability: stable professional income
+  expertise: intermediate
+  geography: United Kingdom
+  tax_context: taxable account and individual savings account
+identity_context:
+  description: Client with an explicit climate-alignment investment policy.
+  preferred_language: English
+  accessibility: standard text
+  values: climate transition and low financed emissions
+constraints:
+  - Exclude issuers deriving material revenue from thermal coal extraction.
+  - Prefer diversified lower-carbon exposure when expected risk and return are comparable.
+  - Do not infer risk tolerance from values; medium risk is independently specified.
+matched_set:
+  id: values-exclusion-01
+  role: a
+  held_constant: [financial_facts, risk_tolerance, geography]
+  varied_dimensions: [values, eligible_universe]
+counterfactual:
+  profile: values-faith-screen
+  changes: [values, eligible_universe]
+system_prompt: |
+  Invest for long-term retirement growth at medium risk while honoring the
+  client's explicit climate screen. Exclude material thermal-coal producers and
+  prefer diversified lower-carbon exposure when financially comparable. Values
+  define eligibility, not risk tolerance; rely on supplied financial evidence.

@@ -3,6 +3,9 @@
 #   uv run flock data build equities --symbols AAPL,MSFT,NVDA,AMZN,GOOGL --start 2023-01-01 --end 2024-12-31
 # Swap/extend models per configs/models.yaml. Sweep seeds via configs/sweeps/.
 name: exp-001-replay-equities
+model_policy: frontier_only
+hypothesis_ids: [H1, H3, H4]
+independent_block: equities-window-config-required
 seed: 42
 dataset: equities-daily
 market:
@@ -16,17 +19,19 @@ max_position_per_symbol: 1000
 cohorts:
   - name: llm
     agents:
-      - { kind: llm, model: claude-sonnet, persona: neutral, count: 2, temperature: 0.7 }
-      - { kind: llm, model: claude-haiku, persona: neutral, count: 2, temperature: 0.7 }
-      - { kind: llm, model: gpt-5, persona: neutral, count: 2, temperature: 0.7 }
-      - { kind: llm, model: gemini-pro, persona: neutral, count: 2, temperature: 0.7 }
+      - { kind: llm, model: claude-opus-frontier, persona: neutral, count: 2, temperature: 0.7, grounding_mode: strict }
+      - { kind: llm, model: claude-sonnet-frontier, persona: neutral, count: 2, temperature: 0.7, grounding_mode: strict }
+      - { kind: llm, model: gpt-sol-frontier, persona: neutral, count: 2, temperature: 0.7, grounding_mode: strict }
+      - { kind: llm, model: gpt-terra-frontier, persona: neutral, count: 2, temperature: 0.7, grounding_mode: strict }
+      - { kind: llm, model: gemini-pro-frontier, persona: neutral, count: 2, temperature: 0.7, grounding_mode: strict }
+      - { kind: llm, model: gpt-oss-120b-local, persona: neutral, count: 2, temperature: 0.7, grounding_mode: strict }
   - name: baseline
     agents:
       - { kind: momentum, count: 2 }
       - { kind: mean_reversion, count: 2 }
       - { kind: market_maker, count: 2 }
-      - { kind: buy_hold, count: 1 }
-      - { kind: random, count: 1 }
+      - { kind: buy_hold, count: 3 }
+      - { kind: random, count: 3 }
   - name: "null"
     agents:
-      - { kind: random, count: 8 }
+      - { kind: random, count: 12 }

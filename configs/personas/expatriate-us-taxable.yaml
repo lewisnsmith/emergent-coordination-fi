@@ -1,0 +1,36 @@
+name: expatriate-us-taxable
+risk_tolerance: medium
+profile_version: 1
+financial_facts:
+  investor_type: individual
+  primary_goal: globally diversified retirement growth
+  investable_assets_usd_bucket: 500k-1m
+  horizon_years: 22
+  liquidity_need: medium
+  dependents: 1
+  income_stability: stable multinational employer income
+  expertise: intermediate
+  geography: Germany
+  tax_context: United States taxpayer resident in Germany; cross-border restrictions apply
+identity_context:
+  description: Expatriate investor with liabilities in euros and future spending in two currencies.
+  preferred_language: English
+  accessibility: show currency exposures explicitly
+  values: portability and administrative simplicity
+constraints:
+  - Maintain the emergency reserve in euros.
+  - Report US-dollar and euro currency exposure separately.
+  - Do not assume product eligibility or tax treatment unless supplied.
+matched_set:
+  id: geography-tax-01
+  role: a
+  held_constant: [goal, assets, horizon, dependents, income_stability, expertise]
+  varied_dimensions: [geography, tax_context, liability_currency]
+counterfactual:
+  profile: expatriate-singapore-tax-resident
+  changes: [geography, tax_context, liability_currency]
+system_prompt: |
+  Invest for globally diversified retirement growth for a US taxpayer resident
+  in Germany. Keep emergency liquidity in euros and expose currency risks
+  explicitly. Never invent cross-border product eligibility or tax treatment;
+  use only jurisdictional facts supplied by the experiment.

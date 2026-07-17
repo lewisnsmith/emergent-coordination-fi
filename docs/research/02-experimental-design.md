@@ -27,13 +27,13 @@ mechanism/consequence evidence.
 |---|---|
 | Market type | equities (daily bars), binary prediction contracts |
 | Data regime | trending, mean-reverting, crisis (synthetic); multiple historical windows (real) |
-| Model | Claude (≥2 tiers), GPT (≥2 tiers), Gemini, ≥1 open-weights via OpenAI-compatible endpoint |
+| Model | Six dated frontier endpoints: 2 OpenAI, 2 Anthropic, 1 Google, 1 local/open-weight |
 | Harness | temperature ∈ {0, 0.7, 1.0}; reasoning effort where supported; memory on/off |
-| Instructions | neutral mandate + persona set (retail/institutional/demographic variants) + risk mandates |
+| Instructions | 24 structured profiles, 5 semantic paraphrases, realistic families, pressure factorial |
 | Information set | identical observations (default) vs differentiated news subsets |
 | Seed | ≥10 seeds per cell (finalized by power analysis, see 06-preregistration) |
 
-A **run** = one (market, dataset, cohort spec, seed). A **sweep** = grid of runs. Cells are
+A **run** = one (market, dataset, cohort spec, independent block, seed). A **sweep** = grid of runs. Cells are
 addressed by config hash so sweeps are resumable and exactly reproducible.
 
 ## Cohorts
@@ -67,18 +67,37 @@ statistics (see 03 and 04).
 ## Decision protocol (what agents actually do)
 
 Each step an agent receives an observation: recent OHLCV window (or contract prices), optional
-news/events, its own portfolio, and cash. It must return structured JSON:
-`{"orders": [{"symbol", "side", "quantity", "limit_price"?}], "rationale": "..."}`.
+news/events, its own portfolio, and cash. It must return structured JSON with orders, a concise
+rationale, evidence references, calibrated confidence, and uncertainties. Strict runs reject
+unsupported evidence references and record grounding failures separately from parse failures.
 Malformed responses are retried once, then recorded as `hold` with a parse-failure flag
 (exclusion rules in 06-preregistration).
 
-## Phasing of evidence
+## Complete experiment program
 
-1. **exp-000 (smoke).** Mock models + baselines on synthetic data; validates the pipeline and
-   calibrates metric behavior on cohorts with *known* convergence (mock momentum cohort ≈ fully
-   convergent; random cohort ≈ chance).
-2. **exp-001/002 (replay, real data).** Equities and prediction markets; H1–H4.
-3. **exp-010 (shared exchange).** H5 — coordination with price impact.
+The authoritative catalog is [`configs/research-program.yaml`](../../configs/research-program.yaml):
+
+- `exp-000`–`002`: calibration and confirmatory equity/prediction replay.
+- `exp-003`–`009`: real-investor anchor, convergence breadth, provider/profile/information,
+  all 32 MPHIQ schemes, and robustness.
+- `exp-010`–`012`: exchange calibration, AI-capital-share dose response, and microstructure.
+- `exp-013`–`015`: human trust, advisor execution, and conditional adoption forecasts.
+- `exp-016`–`017`: API black-box attribution and local mechanistic interventions.
+- `exp-018`–`020`: signature transport, real-market detection, and causal attribution.
+- `exp-021`–`024`: actionable data products, complete prompt pressure, safeguards, and final
+  confirmatory replication.
+
+`executable`, `scaffolded`, and `blocked_external` are intentionally distinct. A protocol is not
+called execution-ready merely because its YAML exists. `flock validate` reports both scaffold
+validity and missing data/approval/exposure blockers.
+
+## Factorial assignment
+
+MPHIQ uses bits `M P H I Q`, where `1 = same` and `0 = balanced different`. All 32 codes are
+enumerated in [`configs/designs/mphiq.yaml`](../../configs/designs/mphiq.yaml). Prompt pressure is
+a 24-cell `3 stakes × 2 urgency × 2 emotion × 2 forced-action` design. Prompt paraphrases are
+nested robustness repetitions, not independent market evidence. See [09](09-mphiq-factorial-design.md)
+and [11](11-prompt-pressure-protocol.md).
 
 ## Threats to validity (and responses)
 
@@ -90,3 +109,8 @@ Malformed responses are retried once, then recorded as `hold` with a parse-failu
   baseline families and the external real-world anchor (H2).
 - *Metric gaming:* single metrics can mislead. Response: pre-registered metric hierarchy with
   Holm–Bonferroni across the family.
+- *Pseudoreplication:* model calls, steps, agent pairs, and prompt paraphrases are dependent.
+  Response: paired inference over independent market-window/seed blocks; whole-market units in
+  Phase 2; participant-clustered inference for H6.
+- *Fabrication:* free-text claims can invent evidence. Response: immutable evidence IDs, strict
+  grounding, injection sentinels, fail-closed quality gates, and no rationale-as-mechanism claim.

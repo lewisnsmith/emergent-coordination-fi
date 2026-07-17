@@ -1,0 +1,160 @@
+schema_version: 1
+design_id: mphiq-full-factorial-v1
+title: Model, profile, harness, information, and prompt sameness design
+bit_order: [M, P, H, I, Q]
+bit_semantics:
+  1: same_is_true
+  0: different_is_true
+code_format: five_character_binary_string
+
+dimensions:
+  M:
+    name: model
+    same_definition: Every assigned agent uses the same resolved provider, model checkpoint or API model ID, and revision.
+    different_definition: Agents are allocated across at least two eligible frontier models using the model balance rules.
+    resolved_hash_fields: [provider, model_id, revision, endpoint_class, decoding_capabilities]
+  P:
+    name: investor_profile
+    same_definition: Every assigned agent receives the same fully rendered investor profile and mandate.
+    different_definition: Agents are allocated across at least two preregistered profiles using the profile balance rules.
+    resolved_hash_fields: [profile_id, profile_version, rendered_profile, financial_constraints]
+  H:
+    name: harness
+    same_definition: Every assigned agent uses the same resolved inference and memory harness.
+    different_definition: Agents are allocated across at least two preregistered harness presets using the harness balance rules.
+    resolved_hash_fields: [temperature, reasoning_effort, memory_mode, memory_window, max_output_tokens, structured_output_mode]
+  I:
+    name: information
+    same_definition: Every agent receives byte-identical market evidence and event records before agent-specific portfolio state is attached.
+    different_definition: Agents receive balanced deterministic evidence partitions with equal information budgets and no future leakage.
+    resolved_hash_fields: [market_evidence_hash, event_partition_id, evidence_budget, cutoff_timestamp]
+    excluded_from_sameness_hash: [agent_id, agent_portfolio, response_history]
+  Q:
+    name: prompt_wording
+    same_definition: Every agent receives the same task wording after excluding the independently assigned profile and information blocks.
+    different_definition: Agents receive balanced semantically equivalent task paraphrases; substantive prompt-family differences require a separate declared factor.
+    resolved_hash_fields: [semantic_group, prompt_variant_id, rendered_task_frame, response_contract_version]
+
+schemes:
+  expected_count: 32
+  entries:
+    - {code: "00000", M: 0, P: 0, H: 0, I: 0, Q: 0}
+    - {code: "00001", M: 0, P: 0, H: 0, I: 0, Q: 1}
+    - {code: "00010", M: 0, P: 0, H: 0, I: 1, Q: 0}
+    - {code: "00011", M: 0, P: 0, H: 0, I: 1, Q: 1}
+    - {code: "00100", M: 0, P: 0, H: 1, I: 0, Q: 0}
+    - {code: "00101", M: 0, P: 0, H: 1, I: 0, Q: 1}
+    - {code: "00110", M: 0, P: 0, H: 1, I: 1, Q: 0}
+    - {code: "00111", M: 0, P: 0, H: 1, I: 1, Q: 1}
+    - {code: "01000", M: 0, P: 1, H: 0, I: 0, Q: 0}
+    - {code: "01001", M: 0, P: 1, H: 0, I: 0, Q: 1}
+    - {code: "01010", M: 0, P: 1, H: 0, I: 1, Q: 0}
+    - {code: "01011", M: 0, P: 1, H: 0, I: 1, Q: 1}
+    - {code: "01100", M: 0, P: 1, H: 1, I: 0, Q: 0}
+    - {code: "01101", M: 0, P: 1, H: 1, I: 0, Q: 1}
+    - {code: "01110", M: 0, P: 1, H: 1, I: 1, Q: 0}
+    - {code: "01111", M: 0, P: 1, H: 1, I: 1, Q: 1}
+    - {code: "10000", M: 1, P: 0, H: 0, I: 0, Q: 0}
+    - {code: "10001", M: 1, P: 0, H: 0, I: 0, Q: 1}
+    - {code: "10010", M: 1, P: 0, H: 0, I: 1, Q: 0}
+    - {code: "10011", M: 1, P: 0, H: 0, I: 1, Q: 1}
+    - {code: "10100", M: 1, P: 0, H: 1, I: 0, Q: 0}
+    - {code: "10101", M: 1, P: 0, H: 1, I: 0, Q: 1}
+    - {code: "10110", M: 1, P: 0, H: 1, I: 1, Q: 0}
+    - {code: "10111", M: 1, P: 0, H: 1, I: 1, Q: 1}
+    - {code: "11000", M: 1, P: 1, H: 0, I: 0, Q: 0}
+    - {code: "11001", M: 1, P: 1, H: 0, I: 0, Q: 1}
+    - {code: "11010", M: 1, P: 1, H: 0, I: 1, Q: 0}
+    - {code: "11011", M: 1, P: 1, H: 0, I: 1, Q: 1}
+    - {code: "11100", M: 1, P: 1, H: 1, I: 0, Q: 0}
+    - {code: "11101", M: 1, P: 1, H: 1, I: 0, Q: 1}
+    - {code: "11110", M: 1, P: 1, H: 1, I: 1, Q: 0}
+    - {code: "11111", M: 1, P: 1, H: 1, I: 1, Q: 1}
+
+balance_rules:
+  general:
+    assignment_scope: within_market_window_seed_scheme_cohort
+    randomization: deterministic_seeded_block_randomization
+    minimum_levels_when_different: 2
+    maximum_level_count_difference: 1
+    same_level_unique_hash_count: 1
+    different_level_minimum_unique_hash_count: 2
+    fixed_cohort_size_across_schemes: true
+    fixed_total_capital_across_schemes: true
+    preserve_level_counts_across_paired_schemes: true
+    do_not_treat_agents_or_calls_as_independent_replicates: true
+  joint_assignment:
+    goal: Make zero-bit factors mutually orthogonal within a block whenever cohort size permits.
+    preferred_method: balanced_complete_crossing
+    fallback_method: seeded_near_orthogonal_assignment
+    maximum_joint_cell_count_difference: 1
+    report_pairwise_factor_association: true
+    reject_if_any_zero_bit_is_perfectly_confounded: true
+  model:
+    apply_when: M_is_0
+    balance_provider_families_first: true
+    balance_models_within_provider_second: true
+    require_frontier_eligibility: true
+    same_provider_only_design_requires_explicit_subdesign: true
+    local_and_api_model_counts_differ_by_at_most_one: true
+  profile:
+    apply_when: P_is_0
+    balance_financial_objectives: true
+    balance_risk_capacity: true
+    balance_horizon: true
+    separate_identity_only_from_financial_fact_treatments: true
+    prohibit_implicit_stereotype_assignment: true
+  harness:
+    apply_when: H_is_0
+    presets_must_be_preregistered: true
+    only_compare_supported_parameters: true
+    unsupported_provider_parameter_is_not_a_level: true
+    memory_state_is_reset_at_block_start: true
+  information:
+    apply_when: I_is_0
+    equal_evidence_item_count: true
+    equal_token_budget_with_tolerance: true
+    token_budget_tolerance_fraction: 0.02
+    equal_timestamp_cutoff: true
+    deterministic_partition_from_seed: true
+    prohibit_outcome_and_future_leakage: true
+    partition_overlap_must_be_reported: true
+  prompt:
+    apply_when: Q_is_0
+    require_one_semantic_equivalence_group: true
+    equal_allocation_across_paraphrases: true
+    profile_and_information_text_excluded_from_Q_hash: true
+    substantive_realistic_prompt_families_are_not_valid_Q_zero_levels: true
+
+scheme_pairing:
+  purpose: Estimate each bit effect by comparing schemes differing in exactly that bit.
+  hamming_distance: 1
+  require_shared_market_window_and_seed: true
+  require_identical_nonflipped_assignments: true
+  common_random_numbers: true
+  flip_contrast_direction: "same_minus_balanced_different"
+
+verification_gates:
+  pre_run:
+    - exactly_32_unique_codes
+    - every_code_matches_MPHIQ_bits
+    - every_one_bit_resolves_to_one_hash
+    - every_zero_bit_resolves_to_at_least_two_hashes
+    - all_zero_bit_level_counts_are_balanced
+    - no_forbidden_factor_confounding
+    - all_models_are_verified_frontier_models
+    - all_information_cutoffs_are_leakage_safe
+  post_run:
+    - realized_assignments_match_plan
+    - rendered_hashes_match_sameness_claims
+    - every_agent_step_has_one_assignment_record
+    - paired_schemes_have_complete_outcomes
+    - exclusions_and_failures_are_reported_by_scheme
+
+required_artifacts:
+  - mphiq_plan.json
+  - mphiq_assignments.parquet
+  - mphiq_hash_audit.parquet
+  - mphiq_balance.json
+  - mphiq_effects.parquet
+  - mphiq_verification.json

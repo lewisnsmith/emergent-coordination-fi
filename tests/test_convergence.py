@@ -40,6 +40,37 @@ def test_degenerate_hold_only_agents_score_zero_not_one():
     assert convergence.mean_pairwise_kappa(mat) == 0.0
 
 
+def test_actions_are_scored_per_symbol_not_netted_across_portfolio():
+    rows = [
+        {
+            "agent_id": "a",
+            "cohort": "c",
+            "step": 0,
+            "action": "hold",
+            "parse_ok": True,
+            "symbols": ["X", "Y"],
+            "orders_clipped": [
+                {"symbol": "X", "side": "buy", "quantity": 1},
+                {"symbol": "Y", "side": "sell", "quantity": 1},
+            ],
+        },
+        {
+            "agent_id": "b",
+            "cohort": "c",
+            "step": 0,
+            "action": "hold",
+            "parse_ok": True,
+            "symbols": ["X", "Y"],
+            "orders_clipped": [],
+        },
+    ]
+    mat = convergence.action_matrix(pd.DataFrame(rows), ["a", "b"])
+    assert mat.loc[(0, "X"), "a"] == "buy"
+    assert mat.loc[(0, "Y"), "a"] == "sell"
+    assert list(mat["b"]) == ["hold", "hold"]
+    assert convergence.pairwise_agreement(mat) == 0.0
+
+
 def test_portfolio_overlap_bounds():
     weights = {
         "a": pd.DataFrame({"X": [0.5, 0.5], "Y": [0.5, 0.5]}),

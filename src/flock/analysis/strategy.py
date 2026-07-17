@@ -8,6 +8,7 @@ strategy fingerprint; cohort dispersion = mean pairwise distance.
 
 from __future__ import annotations
 
+import hashlib
 import itertools
 import re
 from pathlib import Path
@@ -105,7 +106,9 @@ def rationale_similarity(decisions: pd.DataFrame, agents: list[str]) -> float:
         v = np.zeros(dim)
         for text in texts:
             for tok in _TOKEN.findall(str(text).lower()):
-                v[hash(tok) % dim] += 1.0
+                digest = hashlib.sha256(tok.encode()).digest()
+                bucket = int.from_bytes(digest[:8], "little") % dim
+                v[bucket] += 1.0
         n = np.linalg.norm(v)
         vectors[agent] = v / n if n > 0 else v
     pairs = list(itertools.combinations(agents, 2))

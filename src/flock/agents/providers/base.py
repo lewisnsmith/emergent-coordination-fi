@@ -37,17 +37,27 @@ def make_chat_model(model_key: str, spec: ModelSpec) -> ChatModel:
     if spec.provider == "anthropic":
         from flock.agents.providers.anthropic_provider import AnthropicChatModel
 
-        return AnthropicChatModel(model_key, spec)
+        model = AnthropicChatModel(model_key, spec)
+        return _resilient(model)
     if spec.provider == "openai":
         from flock.agents.providers.openai_provider import OpenAIChatModel
 
-        return OpenAIChatModel(model_key, spec)
+        model = OpenAIChatModel(model_key, spec)
+        return _resilient(model)
     if spec.provider == "google":
         from flock.agents.providers.google_provider import GoogleChatModel
 
-        return GoogleChatModel(model_key, spec)
+        model = GoogleChatModel(model_key, spec)
+        return _resilient(model)
     if spec.provider == "openai_compatible":
         from flock.agents.providers.openai_compatible import OpenAICompatibleChatModel
 
-        return OpenAICompatibleChatModel(model_key, spec)
+        model = OpenAICompatibleChatModel(model_key, spec)
+        return _resilient(model)
     raise ValueError(f"unknown provider '{spec.provider}'")
+
+
+def _resilient(model: ChatModel) -> ChatModel:
+    from flock.agents.providers.resilient import ResilientChatModel
+
+    return ResilientChatModel(model)

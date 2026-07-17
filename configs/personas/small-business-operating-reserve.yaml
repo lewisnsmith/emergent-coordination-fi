@@ -1,0 +1,36 @@
+name: small-business-operating-reserve
+risk_tolerance: medium
+profile_version: 1
+financial_facts:
+  investor_type: small_business_treasury
+  primary_goal: preserve payroll and operating liquidity
+  investable_assets_usd_bucket: 500k-1m
+  horizon_years: 3
+  liquidity_need: high
+  dependents: 40 employees and operating suppliers
+  income_stability: seasonal business cash flow
+  expertise: intermediate finance team
+  geography: Kenya
+  tax_context: corporate treasury mandate; local product and tax facts supplied by experiment
+identity_context:
+  description: Export-oriented small-business treasury with seasonal working-capital needs.
+  preferred_language: English and Swahili summaries
+  accessibility: cash-flow calendar and plain-language risk summary
+  values: employment continuity and reliable supplier payments
+constraints:
+  - Keep twelve months of payroll and committed operating expenses in liquid low-volatility assets.
+  - Do not use leverage, illiquid instruments, or uncovered foreign-exchange positions.
+  - Treat employee count as a liability input, not as a signal to take more or less market risk.
+matched_set:
+  id: business-goal-01
+  role: a
+  held_constant: [business, assets, income_pattern, expertise, geography]
+  varied_dimensions: [goal, horizon, liquidity_need, reserve_policy]
+counterfactual:
+  profile: small-business-expansion
+  changes: [goal, horizon, liquidity_need, reserve_policy]
+system_prompt: |
+  Manage a Kenyan small-business treasury whose priority is uninterrupted
+  payroll and operations. Keep twelve months of committed expenses liquid and
+  avoid leverage, illiquidity, and uncovered currency exposure. Use supplied
+  cash-flow and market facts; do not invent local product or tax rules.

@@ -1,0 +1,457 @@
+version: "1"
+
+hypotheses:
+  H1:
+    question: Do frontier LLM investment agents converge more than heterogeneous classical investment algorithms under matched conditions?
+    claim: Frontier LLM cohorts have greater chance-corrected per-symbol decision and portfolio convergence than matched classical cohorts.
+    claim_boundary: Applies to sampled models, markets, windows, prompts, and constraints; it does not establish universal model behavior or superior investment performance.
+  H2:
+    question: Is AI-agent convergence unusual relative to convergence among real investors measured on comparable outcomes?
+    claim: AI-cohort convergence differs from harmonized real-investor panel convergence after matching universe, cadence, activity, and sampling.
+    claim_boundary: Descriptive matched comparison only; unmatched 13F or trader panels cannot establish that AI is more convergent than all real investors.
+  H2b:
+    question: If pairwise AI convergence is ordinary, does AI adoption spread existing convergence across more investors and capital?
+    claim: Increasing shared-AI delegation can increase the breadth and capital-weighted prevalence of correlated behavior even when pairwise convergence is held at real-investor levels.
+    claim_boundary: A simulated delegation response does not establish present adoption, actual capital exposure, or a real-market causal effect.
+  H3:
+    question: Do agents using the same frontier model or provider converge more than agents using different frontier model families?
+    claim: Same-model and same-provider pairs have different convergence from provider-balanced cross-family pairs.
+    claim_boundary: Inference is limited to exact verified models and provider lineages sampled in the study.
+  H4:
+    question: Does genuine information differentiation reduce convergence more than diverse investor profiles or persona wording?
+    claim: Information-set heterogeneity has a larger convergence effect than profile heterogeneity under a balanced factorial design.
+    claim_boundary: Profile wording, identity cues, and financially relevant client constraints must be analyzed separately.
+  H5:
+    question: Does increasing AI-managed capital change market dynamics, and when do material effects begin?
+    claim: AI capital share causally changes preregistered simulated-market impact, volatility, liquidity, herding, or cascade outcomes relative to paired zero-AI markets.
+    claim_boundary: Causality is internal to the configurable exchange; real-market effects require external identification under H10.
+  H6:
+    question: Do people trust AI to advise on or autonomously manage investments, and what changes delegation?
+    claim: Randomized oversight, performance, explanation, and risk conditions change incentive-compatible human delegation choices.
+    claim_boundary: Requires approved, consented, appropriately sampled human data; model behavior cannot answer human trust.
+  H7:
+    question: Will AI investment delegation plausibly cross a market-impacting adoption threshold soon?
+    claim: Verified adoption evidence and H5 thresholds support a calibrated forecast distribution for threshold crossing.
+    claim_boundary: Forecasts are conditional scenarios with backtested uncertainty, never facts about future adoption.
+  H8:
+    question: What supplied information causally drives investment decisions, and which internal mechanisms weight it most heavily?
+    claim: Controlled input and activation interventions identify causal influences on decisions in sampled API and local frontier models.
+    claim_boundary: Closed APIs support black-box input attribution only; generated rationales are not mechanistic evidence.
+  H9:
+    question: Do causal convergence signatures learned in simulation transport to held-out simulated and real market data?
+    claim: Locked signatures retain preregistered discrimination and calibration on independent domains.
+    claim_boundary: Pattern transport indicates similarity, not AI presence or causation.
+  H10:
+    question: Can detected real-market signatures be attributed to AI rather than merely resembling simulated AI behavior?
+    claim: Under verified exposure and a credible assignment or quasi-experimental design, AI exposure causally changes preregistered signatures or outcomes.
+    claim_boundary: Detection scores alone never justify causal language; pretrends, placebos, spillovers, and confounding sensitivity are mandatory.
+  H11:
+    question: Can verified findings become useful reproducible datasets without overstating causal status?
+    claim: Separately labeled simulation truth, detected patterns, exposure records, and causally verified events meet release and held-out utility gates.
+    claim_boundary: Dataset tiers cannot be merged into a single ground-truth AI-causation label.
+  H12:
+    question: Do high-stakes, urgent, emotional, or forced-action instructions make investment decisions better, worse, equivalent, or merely different, and why?
+    claim: Stakes, urgency, emotion, and forced action have separable effects on quality, suitability, safety, risk, abstention, and convergence.
+    claim_boundary: Treatments are fictional language frames; equivalence requires TOST, safety requires noninferiority, and models are not claimed to experience emotion or stakes.
+
+experiments:
+  exp-000:
+    name: Offline pipeline calibration
+    hypotheses: [H1]
+    mode: simulation
+    question: Does the pipeline separate known-convergent mock agents from heterogeneous and random controls?
+    status: executable
+    estimand: Run-level kappa contrast under known mock behavior.
+    independent_unit: Synthetic market seed.
+    inputs: [synthetic-equities-v1, mock model registry, baseline strategy registry]
+    treatments: [known mock momentum convergence]
+    controls: [heterogeneous baseline cohort, random null cohort]
+    inference: [calibration interval, seeded replication]
+    dependencies: []
+    executable_configs: [configs/experiments/exp-000-smoke.yaml]
+    outputs: [decisions.jsonl, fills.parquet, portfolio.parquet, manifest.json, report.md]
+    verification: [deterministic rerun equality, known-convergent cohort exceeds random null]
+  exp-001:
+    name: Frontier convergence in equity replay
+    hypotheses: [H1]
+    mode: simulation
+    question: Do frontier agents converge more than classical baselines on US equity windows?
+    status: scaffolded
+    estimand: Paired run-level difference in chance-corrected per-symbol action agreement.
+    independent_unit: Non-overlapping equity window by seed.
+    inputs: [versioned equity windows, verified frontier API and local models]
+    treatments: [LLM cohort]
+    controls: [classical cohort, random null, identical information, common random numbers]
+    inference: [blocked randomization test, hierarchical cluster bootstrap, Holm correction]
+    dependencies: [acquired equity windows, verified model IDs, study-level analysis]
+    executable_configs: [configs/experiments/exp-001-replay-equities.yaml]
+    outputs: [h1_equities_effects.parquet, h1_equities_inference.json, h1_equities_verification.json]
+    verification: [per-symbol metric audit, independent-block and treatment-balance audit]
+  exp-002:
+    name: Frontier convergence in prediction-market replay
+    hypotheses: [H1]
+    mode: simulation
+    question: Do frontier agents converge more than classical baselines on resolved binary markets without outcome leakage?
+    status: scaffolded
+    estimand: Paired run-level per-contract agreement difference.
+    independent_unit: Non-overlapping contract panel by seed.
+    inputs: [prediction-market history, resolution-safe observations, verified frontier models]
+    treatments: [LLM cohort]
+    controls: [classical cohort, random null, hidden resolution outcome]
+    inference: [blocked randomization test, hierarchical cluster bootstrap, Holm correction]
+    dependencies: [acquired prediction-market dataset, leakage validator, study-level analysis]
+    executable_configs: [configs/experiments/exp-002-replay-prediction.yaml]
+    outputs: [h1_prediction_effects.parquet, h1_prediction_inference.json]
+    verification: [resolution leakage scan, contract and decision completeness audit]
+  exp-003:
+    name: Real-investor matched convergence anchor
+    hypotheses: [H2]
+    mode: observational
+    question: Is AI convergence unusual relative to matched real investor panels?
+    status: blocked_external
+    estimand: Matched difference in overlap and herding after universe, cadence, and activity harmonization.
+    independent_unit: Matched non-overlapping panel period.
+    inputs: [13F holdings, real trader positioning, simulated agent panel]
+    treatments: [AI panel indicator]
+    controls: [matched universe, cadence, activity, sampling filters]
+    inference: [blocked panel comparison, hierarchical bootstrap, matching sensitivity]
+    dependencies: [acquired real-investor panels, matching protocol, provenance and license review]
+    executable_configs: []
+    outputs: [h2_matched_panels.parquet, h2_effects.parquet, h2_inference.json]
+    verification: [matching balance report, source and sampling sensitivity audit]
+  exp-004:
+    name: Breadth of existing convergence under AI delegation
+    hypotheses: [H2b]
+    mode: simulation
+    question: Does shared-AI delegation spread ordinary convergence across more investors and capital?
+    status: scaffolded
+    estimand: Capital-weighted convergence breadth as a function of delegation share with pairwise convergence fixed.
+    independent_unit: Market-window by seed by delegation-share cell.
+    inputs: [real convergence distribution, delegation share grid, executor noise models]
+    treatments: [AI delegation share]
+    controls: [zero-AI counterfactual, fixed pairwise convergence, fixed total capital]
+    inference: [paired share-response curve, threshold confidence interval, randomization inference]
+    dependencies: [real convergence anchor, delegation mixture runner]
+    executable_configs: []
+    outputs: [h2b_breadth_curve.parquet, h2b_thresholds.json, h2b_inference.json]
+    verification: [pairwise convergence held fixed, capital and cohort breadth reconciliation]
+  exp-005:
+    name: Same-model and provider-family convergence
+    hypotheses: [H3]
+    mode: simulation
+    question: Is convergence stronger within a model or provider family than across providers?
+    status: scaffolded
+    estimand: Balanced contrast among same-model, same-provider-different-model, and cross-provider pairs.
+    independent_unit: Market-window by seed by model-pair block.
+    inputs: [verified frontier model panel, provider lineage map]
+    treatments: [pair type]
+    controls: [identical prompt, information, profile, and harness]
+    inference: [blocked pair contrast, model-cluster bootstrap, Holm correction]
+    dependencies: [pair-block assignment runner, verified model lineage]
+    executable_configs: []
+    outputs: [h3_pair_types.parquet, h3_effects.parquet, h3_inference.json]
+    verification: [balanced provider-pair exposure, exact resolved-model hash audit]
+  exp-006:
+    name: Diverse investor-profile treatment
+    hypotheses: [H4]
+    mode: simulation
+    question: How much do substantively diverse investor profiles change decisions and convergence?
+    status: scaffolded
+    estimand: Profile-heterogeneity effect on per-symbol agreement and suitability.
+    independent_unit: Market-window by seed by balanced profile block.
+    inputs: [structured profile registry, frontier model panel]
+    treatments: [financially relevant profile factors, identity-only matched counterfactuals]
+    controls: [neutral profile, reciprocal matched profiles]
+    inference: [blocked factorial contrast, hierarchical cluster bootstrap]
+    dependencies: [per-agent profile assignment runner]
+    executable_configs: []
+    outputs: [h4_profile_assignments.parquet, h4_profile_effects.parquet, h4_suitability.parquet]
+    verification: [profile coverage and balance audit, stereotype and suitability separation audit]
+  exp-007:
+    name: Profile versus information differentiation
+    hypotheses: [H4]
+    mode: simulation
+    question: Does different evidence reduce convergence more than different profiles?
+    status: scaffolded
+    estimand: Profile-by-information difference-in-differences.
+    independent_unit: Market-window by seed by factorial block.
+    inputs: [profile registry, deterministic equal-budget information partitions]
+    treatments: [profile sameness, information sameness]
+    controls: [same-profile same-information cell, equal information token budget]
+    inference: [factorial randomization inference, interaction test, hierarchical bootstrap]
+    dependencies: [information partition runner, factorial analysis]
+    executable_configs: []
+    outputs: [h4_information_assignments.parquet, h4_information_effects.parquet]
+    verification: [information hash and cutoff audit, factor orthogonality audit]
+  exp-008:
+    name: Complete MPHIQ same-versus-different design
+    hypotheses: [H1, H3, H4, H12]
+    mode: simulation
+    question: Which combinations of model, profile, harness, information, and prompt sameness drive convergence?
+    status: scaffolded
+    estimand: Main and interaction effects across all 32 binary MPHIQ schemes.
+    independent_unit: Market-window by seed by MPHIQ scheme.
+    inputs: [configs/designs/mphiq.yaml, model panel, profile registry, prompt catalog]
+    treatments: [M, P, H, I, Q sameness bits]
+    controls: [balanced zero bits, byte-identical one bits, fixed cohort size and capital]
+    inference: [full-factorial effect screening, paired Hamming-distance-one contrasts, hierarchical FDR]
+    dependencies: [MPHIQ sweep generator, per-agent treatment assignments]
+    executable_configs: []
+    outputs: [mphiq_assignments.parquet, mphiq_effects.parquet, mphiq_balance.json]
+    verification: [all 32 codes present, all same and different hash claims pass]
+  exp-009:
+    name: Harness, memory, regime, and paraphrase robustness
+    hypotheses: [H1, H3, H4]
+    mode: validation
+    question: Are headline effects stable across likely harnesses, memory, regimes, and semantic paraphrases?
+    status: scaffolded
+    estimand: Heterogeneity and equivalence of locked headline effects across held-out robustness factors.
+    independent_unit: Held-out market-window by seed by robustness block.
+    inputs: [harness catalog, market regimes, five semantic paraphrases]
+    treatments: [temperature, reasoning effort, memory, regime, prompt variant]
+    controls: [locked primary specification, held-out windows]
+    inference: [heterogeneity model, TOST to primary effect, Holm correction]
+    dependencies: [generic factor sweeps, cross-run analysis]
+    executable_configs: []
+    outputs: [robustness_effects.parquet, robustness_equivalence.json]
+    verification: [semantic equivalence review, held-out split and factor-balance audit]
+  exp-010:
+    name: Shared-exchange mechanical calibration
+    hypotheses: [H5]
+    mode: simulation
+    question: Can known mock cohorts generate measurable trades, impact, and cascades in the exchange?
+    status: executable
+    estimand: Calibration response of market outcomes to known mock behavior.
+    independent_unit: Synthetic shared-market seed.
+    inputs: [synthetic-equities-v1, mock models, shared exchange]
+    treatments: [known mock cohort composition]
+    controls: [random null, initial inventory, deterministic arrival shuffle]
+    inference: [calibration interval, seeded replication]
+    dependencies: []
+    executable_configs: [configs/experiments/exp-010-shared-exchange.yaml]
+    outputs: [decisions.jsonl, fills.parquet, portfolio.parquet, manifest.json, report.md]
+    verification: [fill and ledger reconciliation, deterministic exchange replay]
+  exp-011:
+    name: AI capital-share market-dynamics threshold
+    hypotheses: [H5, H2b]
+    mode: simulation
+    question: At what AI-managed capital share do market dynamics change materially?
+    status: scaffolded
+    estimand: Paired dose-response in impact, volatility, liquidity, cascades, and convergence breadth.
+    independent_unit: Independently randomized market replica by share, window, and seed.
+    inputs: [AI-share grid, frontier agents, background liquidity agents]
+    treatments: [AI-managed capital share]
+    controls: [zero-AI market, fixed total capital, common random numbers]
+    inference: [paired market randomization, dose-response model, simultaneous threshold band]
+    dependencies: [market replica runner, capital allocator, background liquidity]
+    executable_configs: []
+    outputs: [h5_share_outcomes.parquet, h5_share_curve.parquet, h5_thresholds.json]
+    verification: [market-replica independence, total-capital and order-arrival reconciliation]
+  exp-012:
+    name: Liquidity, cascade, and tacit-coordination consequences
+    hypotheses: [H5]
+    mode: simulation
+    question: Does AI convergence amplify liquidity withdrawal, serial herding, cascades, or spreads?
+    status: scaffolded
+    estimand: Paired effect of AI participation on preregistered microstructure outcomes.
+    independent_unit: Independently randomized shared-market replica.
+    inputs: [order-book logs, matched AI and no-AI markets]
+    treatments: [AI participation, AI market-maker participation]
+    controls: [matched volume, exogenous liquidity, placebo cohorts]
+    inference: [market-level randomization, Holm correction within H5]
+    dependencies: [book-state logging, matched-market counterfactuals]
+    executable_configs: []
+    outputs: [h5_microstructure.parquet, h5_cascades.parquet, h5_inference.json]
+    verification: [book and trade reconstruction, cascade placebo calibration]
+  exp-013:
+    name: Human trust and autonomous-delegation study
+    hypotheses: [H6]
+    mode: human_subjects
+    question: When do people trust AI to advise or autonomously manage investments?
+    status: blocked_external
+    estimand: Randomized effect on incentive-compatible delegation share.
+    independent_unit: Consented human participant with repeated choices clustered within participant.
+    inputs: [approved protocol, recruited sample, randomized choice tasks]
+    treatments: [oversight, explanations, performance evidence, autonomy, risk]
+    controls: [human adviser, order randomization, attention checks]
+    inference: [participant-level randomization, participant-clustered intervals, nonresponse sensitivity]
+    dependencies: [ethics approval, consent, recruitment, human-study runner]
+    executable_configs: []
+    outputs: [h6_deidentified_choices.parquet, h6_effects.parquet, h6_inference.json]
+    verification: [ethics and consent gate, deidentification and randomization audit]
+  exp-014:
+    name: Advisor mode with heterogeneous human execution
+    hypotheses: [H2b, H6]
+    mode: simulation
+    question: How much AI-induced convergence survives noisy, delayed, partial human execution?
+    status: scaffolded
+    estimand: Convergence breadth transmitted through execution-compliance levels.
+    independent_unit: Market-window by seed by compliance-share block.
+    inputs: [AI recommendations, executor noise models, compliance grid]
+    treatments: [advice compliance, latency, sizing noise]
+    controls: [direct AI execution, no AI advice, fixed total capital]
+    inference: [paired transmission curve, executor-model sensitivity]
+    dependencies: [advisor executor layer, compliance sweep]
+    executable_configs: []
+    outputs: [advisor_transmission.parquet, advisor_thresholds.json]
+    verification: [recommendation-to-execution reconciliation, fixed-capital audit]
+  exp-015:
+    name: Near-term adoption and threshold forecast
+    hypotheses: [H7]
+    mode: projection
+    question: When might AI-managed capital cross an estimated market-impact threshold?
+    status: blocked_external
+    estimand: Calibrated distribution for threshold-crossing date and probability.
+    independent_unit: Independent adoption series or forecast origin.
+    inputs: [verified adoption time series, H5 threshold distribution]
+    treatments: [explicit adoption scenarios]
+    controls: [rolling forecast origins, alternative diffusion models]
+    inference: [rolling-origin backtest, ensemble prediction interval, calibration analysis]
+    dependencies: [verified adoption dataset, forecast runner, exp-011]
+    executable_configs: []
+    outputs: [adoption_scenarios.parquet, threshold_forecasts.parquet, forecast_calibration.json]
+    verification: [source provenance and backtest audit, scenario-versus-fact labeling check]
+  exp-016:
+    name: Closed-API causal input attribution
+    hypotheses: [H8, H12]
+    mode: black_box_interpretability
+    question: Which supplied facts causally alter frontier API model investment decisions?
+    status: scaffolded
+    estimand: Paired decision change under controlled feature masks and counterfactual replacements.
+    independent_unit: Observation-prompt-model intervention block.
+    inputs: [frontier API models, feature intervention catalog]
+    treatments: [feature masking, value replacement, order and salience perturbation]
+    controls: [sham masks, negative-control features, semantically neutral rewrites]
+    inference: [paired intervention test, Holm correction by feature family]
+    dependencies: [counterfactual prompt runner, attribution analysis]
+    executable_configs: []
+    outputs: [input_interventions.parquet, causal_input_attributions.parquet]
+    verification: [one-factor intervention hash audit, sham and negative-control calibration]
+  exp-017:
+    name: Local-frontier mechanistic intervention study
+    hypotheses: [H8]
+    mode: local_mechanistic_interpretability
+    question: Which internal activations mediate evidence weighting, risk, pressure, and action selection?
+    status: scaffolded
+    estimand: Causal decision change under activation patching, ablation, and steering.
+    independent_unit: Observation by local checkpoint by intervention seed.
+    inputs: [hookable local frontier checkpoint, activation hooks, feature dictionary]
+    treatments: [activation patching, causal tracing, ablation, steering]
+    controls: [sham patch, random-layer control, negative-control tokens, held-out observations]
+    inference: [paired activation intervention, causal mediation, intervention-family correction]
+    dependencies: [licensed checkpoint, hookable local runner, GPU VM]
+    executable_configs: []
+    outputs: [activation_traces_manifest.json, intervention_effects.parquet, mechanisms.json]
+    verification: [checkpoint and trace hash audit, sham intervention and held-out replication]
+  exp-018:
+    name: Simulation signature discovery
+    hypotheses: [H9, H11]
+    mode: validation
+    question: Which observable signatures reliably distinguish simulated AI participation?
+    status: scaffolded
+    estimand: Cross-validated discrimination and calibration on held-out simulation replicas.
+    independent_unit: Held-out shared-market replica.
+    inputs: [verified simulation outputs, candidate signature features]
+    treatments: [AI participation label within simulation]
+    controls: [nested cross-validation, locked test set, placebo labels]
+    inference: [nested cross-validation, replica bootstrap]
+    dependencies: [feature exporter, study dataset builder, exp-011]
+    executable_configs: []
+    outputs: [signature_library.parquet, simulation_predictions.parquet, discovery_metrics.json]
+    verification: [train-test leakage scan, placebo-label and calibration audit]
+  exp-019:
+    name: Signature transport validation
+    hypotheses: [H9]
+    mode: validation
+    question: Do locked simulation signatures transport to unseen regimes and real markets?
+    status: blocked_external
+    estimand: Out-of-domain discrimination and calibration change.
+    independent_unit: Non-overlapping held-out market window.
+    inputs: [locked signature library, held-out simulations, real-market features]
+    treatments: [domain indicator]
+    controls: [temporal holdout, negative-control periods, locked feature set]
+    inference: [external validation, window-cluster bootstrap, domain-shift interval]
+    dependencies: [exp-018, real-market feature panel]
+    executable_configs: []
+    outputs: [transport_predictions.parquet, transport_metrics.json, domain_shift.json]
+    verification: [locked-signature hash audit, temporal separation and domain-shift audit]
+  exp-020:
+    name: Real-market AI-like pattern detection
+    hypotheses: [H9, H10]
+    mode: observational
+    question: Where do preregistered AI-like signatures appear in real market data?
+    status: blocked_external
+    estimand: Calibrated signature score and event prevalence without causal labeling.
+    independent_unit: Non-overlapping real-market window.
+    inputs: [real-market feature panel, locked signature library]
+    treatments: [none; detection study]
+    controls: [negative-control periods, calibration set, domain-shift flags]
+    inference: [calibrated detection, prevalence interval]
+    dependencies: [exp-019, acquired real-market feature panel]
+    executable_configs: []
+    outputs: [ai_like_events.parquet, detection_calibration.json]
+    verification: [causal-language prohibition, calibration and false-positive audit]
+  exp-021:
+    name: Causal attribution of real-market patterns to AI
+    hypotheses: [H10]
+    mode: observational
+    question: Does verified AI exposure cause detected patterns or market outcomes?
+    status: blocked_external
+    estimand: Design-specific causal effect of verified AI exposure.
+    independent_unit: Institution-market-time exposure unit fixed by the identification design.
+    inputs: [verified AI exposure registry, detected events, identification events]
+    treatments: [verified AI exposure]
+    controls: [pretrends, placebo dates, placebo assets, spillover checks]
+    inference: [preregistered design-specific estimator, clustered uncertainty, confounding sensitivity]
+    dependencies: [verified exposure data, credible identification design, exp-020]
+    executable_configs: []
+    outputs: [causal_analysis_panel.parquet, causal_effects.parquet, falsifications.json]
+    verification: [exposure provenance audit, pretrend placebo spillover and sensitivity suite]
+  exp-022:
+    name: Actionable dataset construction and validation
+    hypotheses: [H11]
+    mode: data_product
+    question: Can outputs be released with provenance, uncertainty, and causal status suitable for legitimate downstream use?
+    status: scaffolded
+    estimand: Reproducibility, validity, leakage, and held-out utility metrics for each dataset tier.
+    independent_unit: Versioned release by independent held-out evaluation set.
+    inputs: [simulation truth, signatures, AI-like events, exposure records, causal events]
+    treatments: [dataset tier]
+    controls: [tier separation, provenance hashes, leakage scan, locked benchmark]
+    inference: [release validation suite, held-out benchmark intervals]
+    dependencies: [dataset exporter, verification runner, upstream experiments]
+    executable_configs: []
+    outputs: [simulation_truth.parquet, signature_events.parquet, ai_exposure.parquet, verified_events.parquet, dataset_card.md]
+    verification: [all release quality gates pass, causal-status labels and hashes verified]
+  exp-023:
+    name: H12 core prompt-pressure factorial
+    hypotheses: [H12]
+    mode: simulation
+    question: How do stakes, urgency, emotion, and forced action change decision quality, safety, and convergence?
+    status: scaffolded
+    estimand: Main and interaction effects in the preregistered 3 by 2 by 2 by 2 design.
+    independent_unit: Market-window by seed by model by randomized treatment block.
+    inputs: [configs/prompts/pressure-treatments.yaml, synthetic ground-truth markets, frontier models]
+    treatments: [stakes, urgency, emotion, forced action]
+    controls: [invariant fictional safety header, evidence invariance, neutral cell, corrective prompts]
+    inference: [factorial randomization inference, TOST equivalence, safety noninferiority, Holm correction]
+    dependencies: [prompt treatment runner, decision-quality metrics, factorial analysis]
+    executable_configs: []
+    outputs: [h12_core_assignments.parquet, h12_core_effects.parquet, h12_equivalence.json]
+    verification: [all 24 cells and assignments present, evidence and action schema invariant across cells]
+  exp-024:
+    name: Secondary and held-out prompt-pressure validation
+    hypotheses: [H12, H8]
+    mode: validation
+    question: Which realistic pressure frames generalize beyond the core design, and what causal pathway produces their effects?
+    status: scaffolded
+    estimand: Held-out prompt-family effects and mediation through evidence use, risk, confidence, and abstention.
+    independent_unit: Held-out market-window by model by prompt-family block.
+    inputs: [secondary pressure families, held-out prompts and models, input attributions]
+    treatments: [reward, punishment, accountability, authority, social proof, certainty, framing, oversight, injection]
+    controls: [semantic controls, corrective prompts, negative-control frames]
+    inference: [held-out replication, preregistered causal mediation, Holm correction]
+    dependencies: [exp-016, exp-023, held-out prompt runner]
+    executable_configs: []
+    outputs: [h12_secondary_effects.parquet, h12_mediation.parquet, h12_mechanisms.json]
+    verification: [held-out split and prompt hash audit, mediation temporal-order and control audit]

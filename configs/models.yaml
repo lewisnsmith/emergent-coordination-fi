@@ -6,44 +6,88 @@
 mock-momentum:
   provider: mock
   model_id: mock-momentum
+  deployment: mock
   behavior: momentum
 mock-momentum-noisy:
   provider: mock
   model_id: mock-momentum-noisy
   behavior: momentum
   noise: 0.25
+  deployment: mock
 mock-contrarian:
   provider: mock
   model_id: mock-contrarian
   behavior: contrarian
+  deployment: mock
 mock-random:
   provider: mock
   model_id: mock-random
   behavior: random
+  deployment: mock
 mock-hold:
   provider: mock
   model_id: mock-hold
   behavior: hold
+  deployment: mock
 
-# --- anthropic ---
-claude-sonnet:
+# --- frontier APIs; eligibility and prices verified 2026-07-13 ---
+claude-opus-frontier:
+  provider: anthropic
+  model_id: claude-opus-4-8
+  family: claude-opus
+  deployment: api
+  frontier_eligible: true
+  verified_on: "2026-07-13"
+  pricing_key: claude-opus-4-8
+  supports_structured_output: true
+claude-sonnet-frontier:
   provider: anthropic
   model_id: claude-sonnet-5
-claude-haiku:
-  provider: anthropic
-  model_id: claude-haiku-4-5-20251001
+  family: claude-sonnet
+  deployment: api
+  frontier_eligible: true
+  verified_on: "2026-07-13"
+  pricing_key: claude-sonnet-5
+  supports_structured_output: true
 
-# --- openai ---
-gpt-5:
+gpt-sol-frontier:
   provider: openai
-  model_id: gpt-5
+  model_id: gpt-5.6-sol
+  family: gpt-5.6
+  deployment: api
+  frontier_eligible: true
+  verified_on: "2026-07-13"
+  pricing_key: gpt-5.6-sol
+  supports_structured_output: true
+gpt-terra-frontier:
+  provider: openai
+  model_id: gpt-5.6-terra
+  family: gpt-5.6
+  deployment: api
+  frontier_eligible: true
+  verified_on: "2026-07-13"
+  pricing_key: gpt-5.6-terra
+  supports_structured_output: true
 
-# --- google ---
-gemini-pro:
+gemini-pro-frontier:
   provider: google
-  model_id: gemini-2.5-pro
+  model_id: gemini-3.1-pro-preview
+  family: gemini-3.1
+  deployment: api
+  frontier_eligible: true
+  verified_on: "2026-07-13"
+  pricing_key: gemini-3.1-pro-preview
+  supports_seed: true
+  supports_structured_output: true
 
-# --- openai-compatible endpoint (Ollama/vLLM/OpenRouter via env vars) ---
-local-open-weights:
+# --- frontier local/open-weight; serve the exact checkpoint through vLLM ---
+gpt-oss-120b-local:
   provider: openai_compatible
-  model_id: llama3.3:70b
+  model_id: openai/gpt-oss-120b
+  family: gpt-oss
+  deployment: local
+  frontier_eligible: true
+  verified_on: "2026-07-13"
+  pricing_key: runpod-h100-pcie-1x
+  supports_seed: true
+  supports_structured_output: true

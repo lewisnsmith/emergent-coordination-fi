@@ -7,6 +7,8 @@ ledgers updated -> portfolio snapshot logged.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,12 +18,14 @@ import numpy as np
 from flock.agents.baselines import make_baseline
 from flock.agents.cache import ResponseCache
 from flock.agents.llm_agent import LLMAgent
+from flock.agents.prompts import resolve_prompt
 from flock.agents.providers.base import make_chat_model
 from flock.core.config import ExperimentConfig, load_experiment, load_models, load_persona
 from flock.core.types import Observation
 from flock.data import schemas
 from flock.data.registry import Registry
 from flock.experiments.ledger import Ledger
+from flock.experiments.treatments import apply_information_policy
 from flock.logging_.decisions import RESULTS_DIR, RunWriter, git_sha
 from flock.markets.replay import ReplayMarket
 
@@ -34,8 +38,36 @@ class RunResult:
     n_agents: int
 
 
+def resolved_config_hash(cfg: ExperimentConfig) -> str:
+    """Hash config plus resolved model specs and persona content."""
+    models = load_models()
+    model_keys = sorted(
+        {
+            group.model
+            for cohort in cfg.cohorts
+            for group in cohort.agents
+            if group.kind == "llm" and group.model is not None
+        }
+    )
+    persona_keys = sorted(
+        {
+            group.persona
+            for cohort in cfg.cohorts
+            for group in cohort.agents
+            if group.kind == "llm" and group.persona is not None
+        }
+    )
+    payload = {
+        "config": cfg.model_dump(),
+        "models": {key: models[key].model_dump() for key in model_keys},
+        "personas": {key: load_persona(key).model_dump() for key in persona_keys},
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(encoded.encode()).hexdigest()
+
+
 def make_run_id(cfg: ExperimentConfig) -> str:
-    return f"{cfg.name}-s{cfg.seed}-{cfg.config_hash()[:8]}"
+    return f"{cfg.name}-s{cfg.seed}-{resolved_config_hash(cfg)[:8]}"
 
 
 def build_market(cfg: ExperimentConfig, registry: Registry):
@@ -72,15 +104,25 @@ def build_agents(cfg: ExperimentConfig, cache: ResponseCache | None):
     models = load_models()
     agents = []
     for ci, cohort in enumerate(cfg.cohorts):
+        id_offsets: dict[tuple[str, str | None, str | None], int] = {}
         for gi, group in enumerate(cohort.agents):
+            id_key = (group.kind, group.model, group.persona)
+            id_offset = id_offsets.get(id_key, 0)
             for i in range(group.count):
                 agent_seed = np.random.SeedSequence([cfg.seed, ci, gi, i])
                 rng = np.random.default_rng(agent_seed)
+                instance_index = id_offset + i
                 if group.kind == "llm":
                     if group.model is None or group.persona is None:
                         raise ValueError("llm agent groups need 'model' and 'persona'")
                     spec = models[group.model]
-                    agent_id = f"{cohort.name}-{group.model}-{group.persona}-{i}"
+                    if cfg.model_policy == "frontier_only" and not spec.frontier_eligible:
+                        raise ValueError(f"model '{group.model}' is not frontier eligible")
+                    if cfg.model_policy == "mock_only" and spec.provider != "mock":
+                        raise ValueError(f"model '{group.model}' is not a mock model")
+                    agent_id = (
+                        f"{cohort.name}-{group.model}-{group.persona}-{instance_index}"
+                    )
                     agents.append(
                         LLMAgent(
                             agent_id,
@@ -91,14 +133,20 @@ def build_agents(cfg: ExperimentConfig, cache: ResponseCache | None):
                             seed=int(rng.integers(0, 2**31)),
                             max_tokens=spec.max_tokens,
                             memory=group.memory,
+                            grounding_mode=group.grounding_mode,
+                            prompt_id=group.prompt_id,
+                            task_prompt=resolve_prompt(group.prompt_id),
+                            information_policy=group.information_policy,
+                            harness_id=group.harness_id,
                             cache=cache,
                         )
                     )
                 else:
-                    agent_id = f"{cohort.name}-{group.kind}-{i}"
+                    agent_id = f"{cohort.name}-{group.kind}-{instance_index}"
                     agents.append(
                         make_baseline(group.kind, agent_id, cohort.name, rng, group.params or None)
                     )
+            id_offsets[id_key] = id_offset + group.count
     return agents
 
 
@@ -153,6 +201,8 @@ def run_config(
                 news=state.news,
                 portfolio=ledger.view(state.prices),
             )
+            if getattr(agent, "kind", "") == "llm":
+                obs = apply_information_policy(obs, agent.information_policy)
             decision = agent.decide(obs)
             total_cost += decision.usage.cost_usd
             clipped = ledger.clip_orders(decision.orders, state.prices)
@@ -183,6 +233,7 @@ def run_config(
         "run_id": run_id,
         "config": cfg.model_dump(),
         "config_hash": cfg.config_hash(),
+        "resolved_config_hash": resolved_config_hash(cfg),
         "git_sha": git_sha(),
         "dataset": {
             "name": dataset_entry.name,

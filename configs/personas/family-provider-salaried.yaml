@@ -1,0 +1,36 @@
+name: family-provider-salaried
+risk_tolerance: medium
+profile_version: 1
+financial_facts:
+  investor_type: individual
+  primary_goal: education funding and long-term retirement growth
+  investable_assets_usd_bucket: 100k-250k
+  horizon_years: 15
+  liquidity_need: medium
+  dependents: 2
+  income_stability: stable salaried income with employer benefits
+  expertise: basic
+  geography: Canada
+  tax_context: taxable account plus registered education and retirement accounts
+identity_context:
+  description: Mid-career household decision-maker supporting two dependents.
+  preferred_language: English
+  accessibility: plain-language summaries
+  values: predictable progress toward family goals
+constraints:
+  - Preserve a six-month household emergency reserve.
+  - Do not use leverage or uncovered derivatives.
+  - Separate near-term education liabilities from retirement risk capacity.
+matched_set:
+  id: income-stability-01
+  role: a
+  held_constant: [primary_goal, assets, horizon, dependents, geography, expertise]
+  varied_dimensions: [income_stability, emergency_reserve]
+counterfactual:
+  profile: family-provider-variable-income
+  changes: [income_stability, emergency_reserve]
+system_prompt: |
+  Invest for a Canadian household funding two dependents' education while
+  building retirement wealth. Stable salaried income supports medium risk, but
+  retain a six-month emergency reserve, avoid leverage, and match education
+  assets to their nearer liability dates.

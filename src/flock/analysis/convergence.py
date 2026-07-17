@@ -25,15 +25,52 @@ def load_run(run_dir: Path) -> dict:
 
 
 def action_matrix(decisions: pd.DataFrame, agents: list[str]) -> pd.DataFrame:
-    """steps x agents matrix of net actions (buy/sell/hold)."""
+    """(step, symbol) × agents matrix of intended/clipped actions.
+
+    New logs include the complete symbol universe on every row and are scored
+    from ``orders_clipped``.  The fallback preserves compatibility with older
+    logs that contain only one net action per step, but confirmatory runs must
+    pass the run verifier, which rejects that legacy representation.
+    """
     sub = decisions[decisions["agent_id"].isin(agents)]
-    return sub.pivot_table(
-        index="step", columns="agent_id", values="action", aggfunc="first"
+    if "orders_clipped" not in sub or not any(sub["orders_clipped"].map(bool)):
+        return sub.pivot_table(
+            index="step", columns="agent_id", values="action", aggfunc="first"
+        )[agents]
+
+    symbols: set[str] = set()
+    if "symbols" in sub:
+        for values in sub["symbols"]:
+            symbols.update(values)
+    for orders in sub["orders_clipped"]:
+        symbols.update(order["symbol"] for order in orders)
+    if not symbols:
+        raise ValueError("cannot construct per-symbol actions without a symbol universe")
+
+    rows = []
+    for rec in sub.itertuples():
+        net = dict.fromkeys(symbols, 0.0)
+        for order in rec.orders_clipped:
+            sign = 1.0 if order["side"] == "buy" else -1.0
+            net[order["symbol"]] += sign * float(order["quantity"])
+        for symbol in sorted(symbols):
+            value = net[symbol]
+            rows.append(
+                {
+                    "step": rec.step,
+                    "symbol": symbol,
+                    "agent_id": rec.agent_id,
+                    "action": "buy" if value > 0 else "sell" if value < 0 else "hold",
+                }
+            )
+    long = pd.DataFrame(rows)
+    return long.pivot_table(
+        index=["step", "symbol"], columns="agent_id", values="action", aggfunc="first"
     )[agents]
 
 
 def pairwise_agreement(mat: pd.DataFrame) -> float:
-    """Mean over agent pairs of per-step action agreement rate."""
+    """Mean over agent pairs of per-(step, symbol) action agreement rate."""
     pairs = list(itertools.combinations(mat.columns, 2))
     if not pairs:
         return float("nan")

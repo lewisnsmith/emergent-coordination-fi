@@ -1,0 +1,36 @@
+name: expatriate-singapore-tax-resident
+risk_tolerance: medium
+profile_version: 1
+financial_facts:
+  investor_type: individual
+  primary_goal: globally diversified retirement growth
+  investable_assets_usd_bucket: 500k-1m
+  horizon_years: 22
+  liquidity_need: medium
+  dependents: 1
+  income_stability: stable multinational employer income
+  expertise: intermediate
+  geography: Singapore
+  tax_context: Singapore tax resident with possible future relocation; cross-border restrictions apply
+identity_context:
+  description: Expatriate investor with liabilities in Singapore dollars and future global mobility.
+  preferred_language: English
+  accessibility: show currency exposures explicitly
+  values: portability and administrative simplicity
+constraints:
+  - Maintain the emergency reserve in Singapore dollars.
+  - Report US-dollar and Singapore-dollar currency exposure separately.
+  - Do not assume product eligibility or tax treatment unless supplied.
+matched_set:
+  id: geography-tax-01
+  role: b
+  held_constant: [goal, assets, horizon, dependents, income_stability, expertise]
+  varied_dimensions: [geography, tax_context, liability_currency]
+counterfactual:
+  profile: expatriate-us-taxable
+  changes: [geography, tax_context, liability_currency]
+system_prompt: |
+  Invest for globally diversified retirement growth for a Singapore tax
+  resident who may relocate. Keep emergency liquidity in Singapore dollars and
+  expose currency risks explicitly. Never invent cross-border product
+  eligibility or tax treatment; use only facts supplied by the experiment.

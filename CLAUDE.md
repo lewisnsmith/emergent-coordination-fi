@@ -17,6 +17,10 @@ uv sync                                   # install (mock pipeline needs no API 
 uv sync --extra providers --extra data    # real models + real data builders
 uv run flock data build synthetic         # build seeded synthetic dataset
 uv run flock run configs/experiments/exp-000-smoke.yaml
+uv run flock validate
+uv run flock design --output results/design.json
+uv run flock estimate --scenario pilot
+uv run flock verify-run results/<run-id>
 uv run flock analyze latest [--paper]
 uv run pytest && uv run ruff check .      # required before claiming done
 ```
@@ -35,7 +39,10 @@ uv run pytest && uv run ruff check .      # required before claiming done
 - `markets/replay.py` — Phase 1: no interaction, no impact, next-bar fills.
 - `markets/exchange.py` — Phase 2: continuous double auction, price-time priority.
 - `experiments/runner.py` — one run: cohort × market × steps → `results/<run-id>/`.
+- `experiments/design.py` — complete MPHIQ and prompt-pressure generators.
+- `experiments/verify.py` — scaffold readiness and fail-closed run verification.
 - `analysis/` — convergence + coordination metrics, stats (permutation/bootstrap/Holm), report.
+- `interpretability/` — black-box input interventions and local causal activation hooks.
 
 ## Hard rules
 
@@ -47,6 +54,10 @@ uv run pytest && uv run ruff check .      # required before claiming done
   network. Network happens only in `flock data build` and real-provider calls.
 - **Manifests over memory.** Anything a result depends on (config, dataset hash, git SHA,
   model params) goes in the run manifest.
+- **No pseudoreplication.** Calls, steps, agent pairs, prompt paraphrases, and overlapping windows
+  are not independent evidence. Confirmatory inference starts from independent blocks/markets.
+- **No causal inflation.** Rationale is not a mechanism; an AI-like signature is not AI exposure;
+  exposure without a credible counterfactual is not real-market causation.
 - Datasets/results payloads are gitignored; manifests are checked in.
 - `src/flock/logging_/` has the underscore to avoid shadowing stdlib `logging`.
 - **iCloud quirk — `UV_NO_EDITABLE=1` is load-bearing.** This repo lives in an iCloud-synced

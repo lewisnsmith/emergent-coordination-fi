@@ -16,6 +16,24 @@ class PermutationResult:
     n_permutations: int
 
 
+@dataclass(frozen=True)
+class TOSTResult:
+    estimate: float
+    lower_bound: float
+    upper_bound: float
+    p_lower: float
+    p_upper: float
+    alpha: float
+    equivalent: bool
+
+
+@dataclass(frozen=True)
+class PairedRandomizationResult:
+    estimate: float
+    p_value: float
+    n_randomizations: int
+
+
 def permutation_test(
     group_a: Sequence[str],
     group_b: Sequence[str],
@@ -41,6 +59,62 @@ def permutation_test(
     # add-one smoothing (Phipson & Smyth): valid p-values under permutation
     p = (hits + 1) / (n_permutations + 1)
     return PermutationResult(observed, p, n_permutations)
+
+
+def paired_randomization_test(
+    block_differences: Sequence[float],
+    n_randomizations: int = 10_000,
+    seed: int = 0,
+) -> PairedRandomizationResult:
+    """Two-sided sign-flip test over independent paired market blocks."""
+    values = np.asarray(block_differences, dtype=float)
+    if values.ndim != 1 or len(values) < 2:
+        raise ValueError("at least two independent block differences are required")
+    observed = float(values.mean())
+    rng = np.random.default_rng(seed)
+    signs = rng.choice((-1.0, 1.0), size=(n_randomizations, len(values)))
+    null = (signs * values).mean(axis=1)
+    hits = int(np.sum(np.abs(null) >= abs(observed) - 1e-12))
+    p = (hits + 1) / (n_randomizations + 1)
+    return PairedRandomizationResult(observed, p, n_randomizations)
+
+
+def equivalence_tost(
+    differences: Sequence[float],
+    lower_bound: float,
+    upper_bound: float,
+    alpha: float = 0.05,
+) -> TOSTResult:
+    """Paired two-one-sided equivalence test over independent block effects.
+
+    Equivalence is established only when both one-sided nulls are rejected;
+    an ordinary nonsignificant difference is not evidence of sameness.
+    """
+    from scipy.stats import t
+
+    values = np.asarray(differences, dtype=float)
+    if values.ndim != 1 or len(values) < 2:
+        raise ValueError("at least two independent block differences are required")
+    if lower_bound >= upper_bound:
+        raise ValueError("lower_bound must be smaller than upper_bound")
+    estimate = float(values.mean())
+    se = float(values.std(ddof=1) / np.sqrt(len(values)))
+    if se == 0:
+        p_lower = 0.0 if estimate > lower_bound else 1.0
+        p_upper = 0.0 if estimate < upper_bound else 1.0
+    else:
+        df = len(values) - 1
+        p_lower = float(t.sf((estimate - lower_bound) / se, df))
+        p_upper = float(t.cdf((estimate - upper_bound) / se, df))
+    return TOSTResult(
+        estimate=estimate,
+        lower_bound=lower_bound,
+        upper_bound=upper_bound,
+        p_lower=p_lower,
+        p_upper=p_upper,
+        alpha=alpha,
+        equivalent=p_lower < alpha and p_upper < alpha,
+    )
 
 
 @dataclass(frozen=True)

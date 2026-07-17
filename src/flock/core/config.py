@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -19,6 +19,13 @@ class ModelSpec(BaseModel):
     provider: Literal["mock", "anthropic", "openai", "google", "openai_compatible"]
     model_id: str
     max_tokens: int = 1024
+    family: str = ""
+    deployment: Literal["mock", "api", "local"] = "api"
+    frontier_eligible: bool = False
+    verified_on: str | None = None
+    pricing_key: str | None = None
+    supports_seed: bool = False
+    supports_structured_output: bool = False
     # mock-only knobs
     behavior: Literal["momentum", "contrarian", "random", "hold"] | None = None
     noise: float = 0.0
@@ -30,6 +37,14 @@ class PersonaConfig(BaseModel):
     name: str
     system_prompt: str
     risk_tolerance: Literal["low", "medium", "high"] = "medium"
+    profile_version: int | str = 1
+    financial_facts: dict[str, Any] = Field(default_factory=dict)
+    identity_context: dict[str, Any] = Field(default_factory=dict)
+    constraints: list[str] | dict[str, Any] = Field(default_factory=list)
+    matched_set: dict[str, Any] | str | None = None
+    counterfactual: dict[str, Any] = Field(default_factory=dict)
+    counterfactual_of: str | None = None
+    counterfactual_axis: str | None = None
 
 
 class AgentGroup(BaseModel):
@@ -44,6 +59,10 @@ class AgentGroup(BaseModel):
     persona: str | None = None  # persona name in configs/personas/
     temperature: float = 0.7
     memory: bool = False
+    harness_id: str = "default"
+    prompt_id: str = "task-neutral-v1"
+    information_policy: str = "shared-all"
+    grounding_mode: Literal["audit", "strict"] = "strict"
     # baseline agents: hyperparameters are randomized per-instance from the run
     # seed unless pinned here
     params: dict[str, float] = Field(default_factory=dict)
@@ -73,6 +92,9 @@ class ExperimentConfig(BaseModel):
     # long-only agents with zero holdings can never provide the sell side)
     initial_position_per_symbol: float = 0.0
     max_position_per_symbol: float = 1_000.0
+    model_policy: Literal["mock_only", "frontier_only"] = "frontier_only"
+    hypothesis_ids: list[str] = Field(default_factory=list)
+    independent_block: str = "unspecified"
     cohorts: list[CohortConfig]
 
     def config_hash(self) -> str:
