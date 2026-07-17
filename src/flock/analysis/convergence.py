@@ -9,6 +9,7 @@ from __future__ import annotations
 import itertools
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -16,7 +17,7 @@ import pandas as pd
 ACTIONS = ("buy", "sell", "hold")
 
 
-def load_run(run_dir: Path) -> dict:
+def load_run(run_dir: Path) -> dict[str, Any]:
     decisions = pd.read_json(run_dir / "decisions.jsonl", lines=True)
     portfolio = pd.read_parquet(run_dir / "portfolio.parquet")
     with open(run_dir / "manifest.json") as f:
@@ -32,41 +33,50 @@ def action_matrix(decisions: pd.DataFrame, agents: list[str]) -> pd.DataFrame:
     logs that contain only one net action per step, but confirmatory runs must
     pass the run verifier, which rejects that legacy representation.
     """
-    sub = decisions[decisions["agent_id"].isin(agents)]
-    if "orders_clipped" not in sub or not any(sub["orders_clipped"].map(bool)):
-        return sub.pivot_table(
+    sub = cast(pd.DataFrame, decisions[decisions["agent_id"].isin(agents)])
+    if "orders_clipped" not in sub.columns:
+        pivoted = sub.pivot_table(
             index="step", columns="agent_id", values="action", aggfunc="first"
-        )[agents]
+        )
+        return cast(pd.DataFrame, cast(pd.DataFrame, pivoted)[agents])
+    orders_column = cast(pd.Series, sub["orders_clipped"])
+    if not any(bool(value) for value in orders_column):
+        pivoted = sub.pivot_table(
+            index="step", columns="agent_id", values="action", aggfunc="first"
+        )
+        return cast(pd.DataFrame, cast(pd.DataFrame, pivoted)[agents])
 
     symbols: set[str] = set()
-    if "symbols" in sub:
-        for values in sub["symbols"]:
+    if "symbols" in sub.columns:
+        for values in cast(pd.Series, sub["symbols"]):
             symbols.update(values)
-    for orders in sub["orders_clipped"]:
+    for orders in orders_column:
         symbols.update(order["symbol"] for order in orders)
     if not symbols:
         raise ValueError("cannot construct per-symbol actions without a symbol universe")
 
-    rows = []
-    for rec in sub.itertuples():
+    rows: list[dict[str, Any]] = []
+    records = cast(list[dict[str, Any]], sub.to_dict("records"))
+    for rec in records:
         net = dict.fromkeys(symbols, 0.0)
-        for order in rec.orders_clipped:
+        for order in rec["orders_clipped"]:
             sign = 1.0 if order["side"] == "buy" else -1.0
             net[order["symbol"]] += sign * float(order["quantity"])
         for symbol in sorted(symbols):
             value = net[symbol]
             rows.append(
                 {
-                    "step": rec.step,
+                    "step": rec["step"],
                     "symbol": symbol,
-                    "agent_id": rec.agent_id,
+                    "agent_id": rec["agent_id"],
                     "action": "buy" if value > 0 else "sell" if value < 0 else "hold",
                 }
             )
     long = pd.DataFrame(rows)
-    return long.pivot_table(
+    pivoted = long.pivot_table(
         index=["step", "symbol"], columns="agent_id", values="action", aggfunc="first"
-    )[agents]
+    )
+    return cast(pd.DataFrame, cast(pd.DataFrame, pivoted)[agents])
 
 
 def pairwise_agreement(mat: pd.DataFrame) -> float:
@@ -91,20 +101,32 @@ def mean_pairwise_kappa(mat: pd.DataFrame) -> float:
     pairs = list(itertools.combinations(mat.columns, 2))
     if not pairs:
         return float("nan")
-    return float(np.mean([cohen_kappa(mat[a], mat[b]) for a, b in pairs]))
+    return float(
+        np.mean(
+            [
+                cohen_kappa(cast(pd.Series, mat[a]), cast(pd.Series, mat[b]))
+                for a, b in pairs
+            ]
+        )
+    )
 
 
 def weights_over_time(portfolio: pd.DataFrame, agents: list[str]) -> dict[str, pd.DataFrame]:
     """agent -> steps x symbols weight matrix."""
-    out = {}
-    sub = portfolio[portfolio["agent_id"].isin(agents)]
+    out: dict[str, pd.DataFrame] = {}
+    sub = cast(pd.DataFrame, portfolio[portfolio["agent_id"].isin(agents)])
     symbols = sorted(
-        {s for w in sub["weights"] for s in json.loads(w)}
+        {s for w in cast(pd.Series, sub["weights"]) for s in json.loads(w)}
     )
     for agent, g in sub.groupby("agent_id"):
-        sorted_g = g.sort_values("step")
-        rows = [{**dict.fromkeys(symbols, 0.0), **json.loads(w)} for w in sorted_g["weights"]]
-        out[agent] = pd.DataFrame(rows, columns=symbols, index=sorted_g["step"])
+        sorted_g = cast(pd.DataFrame, g).sort_values(by="step")
+        rows = [
+            {**dict.fromkeys(symbols, 0.0), **json.loads(w)}
+            for w in cast(pd.Series, sorted_g["weights"])
+        ]
+        out[cast(str, agent)] = pd.DataFrame(
+            rows, columns=symbols, index=cast(pd.Series, sorted_g["step"])
+        )
     return out
 
 
@@ -142,11 +164,14 @@ def mean_portfolio_overlap(weights: dict[str, pd.DataFrame]) -> float:
 def return_correlation(portfolio: pd.DataFrame, agents: list[str]) -> float:
     """Mean pairwise correlation of per-step equity returns."""
     sub = portfolio[portfolio["agent_id"].isin(agents)]
-    eq = sub.pivot_table(index="step", columns="agent_id", values="equity")[agents]
-    rets = eq.pct_change().dropna()
+    eq = cast(
+        pd.DataFrame,
+        sub.pivot_table(index="step", columns="agent_id", values="equity"),
+    )[agents]
+    rets = cast(pd.DataFrame, eq.pct_change()).dropna()
     if len(rets) < 3:
         return float("nan")
-    corr = rets.corr().to_numpy()
+    corr = cast(pd.DataFrame, rets.corr()).to_numpy()
     iu = np.triu_indices_from(corr, k=1)
     vals = corr[iu]
     vals = vals[~np.isnan(vals)]
@@ -156,7 +181,10 @@ def return_correlation(portfolio: pd.DataFrame, agents: list[str]) -> float:
 def cohort_metrics(run: dict, cohort: str) -> dict[str, float]:
     """All convergence metrics for one cohort of a loaded run."""
     decisions, portfolio = run["decisions"], run["portfolio"]
-    agents = sorted(decisions.loc[decisions["cohort"] == cohort, "agent_id"].unique())
+    agents = cast(
+        list[str],
+        sorted(decisions.loc[decisions["cohort"] == cohort, "agent_id"].unique()),
+    )
     mat = action_matrix(decisions, agents)
     weights = weights_over_time(portfolio, agents)
     return {
@@ -177,7 +205,7 @@ def pairwise_kappa_matrix(decisions: pd.DataFrame, agents: list[str]) -> pd.Data
     mat = action_matrix(decisions, agents)
     out = pd.DataFrame(np.eye(len(agents)), index=agents, columns=agents)
     for a, b in itertools.combinations(agents, 2):
-        k = cohen_kappa(mat[a], mat[b])
+        k = cohen_kappa(cast(pd.Series, mat[a]), cast(pd.Series, mat[b]))
         out.loc[a, b] = out.loc[b, a] = k
     return out
 

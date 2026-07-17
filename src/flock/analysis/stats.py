@@ -146,7 +146,7 @@ def bootstrap_ci(
 
     # bias correction
     prop_less = np.mean(boots < estimate)
-    z0 = norm.ppf(np.clip(prop_less, 1e-9, 1 - 1e-9))
+    z0 = float(norm.ppf(np.clip(prop_less, 1e-9, 1 - 1e-9)))
     # acceleration via jackknife
     jack = np.array([statistic(units[:i] + units[i + 1 :]) for i in range(n)])
     jbar = jack.mean()
@@ -155,7 +155,8 @@ def bootstrap_ci(
     a = num / den if den > 0 else 0.0
 
     alpha = (1 - level) / 2
-    z_lo, z_hi = norm.ppf(alpha), norm.ppf(1 - alpha)
+    z_lo = float(norm.ppf(alpha))
+    z_hi = float(norm.ppf(1 - alpha))
 
     def adj(z: float) -> float:
         return float(norm.cdf(z0 + (z0 + z) / (1 - a * (z0 + z))))

@@ -6,6 +6,8 @@ LSV/Sias are also applied to real-world panels (13F) for the H2 anchor.
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import numpy as np
 import pandas as pd
 from scipy.stats import binom
@@ -17,23 +19,32 @@ def buy_sell_counts(decisions: pd.DataFrame, agents: list[str]) -> pd.DataFrame:
     An agent counts once per (step, symbol) by the sign of its net clipped
     flow there — the trade-level analogue of LSV's holdings-change sign.
     """
-    rows = []
-    sub = decisions[decisions["agent_id"].isin(agents)]
-    for rec in sub.itertuples():
+    rows: list[dict[str, Any]] = []
+    sub = cast(pd.DataFrame, decisions[decisions["agent_id"].isin(agents)])
+    records = cast(list[dict[str, Any]], sub.to_dict("records"))
+    for rec in records:
         net: dict[str, float] = {}
-        for o in rec.orders_clipped:
+        for o in rec["orders_clipped"]:
             signed = o["quantity"] if o["side"] == "buy" else -o["quantity"]
             net[o["symbol"]] = net.get(o["symbol"], 0.0) + signed
         for symbol, flow in net.items():
             if flow:
                 rows.append(
-                    {"step": rec.step, "symbol": symbol, "buy": int(flow > 0),
-                     "sell": int(flow < 0)}
+                    {
+                        "step": rec["step"],
+                        "symbol": symbol,
+                        "buy": int(flow > 0),
+                        "sell": int(flow < 0),
+                    }
                 )
     if not rows:
         return pd.DataFrame(columns=["step", "symbol", "buy", "sell"])
-    return (
-        pd.DataFrame(rows).groupby(["step", "symbol"], as_index=False)[["buy", "sell"]].sum()
+    grouped = pd.DataFrame(rows).groupby(["step", "symbol"], as_index=False)[
+        ["buy", "sell"]
+    ].sum()
+    return cast(
+        pd.DataFrame,
+        grouped,
     )
 
 
@@ -44,7 +55,10 @@ def lsv_herding(counts: pd.DataFrame, min_traders: int = 3) -> float:
     traders. AF is the expected deviation under a binomial null at p̄.
     Positive values indicate herding beyond chance.
     """
-    counts = counts[(counts["buy"] + counts["sell"]) >= min_traders].copy()
+    counts = cast(
+        pd.DataFrame,
+        counts[(counts["buy"] + counts["sell"]) >= min_traders].copy(),
+    )
     if counts.empty:
         return float("nan")
     n = (counts["buy"] + counts["sell"]).to_numpy()
@@ -62,16 +76,23 @@ def lsv_herding(counts: pd.DataFrame, min_traders: int = 3) -> float:
 def sias_herding(counts: pd.DataFrame, min_traders: int = 2) -> float:
     """Sias (2004) serial herding: cross-sectional correlation of standardized
     buyer fractions between consecutive steps, averaged over steps."""
-    counts = counts[(counts["buy"] + counts["sell"]) >= min_traders].copy()
+    counts = cast(
+        pd.DataFrame,
+        counts[(counts["buy"] + counts["sell"]) >= min_traders].copy(),
+    )
     if counts.empty:
         return float("nan")
     counts["p"] = counts["buy"] / (counts["buy"] + counts["sell"])
-    wide = counts.pivot_table(index="step", columns="symbol", values="p")
-    std = wide.sub(wide.mean(axis=1), axis=0)
+    wide = cast(
+        pd.DataFrame,
+        counts.pivot_table(index="step", columns="symbol", values="p"),
+    )
+    std = cast(pd.DataFrame, wide.sub(wide.mean(axis=1), axis=0))
     corrs = []
     steps = sorted(wide.index)
     for t_prev, t in zip(steps[:-1], steps[1:], strict=False):
-        a, b_ = std.loc[t_prev], std.loc[t]
+        a = cast(pd.Series, std.loc[t_prev])
+        b_ = cast(pd.Series, std.loc[t])
         mask = a.notna() & b_.notna()
         if mask.sum() >= 3 and a[mask].std() > 0 and b_[mask].std() > 0:
             corrs.append(float(np.corrcoef(a[mask], b_[mask])[0, 1]))
@@ -80,12 +101,14 @@ def sias_herding(counts: pd.DataFrame, min_traders: int = 2) -> float:
 
 def net_flow_series(decisions: pd.DataFrame, agents: list[str]) -> pd.Series:
     """Per-step signed net order flow of a cohort (sum over symbols)."""
-    sub = decisions[decisions["agent_id"].isin(agents)]
+    sub = cast(pd.DataFrame, decisions[decisions["agent_id"].isin(agents)])
     flows: dict[int, float] = {}
-    for rec in sub.itertuples():
-        for o in rec.orders_clipped:
+    records = cast(list[dict[str, Any]], sub.to_dict("records"))
+    for rec in records:
+        for o in rec["orders_clipped"]:
             signed = o["quantity"] if o["side"] == "buy" else -o["quantity"]
-            flows[rec.step] = flows.get(rec.step, 0.0) + signed
+            step = cast(int, rec["step"])
+            flows[step] = flows.get(step, 0.0) + signed
     steps = sorted(decisions["step"].unique())
     return pd.Series([flows.get(s, 0.0) for s in steps], index=steps)
 
@@ -143,7 +166,10 @@ def detect_cascades(
 
 
 def coordination_metrics(decisions: pd.DataFrame, cohort: str) -> dict:
-    agents = sorted(decisions.loc[decisions["cohort"] == cohort, "agent_id"].unique())
+    agents = cast(
+        list[str],
+        sorted(decisions.loc[decisions["cohort"] == cohort, "agent_id"].unique()),
+    )
     counts = buy_sell_counts(decisions, agents)
     flow = net_flow_series(decisions, agents)
     cascades = detect_cascades(flow)
@@ -158,14 +184,14 @@ def coordination_metrics(decisions: pd.DataFrame, cohort: str) -> dict:
 def overlap_13f(panel: pd.DataFrame) -> float:
     """Mean pairwise portfolio overlap among real managers, per period —
     the empirical anchor comparable to `convergence.mean_portfolio_overlap`."""
-    overlaps = []
+    overlaps: list[float] = []
     for _, g in panel.groupby("period"):
-        weights = {}
-        for manager, gm in g.groupby("manager"):
-            w = gm.groupby("cusip")["value_usd"].sum()
-            total = w.sum()
+        weights: dict[str, pd.Series] = {}
+        for manager, gm in cast(pd.DataFrame, g).groupby("manager"):
+            w = cast(pd.Series, gm.groupby("cusip")["value_usd"].sum())
+            total = float(w.sum())
             if total > 0:
-                weights[manager] = w / total
+                weights[cast(str, manager)] = cast(pd.Series, w / total)
         managers = sorted(weights)
         for i, a in enumerate(managers):
             for b_ in managers[i + 1 :]:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import pandas as pd
 
@@ -29,13 +29,19 @@ def validate_product(frame: pd.DataFrame) -> list[str]:
     missing = required - set(frame.columns)
     if missing:
         return [f"missing columns: {sorted(missing)}"]
-    if frame["record_id"].duplicated().any():
+    record_ids = cast(pd.Series, frame["record_id"])
+    evidence_tiers = cast(pd.Series, frame["evidence_tier"])
+    confidence = cast(pd.Series, frame["confidence"])
+    source_hashes = cast(pd.Series, frame["source_hash"])
+    if bool(record_ids.duplicated().to_numpy().any()):
         errors.append("duplicate record_id")
-    if not frame["evidence_tier"].isin(TIERS).all():
+    if not bool(evidence_tiers.isin(TIERS).to_numpy().all()):
         errors.append("unknown evidence tier")
-    if not frame["confidence"].between(0, 1).all():
+    if not bool(confidence.between(0, 1).to_numpy().all()):
         errors.append("confidence outside [0,1]")
-    if frame["source_hash"].isna().any() or (frame["source_hash"] == "").any():
+    if bool(source_hashes.isna().to_numpy().any()) or bool(
+        (source_hashes == "").to_numpy().any()
+    ):
         errors.append("missing source hash")
     return errors
 

@@ -12,6 +12,7 @@ import hashlib
 import itertools
 import re
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -23,13 +24,14 @@ SIGNALS = ["momentum", "reversal", "ma_distance", "volatility"]
 
 def compute_signals(bars: pd.DataFrame, lookback: int = 10) -> pd.DataFrame:
     """Per (ts, symbol) signal panel from bar data only."""
-    frames = []
+    frames: list[pd.DataFrame] = []
     for symbol, g in bars.sort_values("ts").groupby("symbol"):
-        closes = g["close"].reset_index(drop=True)
-        rets = closes.pct_change()
+        group = cast(pd.DataFrame, g)
+        closes = cast(pd.Series, group["close"]).reset_index(drop=True)
+        rets = cast(pd.Series, closes.pct_change())
         df = pd.DataFrame(
             {
-                "ts": g["ts"].to_numpy(),
+                "ts": cast(pd.Series, group["ts"]).to_numpy(),
                 "symbol": symbol,
                 "momentum": closes.pct_change(lookback),
                 "reversal": -rets,
@@ -43,13 +45,19 @@ def compute_signals(bars: pd.DataFrame, lookback: int = 10) -> pd.DataFrame:
 
 def trade_flows(decisions: pd.DataFrame) -> pd.DataFrame:
     """Per (agent, step, ts, symbol) signed order flow (clipped orders)."""
-    rows = []
-    for rec in decisions.itertuples():
-        for o in rec.orders_clipped:
+    rows: list[dict[str, Any]] = []
+    records = cast(list[dict[str, Any]], decisions.to_dict("records"))
+    for rec in records:
+        for o in rec["orders_clipped"]:
             signed = o["quantity"] if o["side"] == "buy" else -o["quantity"]
             rows.append(
-                {"agent_id": rec.agent_id, "step": rec.step, "ts": rec.ts,
-                 "symbol": o["symbol"], "flow": signed}
+                {
+                    "agent_id": rec["agent_id"],
+                    "step": rec["step"],
+                    "ts": rec["ts"],
+                    "symbol": o["symbol"],
+                    "flow": signed,
+                }
             )
     return pd.DataFrame(rows, columns=["agent_id", "step", "ts", "symbol", "flow"])
 
@@ -59,17 +67,41 @@ def fingerprint(
 ) -> pd.DataFrame:
     """agents x SIGNALS coefficient matrix (least squares, z-scored X and y)."""
     flows = trade_flows(decisions)
-    steps = decisions[["step", "ts"]].drop_duplicates()
-    symbols = sorted({s for ss in decisions["orders_clipped"] for s in
-                      [o["symbol"] for o in ss]} | set(signals["symbol"].unique()))
+    steps = cast(pd.DataFrame, decisions[["step", "ts"]]).drop_duplicates()
+    orders = cast(pd.Series, decisions["orders_clipped"])
+    signal_symbols = cast(pd.Series, signals["symbol"])
+    symbols = sorted(
+        {
+            cast(str, order["symbol"])
+            for agent_orders in orders
+            for order in agent_orders
+        }
+        | set(cast(list[str], signal_symbols.unique().tolist()))
+    )
     # full (step, symbol) grid so holds contribute zeros
-    grid = steps.merge(pd.DataFrame({"symbol": symbols}), how="cross")
-    grid = grid.merge(signals, on=["ts", "symbol"], how="left").dropna(subset=SIGNALS)
+    grid = cast(
+        pd.DataFrame,
+        steps.merge(pd.DataFrame({"symbol": symbols}), how="cross"),
+    )
+    grid = cast(
+        pd.DataFrame,
+        grid.merge(signals, on=["ts", "symbol"], how="left").dropna(
+            subset=SIGNALS
+        ),
+    )
 
-    out = {}
+    out: dict[str, np.ndarray] = {}
     for agent in agents:
-        af = flows[flows["agent_id"] == agent][["step", "symbol", "flow"]]
-        panel = grid.merge(af, on=["step", "symbol"], how="left").fillna({"flow": 0.0})
+        af = cast(
+            pd.DataFrame,
+            flows[flows["agent_id"] == agent][["step", "symbol", "flow"]],
+        )
+        panel = cast(
+            pd.DataFrame,
+            grid.merge(af, on=["step", "symbol"], how="left").fillna(
+                {"flow": 0.0}
+            ),
+        )
         x = panel[SIGNALS].to_numpy()
         y = panel["flow"].to_numpy()
         x = (x - x.mean(axis=0)) / np.where(x.std(axis=0) > 0, x.std(axis=0), 1.0)
@@ -119,7 +151,10 @@ def rationale_similarity(decisions: pd.DataFrame, agents: list[str]) -> float:
 
 def strategy_metrics(run: dict, cohort: str, dataset_dir: Path) -> dict[str, float]:
     decisions = run["decisions"]
-    agents = sorted(decisions.loc[decisions["cohort"] == cohort, "agent_id"].unique())
+    agents = cast(
+        list[str],
+        sorted(decisions.loc[decisions["cohort"] == cohort, "agent_id"].unique()),
+    )
     signals = compute_signals(schemas.read_bars(dataset_dir))
     fp = fingerprint(decisions, signals, agents)
     return {
