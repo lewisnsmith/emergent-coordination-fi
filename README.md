@@ -46,6 +46,8 @@ uv run flock validate
 uv run flock doctor
 uv run flock compile-study configs/studies/paper-core.yaml --output results/paper-core/plan.json
 uv run flock validate-study results/paper-core/plan.json
+uv run flock materialize-study results/paper-core/plan.json \
+  --output results/paper-core/assignments.json --allow-unresolved
 uv run flock estimate --plan results/paper-core/plan.json --stage canary
 ```
 
@@ -138,9 +140,12 @@ uv run flock reproduce results/paper-core/bundle/release-manifest.json \
   --output results/paper-core/clean-reproduction
 ```
 
-The bundle contains independent-unit and block-effect tables, multiplicity and verification
+The bundle contains independent-unit and block-effect tables, missingness/failure and sensitivity
+tables, frozen estimand and equivalence/noninferiority records, multiplicity and verification
 records, claim links, an experimental-topology figure, and a block-level forest plot. Reproduction
-regenerates into an empty directory and requires byte-identical core artifacts.
+regenerates into an empty directory and requires byte-identical core artifacts. The crossed
+H1/H3/H4 estimator exists as a tested analysis module; connecting its complete multiplicity family
+to the release bundle remains an explicit paper blocker.
 
 ## Publication gates
 
