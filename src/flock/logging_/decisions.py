@@ -1,5 +1,4 @@
-"""Run output writers: decisions.jsonl, fills.parquet, portfolio.parquet,
-manifest.json — the publishable decision-log dataset (docs/research/04)."""
+"""Atomic run outputs, including decisions, fills, portfolios, and market events."""
 
 from __future__ import annotations
 
@@ -41,9 +40,11 @@ class RunWriter:
         self._decisions_f = open(self.work_dir / "decisions.jsonl", "x")
         self._fills_f = open(self.work_dir / "fills.jsonl", "x")
         self._portfolio_f = open(self.work_dir / "portfolio.jsonl", "x")
+        self._market_events_f = open(self.work_dir / "market_events.jsonl", "x")
         self._fill_rows: list[dict] = []
         self._portfolio_rows: list[dict] = []
         self._decision_rows = 0
+        self._market_event_rows = 0
         self._closed = False
 
     def log_decision(
@@ -88,6 +89,12 @@ class RunWriter:
         self._fills_f.write(json.dumps(record) + "\n")
         self._fills_f.flush()
 
+    def log_market_event(self, event: dict) -> None:
+        record = {"run_id": self.run_id, **event}
+        self._market_events_f.write(json.dumps(record, default=str) + "\n")
+        self._market_events_f.flush()
+        self._market_event_rows += 1
+
     def log_portfolio(
         self, step: int, ts: str, agent_id: str, cohort: str,
         cash: float, equity: float, weights: dict[str, float],
@@ -121,6 +128,7 @@ class RunWriter:
                 "decision_rows": self._decision_rows,
                 "fill_rows": len(self._fill_rows),
                 "portfolio_rows": len(self._portfolio_rows),
+                "market_event_rows": self._market_event_rows,
                 "total_cost_usd": total_cost_usd,
             },
         )
@@ -131,6 +139,7 @@ class RunWriter:
         self._decisions_f.close()
         self._fills_f.close()
         self._portfolio_f.close()
+        self._market_events_f.close()
         self._closed = True
 
     def fail(self, error: BaseException) -> None:
@@ -156,7 +165,12 @@ class RunWriter:
         manifest = {**manifest, "attempt_id": self.attempt_id, "status": "complete"}
         self._atomic_json(self.work_dir / "manifest.json", manifest)
         self.run_dir.mkdir(parents=True, exist_ok=True)
-        for name in ("decisions.jsonl", "fills.parquet", "portfolio.parquet"):
+        for name in (
+            "decisions.jsonl",
+            "fills.parquet",
+            "portfolio.parquet",
+            "market_events.jsonl",
+        ):
             (self.work_dir / name).replace(self.run_dir / name)
         (self.work_dir / "manifest.json").replace(self.run_dir / "manifest.json")
 

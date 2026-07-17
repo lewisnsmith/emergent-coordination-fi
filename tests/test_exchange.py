@@ -1,8 +1,12 @@
+import json
+
 import pandas as pd
 import pytest
 
 from flock.core.types import Order
 from flock.experiments.ledger import Ledger
+from flock.experiments.runner import log_exchange_events
+from flock.logging_.decisions import RunWriter
 from flock.markets.exchange import ExchangeMarket
 
 
@@ -150,3 +154,34 @@ def test_endogenous_history_grows():
     state = m.state()
     assert state.step == 1
     assert state.prices["X"] == 99.0  # last trade became the close
+    assert len(m.last_step_bars) == 1
+    assert m.last_step_bars[0].close == 99.0
+
+
+def test_exchange_events_export_tape_book_expiry_and_endogenous_bars(tmp_path):
+    m = _market()
+    m.submit("seller", (Order("X", "sell", 7, limit_price=100.0),))
+    m.submit("buyer", (Order("X", "buy", 5, limit_price=100.0),))
+    m.step()
+    writer = RunWriter("exchange-events", tmp_path)
+
+    log_exchange_events(writer, m)
+    writer.fail(RuntimeError("test terminal close"))
+
+    events = [
+        json.loads(line)
+        for line in (writer.work_dir / "market_events.jsonl").read_text().splitlines()
+    ]
+    event_types = {event["event_type"] for event in events}
+    assert event_types == {
+        "trade",
+        "resting_order_snapshot",
+        "expiry",
+        "endogenous_bar",
+    }
+    trade = next(event for event in events if event["event_type"] == "trade")
+    assert (trade["buyer_id"], trade["seller_id"], trade["quantity"]) == (
+        "buyer",
+        "seller",
+        5,
+    )

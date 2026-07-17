@@ -123,11 +123,18 @@ class ExchangeMarket:
             str, dict[str, tuple[RestingOrderSnapshot, ...]]
         ] = {symbol: {"buy": (), "sell": ()} for symbol in self.symbols}
         self.last_step_trades: tuple[TradeRecord, ...] = ()
+        self.last_step_bars: tuple[Bar, ...] = ()
         self.trade_tape: tuple[TradeRecord, ...] = ()
 
     @property
     def done(self) -> bool:
         return self._step >= self.n_steps
+
+    @property
+    def last_completed_step(self) -> int:
+        if self._step == 0:
+            raise RuntimeError("exchange has not completed a step")
+        return self._step - 1
 
     def _ts(self) -> str:
         return self.timestamps[self.window + self._step]
@@ -204,7 +211,7 @@ class ExchangeMarket:
         self.last_book_snapshot = self._snapshot_books(books)
         self.last_step_trades = tuple(step_trades)
         self.trade_tape += self.last_step_trades
-        self._append_bars(ts, trades)
+        self.last_step_bars = self._append_bars(ts, trades)
         self._pending = []
         self._step += 1
         return fills
@@ -261,7 +268,10 @@ class ExchangeMarket:
         fee = abs(price * qty) * self.fee_bps / 1e4
         return Fill(agent_id, self._step, ts, symbol, side, qty, price, fee)
 
-    def _append_bars(self, ts: str, trades: dict[str, list[tuple[float, float]]]) -> None:
+    def _append_bars(
+        self, ts: str, trades: dict[str, list[tuple[float, float]]]
+    ) -> tuple[Bar, ...]:
+        appended: list[Bar] = []
         for s in self.symbols:
             prev_close = self._history[s][-1].close
             t = trades[s]
@@ -276,6 +286,8 @@ class ExchangeMarket:
             else:
                 bar = Bar(ts, s, prev_close, prev_close, prev_close, prev_close, 0.0)
             self._history[s].append(bar)
+            appended.append(bar)
+        return tuple(appended)
 
 
 def cascade_ready_history(market: ExchangeMarket) -> pd.DataFrame:

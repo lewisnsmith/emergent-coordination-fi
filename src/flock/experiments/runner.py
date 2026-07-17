@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import numpy as np
@@ -28,6 +28,7 @@ from flock.experiments.budget import RuntimeBudgetGuard
 from flock.experiments.ledger import Ledger
 from flock.experiments.treatments import apply_information_policy
 from flock.logging_.decisions import RESULTS_DIR, RunWriter, git_sha
+from flock.markets.exchange import ExchangeMarket
 from flock.markets.replay import ReplayMarket
 
 
@@ -86,8 +87,6 @@ def build_market(cfg: ExperimentConfig, registry: Registry):
             max_steps=cfg.steps,
         )
     else:
-        from flock.markets.exchange import ExchangeMarket
-
         market = ExchangeMarket(
             bars,
             events,
@@ -156,6 +155,41 @@ def build_agents(
                     )
             id_offsets[id_key] = id_offset + group.count
     return agents
+
+
+def log_exchange_events(writer: RunWriter, market: ExchangeMarket) -> None:
+    """Persist enough exchange state to reconstruct the tape and endogenous bars."""
+    for trade in market.last_step_trades:
+        writer.log_market_event({"event_type": "trade", **asdict(trade)})
+    for symbol, sides in market.last_book_snapshot.items():
+        for side, orders in sides.items():
+            for order in orders:
+                payload = asdict(order)
+                writer.log_market_event(
+                    {
+                        "event_type": "resting_order_snapshot",
+                        "step": market.last_completed_step,
+                        **payload,
+                    }
+                )
+                writer.log_market_event(
+                    {
+                        "event_type": "expiry",
+                        "reason": "step_end",
+                        "step": market.last_completed_step,
+                        "symbol": symbol,
+                        "side": side,
+                        **payload,
+                    }
+                )
+    for bar in market.last_step_bars:
+        writer.log_market_event(
+            {
+                "event_type": "endogenous_bar",
+                "step": market.last_completed_step,
+                **asdict(bar),
+            }
+        )
 
 
 def run_experiment(
@@ -230,6 +264,8 @@ def run_config(
                 writer.log_decision(decision, obs, agent.describe(), agent.cohort, clipped)
 
             fills = market.step()
+            if isinstance(market, ExchangeMarket):
+                log_exchange_events(writer, market)
             for fill in fills:
                 ledgers[fill.agent_id].apply(fill)
                 writer.log_fill(fill)
