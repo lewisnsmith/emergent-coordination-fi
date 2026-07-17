@@ -18,6 +18,43 @@ import pandas as pd
 
 BAR_COLUMNS = ["ts", "symbol", "open", "high", "low", "close", "volume"]
 EVENT_COLUMNS = ["ts", "symbol", "headline", "sentiment"]
+BINARY_CONTRACT_FIELDS = {
+    "symbol",
+    "question",
+    "open_ts",
+    "close_ts",
+    "resolution",
+    "yes_label",
+    "no_label",
+    "price_semantics",
+}
+
+
+def validate_binary_contracts(bars: pd.DataFrame, meta: dict) -> None:
+    """Require reconstructable YES-price semantics and contract lifetimes."""
+    contracts = meta.get("contracts")
+    if not isinstance(contracts, list) or not contracts:
+        raise ValueError("binary datasets require nonempty contract metadata")
+    by_symbol: dict[str, dict] = {}
+    for contract in contracts:
+        if not isinstance(contract, dict) or not BINARY_CONTRACT_FIELDS.issubset(contract):
+            raise ValueError("binary contract metadata is incomplete")
+        symbol = str(contract["symbol"])
+        if symbol in by_symbol:
+            raise ValueError(f"duplicate binary contract metadata for {symbol}")
+        resolution = float(contract["resolution"])
+        if resolution not in {0.0, 1.0}:
+            raise ValueError(f"binary resolution must be zero or one for {symbol}")
+        if contract["price_semantics"] != "YES probability in [0,1]":
+            raise ValueError(f"unsupported binary price semantics for {symbol}")
+        open_ts = pd.Timestamp(pd.to_datetime(contract["open_ts"], utc=True))
+        close_ts = pd.Timestamp(pd.to_datetime(contract["close_ts"], utc=True))
+        if open_ts > close_ts:
+            raise ValueError(f"binary contract opens after it closes: {symbol}")
+        by_symbol[symbol] = contract
+    symbols = set(cast(pd.Series, bars["symbol"]).astype(str))
+    if symbols != set(by_symbol):
+        raise ValueError("binary contract metadata must exactly match bar symbols")
 
 
 def write_dataset(
@@ -35,8 +72,15 @@ def write_dataset(
     if bars.duplicated(["ts", "symbol"]).any():
         raise ValueError("bars contain duplicate (ts, symbol) rows")
     prices = bars[["open", "high", "low", "close"]]
-    if not np.isfinite(prices.to_numpy()).all() or not (prices > 0).all().all():
-        raise ValueError("bar prices must be finite and positive")
+    instrument_kind = (meta or {}).get("instrument_kind")
+    if not np.isfinite(prices.to_numpy()).all():
+        raise ValueError("bar prices must be finite")
+    if instrument_kind == "binary":
+        if not ((prices >= 0) & (prices <= 1)).all().all():
+            raise ValueError("binary YES prices must remain in [0,1]")
+        validate_binary_contracts(bars, meta or {})
+    elif not (prices > 0).all().all():
+        raise ValueError("bar prices must be positive")
     if not (
         (bars["high"] >= prices[["open", "close", "low"]].max(axis=1))
         & (bars["low"] <= prices[["open", "close", "high"]].min(axis=1))

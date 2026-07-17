@@ -32,7 +32,19 @@ def build_kalshi(
                 continue
             frames.append(bars)
             contracts.append(
-                {"symbol": "KX-" + ticker, "title": m.get("title", ""), "result": result}
+                {
+                    "symbol": "KX-" + ticker,
+                    "question": m.get("title", ""),
+                    "rules": m.get("rules_primary") or m.get("subtitle", ""),
+                    "open_ts": m.get("open_time"),
+                    "close_ts": m.get("close_time") or m.get("expiration_time"),
+                    "resolution": 1.0 if result == "yes" else 0.0,
+                    "yes_label": "Yes",
+                    "no_label": "No",
+                    "price_semantics": "YES probability in [0,1]",
+                    "result": result,
+                    "status": "resolved",
+                }
             )
             if len(frames) >= limit:
                 break

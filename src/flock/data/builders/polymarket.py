@@ -42,7 +42,19 @@ def build_polymarket(limit: int = 20) -> tuple[pd.DataFrame, pd.DataFrame | None
                 continue
             frames.append(bars)
             contracts.append(
-                {"symbol": symbol, "question": m.get("question", ""), "resolution": resolution}
+                {
+                    "symbol": symbol,
+                    "question": m.get("question", ""),
+                    "rules": m.get("description", ""),
+                    "open_ts": m.get("startDate") or m.get("createdAt"),
+                    "close_ts": m.get("endDate") or m.get("closedTime"),
+                    "resolution": resolution,
+                    "yes_label": "Yes",
+                    "no_label": "No",
+                    "price_semantics": "YES probability in [0,1]",
+                    "yes_token_id": token_id,
+                    "status": "resolved",
+                }
             )
             if len(frames) >= limit:
                 break

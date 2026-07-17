@@ -1,10 +1,12 @@
 """Pure-transform tests for network dataset builders (no network)."""
 
 import pandas as pd
+import pytest
 
 from flock.data.builders.kalshi import candles_to_bars
 from flock.data.builders.polymarket import history_to_bars, parse_market
 from flock.data.builders.real_world_refs import parse_info_table, recent_13f_accessions
+from flock.data.schemas import write_dataset
 
 
 def test_polymarket_parse_market():
@@ -85,3 +87,66 @@ def test_registry_primary_file(tmp_path):
     reg = Registry(root=tmp_path)
     entry = reg.register("refs", "refs13f", d, {}, primary_file="holdings13f.parquet")
     assert entry.rows == 1
+
+
+def test_binary_dataset_allows_zero_settlement_with_complete_yes_semantics(tmp_path):
+    bars = pd.DataFrame(
+        [
+            {
+                "ts": "2030-01-01",
+                "symbol": "KX-TEST",
+                "open": 0.4,
+                "high": 0.5,
+                "low": 0.3,
+                "close": 0.4,
+                "volume": 10,
+            },
+            {
+                "ts": "2030-01-02",
+                "symbol": "KX-TEST",
+                "open": 0.4,
+                "high": 0.4,
+                "low": 0.0,
+                "close": 0.0,
+                "volume": 10,
+            },
+        ]
+    )
+    meta = {
+        "instrument_kind": "binary",
+        "contracts": [
+            {
+                "symbol": "KX-TEST",
+                "question": "Will the test resolve yes?",
+                "open_ts": "2030-01-01T00:00:00Z",
+                "close_ts": "2030-01-02T00:00:00Z",
+                "resolution": 0.0,
+                "yes_label": "Yes",
+                "no_label": "No",
+                "price_semantics": "YES probability in [0,1]",
+            }
+        ],
+    }
+    assert write_dataset(tmp_path / "binary", bars, meta=meta) == 2
+
+
+def test_binary_dataset_rejects_missing_contract_semantics(tmp_path):
+    bars = pd.DataFrame(
+        [
+            {
+                "ts": "2030-01-01",
+                "symbol": "PM-X",
+                "open": 0.5,
+                "high": 0.5,
+                "low": 0.5,
+                "close": 0.5,
+                "volume": 0,
+            }
+        ]
+    )
+    with pytest.raises(ValueError, match="contract metadata"):
+        write_dataset(
+            tmp_path / "binary",
+            bars,
+            meta={"instrument_kind": "binary", "contracts": [{"symbol": "PM-X"}]},
+        )
