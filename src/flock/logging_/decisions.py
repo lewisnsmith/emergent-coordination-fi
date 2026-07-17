@@ -68,6 +68,7 @@ class RunWriter:
             "latency_s": round(decision.latency_s, 4),
         }
         self._decisions_f.write(json.dumps(record) + "\n")
+        self._decisions_f.flush()
 
     def log_fill(self, fill: Fill) -> None:
         self._fill_rows.append(asdict(fill))

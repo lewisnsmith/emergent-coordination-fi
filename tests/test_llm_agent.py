@@ -33,6 +33,17 @@ def test_parse_response_rejects_bad_symbol_and_garbage():
     assert parse_response("not json at all", ("X",)) is None
 
 
+def test_parse_response_rejects_non_finite_or_non_positive_numbers():
+    assert parse_response(
+        '{"orders": [{"symbol": "X", "side": "buy", "quantity": NaN}]}', ("X",)
+    ) is None
+    assert parse_response(
+        '{"orders": [{"symbol": "X", "side": "buy", "quantity": 1, '
+        '"limit_price": -1}]}',
+        ("X",),
+    ) is None
+
+
 def test_parse_response_handles_code_fence():
     text = '```json\n{"orders": [], "rationale": "hold"}\n```'
     parsed = parse_response(text, ("X",))
@@ -96,3 +107,30 @@ def test_strict_grounding_fails_closed_without_evidence_refs():
     assert decision.parse_ok
     assert not decision.grounding_ok
     assert decision.orders == ()
+
+
+def test_usage_preserves_provider_attempt_and_reasoning_metadata():
+    class Metered:
+        model_key = "metered"
+        model_id = "metered-v1"
+
+        def complete(self, *_args, **_kwargs):
+            return ChatResponse(
+                text='{"orders": [], "rationale": "hold"}',
+                input_tokens=100,
+                output_tokens=50,
+                cost_usd=0.01,
+                request_id="request-1",
+                visible_output_tokens=20,
+                reasoning_tokens=30,
+                attempts=2,
+                retry_errors=("TimeoutError: first attempt",),
+            )
+
+    persona = PersonaConfig(name="neutral", system_prompt="You are a trader.")
+    decision = LLMAgent("a", "llm", Metered(), persona).decide(_obs())
+    assert decision.usage.reasoning_tokens == 30
+    assert decision.usage.visible_output_tokens == 20
+    assert decision.usage.attempts == 2
+    assert decision.usage.request_ids == ("request-1",)
+    assert len(decision.usage.retry_errors) == 1

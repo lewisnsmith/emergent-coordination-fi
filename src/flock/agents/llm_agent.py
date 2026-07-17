@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import time
 from dataclasses import dataclass
 
@@ -122,7 +123,14 @@ def parse_structured_response(text: str, valid_symbols: tuple[str, ...]) -> Pars
             symbol, side = o["symbol"], o["side"]
             quantity = float(o["quantity"])
             limit = o.get("limit_price")
-            if symbol not in valid_symbols or side not in ("buy", "sell") or quantity <= 0:
+            if (
+                symbol not in valid_symbols
+                or side not in ("buy", "sell")
+                or not math.isfinite(quantity)
+                or quantity <= 0
+            ):
+                return None
+            if limit is not None and (not math.isfinite(float(limit)) or float(limit) <= 0):
                 return None
             orders.append(
                 Order(symbol, side, quantity, float(limit) if limit is not None else None)
@@ -222,6 +230,41 @@ class LLMAgent:
             self.cache.put(key, response)
         return response
 
+    @staticmethod
+    def _usage(response: ChatResponse) -> Usage:
+        visible_output = response.visible_output_tokens
+        if visible_output == 0 and response.output_tokens:
+            visible_output = max(response.output_tokens - response.reasoning_tokens, 0)
+        return Usage(
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            cost_usd=response.cost_usd,
+            cached_input_tokens=response.cached_input_tokens,
+            cache_write_tokens=response.cache_write_tokens,
+            visible_output_tokens=visible_output,
+            reasoning_tokens=response.reasoning_tokens,
+            attempts=response.attempts,
+            request_ids=(response.request_id,) if response.request_id else (),
+            retry_errors=response.retry_errors,
+        )
+
+    @staticmethod
+    def _combine_usage(first: Usage, second: Usage) -> Usage:
+        return Usage(
+            input_tokens=first.input_tokens + second.input_tokens,
+            output_tokens=first.output_tokens + second.output_tokens,
+            cost_usd=first.cost_usd + second.cost_usd,
+            cached_input_tokens=first.cached_input_tokens + second.cached_input_tokens,
+            cache_write_tokens=first.cache_write_tokens + second.cache_write_tokens,
+            visible_output_tokens=(
+                first.visible_output_tokens + second.visible_output_tokens
+            ),
+            reasoning_tokens=first.reasoning_tokens + second.reasoning_tokens,
+            attempts=first.attempts + second.attempts,
+            request_ids=first.request_ids + second.request_ids,
+            retry_errors=first.retry_errors + second.retry_errors,
+        )
+
     def decide(self, obs: Observation) -> Decision:
         user = render_user_prompt(obs)
         if self.memory and self._memory_log:
@@ -232,23 +275,30 @@ class LLMAgent:
         response = self._complete(user)
         raw_text = response.text
         parsed = parse_structured_response(raw_text, obs.symbols)
-        usage = Usage(response.input_tokens, response.output_tokens, response.cost_usd)
+        usage = self._usage(response)
 
         if parsed is None:
             retry = self._complete(user + RETRY_REMINDER)
-            usage = Usage(
-                usage.input_tokens + retry.input_tokens,
-                usage.output_tokens + retry.output_tokens,
-                usage.cost_usd + retry.cost_usd,
-            )
+            usage = self._combine_usage(usage, self._usage(retry))
             raw_text = retry.text
             parsed = parse_structured_response(raw_text, obs.symbols)
 
         latency = time.perf_counter() - t0
+        prompt_hash = hashlib.sha256(f"{self.system_prompt}\n{user}".encode()).hexdigest()
+        raw_response_hash = hashlib.sha256(raw_text.encode()).hexdigest()
         if parsed is None:
             return Decision(
-                self.agent_id, obs.step, (), rationale="", parse_ok=False,
-                usage=usage, latency_s=latency,
+                self.agent_id,
+                obs.step,
+                (),
+                rationale="",
+                parse_ok=False,
+                usage=usage,
+                latency_s=latency,
+                grounding_ok=False,
+                grounding_failures=("response schema invalid after format repair",),
+                prompt_hash=prompt_hash,
+                raw_response_hash=raw_response_hash,
             )
         verdict = validate_grounding(
             obs,
@@ -270,6 +320,6 @@ class LLMAgent:
             uncertainties=parsed.uncertainties,
             grounding_ok=verdict.ok,
             grounding_failures=verdict.failures,
-            prompt_hash=hashlib.sha256(f"{self.system_prompt}\n{user}".encode()).hexdigest(),
-            raw_response_hash=hashlib.sha256(raw_text.encode()).hexdigest(),
+            prompt_hash=prompt_hash,
+            raw_response_hash=raw_response_hash,
         )
