@@ -42,6 +42,7 @@ class RunVerification(BaseModel):
     decisions: int
     fills: int
     portfolio_rows: int
+    market_events: int = 0
 
 
 class DecisionRecord(TypedDict):
@@ -185,6 +186,12 @@ def verify_run(run_dir: Path, tolerance: float = 1e-6) -> RunVerification:
     decisions = pd.read_json(run_dir / "decisions.jsonl", lines=True)
     fills = pd.read_parquet(run_dir / "fills.parquet")
     portfolio = pd.read_parquet(run_dir / "portfolio.parquet")
+    market_events_path = run_dir / "market_events.jsonl"
+    market_events = (
+        pd.read_json(market_events_path, lines=True)
+        if market_events_path.is_file() and market_events_path.stat().st_size
+        else pd.DataFrame()
+    )
     decision_records = cast(
         list[DecisionRecord], decisions.to_dict(orient="records")
     )
@@ -194,6 +201,16 @@ def verify_run(run_dir: Path, tolerance: float = 1e-6) -> RunVerification:
     )
     errors: list[str] = []
     warnings: list[str] = []
+
+    market_kind = manifest["config"]["market"]["kind"]
+    if not market_events_path.is_file():
+        message = "run is missing market_events.jsonl"
+        if market_kind == "exchange":
+            errors.append(message)
+        else:
+            warnings.append(message)
+    if market_kind == "exchange" and market_events.empty:
+        errors.append("exchange run has no reconstructable market events")
 
     try:
         registry = Registry()
@@ -288,6 +305,40 @@ def verify_run(run_dir: Path, tolerance: float = 1e-6) -> RunVerification:
         for results in parse_results.values()
     ):
         errors.append("one or more agents exceed the preregistered 20% parse-failure gate")
+
+    if market_kind == "exchange" and not market_events.empty:
+        required_event_types = {"trade", "endogenous_bar"}
+        event_types = set(cast(pd.Series, market_events["event_type"]).astype(str))
+        missing_types = required_event_types - event_types
+        if missing_types:
+            errors.append(f"exchange event stream lacks {sorted(missing_types)}")
+        trades = cast(
+            pd.DataFrame, market_events[market_events["event_type"] == "trade"]
+        )
+        if len(fills) != 2 * len(trades):
+            errors.append("exchange trade events do not reconcile to two-sided fills")
+        if len(trades) and (trades["buyer_id"] == trades["seller_id"]).any():
+            errors.append("exchange event stream contains a self-trade")
+        symbols = {
+            symbol
+            for record in decision_records
+            for symbol in record.get("symbols", [])
+        }
+        bars = cast(
+            pd.DataFrame,
+            market_events[market_events["event_type"] == "endogenous_bar"],
+        )
+        if len(bars) != manifest["n_steps"] * len(symbols):
+            errors.append("endogenous bar events are incomplete")
+        snapshots = cast(
+            pd.DataFrame,
+            market_events[market_events["event_type"] == "resting_order_snapshot"],
+        )
+        expiries = cast(
+            pd.DataFrame, market_events[market_events["event_type"] == "expiry"]
+        )
+        if len(snapshots) != len(expiries):
+            errors.append("resting order snapshots do not reconcile to expiries")
     return RunVerification(
         ok=not errors,
         errors=errors,
@@ -295,4 +346,5 @@ def verify_run(run_dir: Path, tolerance: float = 1e-6) -> RunVerification:
         decisions=len(decisions),
         fills=len(fills),
         portfolio_rows=len(portfolio),
+        market_events=len(market_events),
     )
