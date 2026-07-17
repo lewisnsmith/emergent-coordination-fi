@@ -127,6 +127,19 @@ def build_agents(
                     if group.model is None or group.persona is None:
                         raise ValueError("llm agent groups need 'model' and 'persona'")
                     spec = models[group.model]
+                    treatment = group.mphiq_treatment
+                    if treatment is not None:
+                        if treatment.model_id != spec.model_id:
+                            raise ValueError(
+                                "MPHIQ treatment model_id does not match resolved ModelSpec"
+                            )
+                        if (
+                            spec.verified_on is not None
+                            and treatment.model_revision != spec.verified_on
+                        ):
+                            raise ValueError(
+                                "MPHIQ treatment model_revision does not match resolved ModelSpec"
+                            )
                     if cfg.model_policy == "frontier_only" and not spec.frontier_eligible:
                         raise ValueError(f"model '{group.model}' is not frontier eligible")
                     if cfg.model_policy == "mock_only" and spec.provider != "mock":
@@ -149,6 +162,11 @@ def build_agents(
                             task_prompt=resolve_prompt(group.prompt_id),
                             information_policy=group.information_policy,
                             harness_id=group.harness_id,
+                            mphiq_treatment=(
+                                group.mphiq_treatment.model_dump(mode="json")
+                                if group.mphiq_treatment is not None
+                                else None
+                            ),
                             cache=cache,
                             before_request=budget.before_request if budget else None,
                             record_response=budget.record_response if budget else None,

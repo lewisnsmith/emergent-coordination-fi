@@ -24,6 +24,7 @@ from flock.core.config import (
     ExperimentConfig,
     MarketConfig,
     ModelSpec,
+    MPHIQAgentTreatment,
     RuntimeBudget,
     load_models,
     load_persona,
@@ -60,6 +61,53 @@ class StageExecutionDefaults(StrictFrozenModel):
     runtime_budget: RuntimeBudget | None = None
 
 
+class MPHIQHarnessPreset(StrictFrozenModel):
+    """One preregistered harness level supported by the current runner."""
+
+    level_id: str
+    temperature: float = Field(ge=0, le=2, allow_inf_nan=False)
+    memory: bool
+    harness_id: str
+
+
+class MPHIQExecutionLevels(StrictFrozenModel):
+    """Explicit executable levels for the non-model MPHIQ factors."""
+
+    persona_ids: list[str] = Field(min_length=2)
+    harness_presets: list[MPHIQHarnessPreset] = Field(min_length=2)
+    information_policies: list[
+        Literal[
+            "shared-all",
+            "no-news",
+            "price-only",
+            "news-partition-a",
+            "news-partition-b",
+        ]
+    ] = Field(min_length=2)
+    prompt_ids: list[str] = Field(min_length=2)
+    prompt_semantic_group: str
+
+    def validate_unique_levels(self) -> tuple[str, ...]:
+        errors: list[str] = []
+        for label, values in (
+            ("persona_ids", self.persona_ids),
+            ("information_policies", self.information_policies),
+            ("prompt_ids", self.prompt_ids),
+        ):
+            if len(values) != len(set(values)):
+                errors.append(f"{label} contains duplicate levels")
+        harness_ids = [preset.level_id for preset in self.harness_presets]
+        if len(harness_ids) != len(set(harness_ids)):
+            errors.append("harness_presets contains duplicate level_id values")
+        effective = {
+            (preset.temperature, preset.memory, preset.harness_id)
+            for preset in self.harness_presets
+        }
+        if len(effective) != len(self.harness_presets):
+            errors.append("harness_presets contains duplicate executable settings")
+        return tuple(errors)
+
+
 class ExecutionResolution(StrictFrozenModel):
     """Explicit bridge from study identifiers to runner registry identifiers."""
 
@@ -71,6 +119,7 @@ class ExecutionResolution(StrictFrozenModel):
         Literal["momentum", "mean_reversion", "market_maker", "buy_hold", "random"],
     ] = Field(default_factory=dict)
     stage_defaults: dict[str, StageExecutionDefaults]
+    mphiq_levels: dict[str, MPHIQExecutionLevels] = Field(default_factory=dict)
 
 
 class MaterializedCell(StrictFrozenModel):
@@ -151,21 +200,31 @@ def _cell(plan: FrozenStudyPlan, stage: CompiledStage, cell_id: str) -> Material
 
 
 def _calls(
-    cohorts: tuple[CohortSpec, ...], steps: int, calls_per_step: int
+    cohorts: tuple[CohortSpec, ...],
+    steps: int,
+    calls_per_step: int,
+    mphiq_models: tuple[ModelAllocationSpec, ...] | None = None,
 ) -> tuple[ExactCountsSpec, dict[str, int]]:
     agents = sum(cohort.total_agents for cohort in cohorts)
     llm_agents = sum(cohort.total_agents for cohort in cohorts if cohort.technology == "llm")
     calls_by_key: dict[str, int] = {}
-    for cohort in cohorts:
-        if cohort.technology != "llm":
-            continue
-        for allocation in cohort.allocations:
-            if allocation.pricing_key is None:  # compiler already rejects this
-                raise ValueError(f"LLM allocation {allocation.model_id} lacks pricing_key")
-            calls_by_key[allocation.pricing_key] = (
-                calls_by_key.get(allocation.pricing_key, 0)
-                + steps * allocation.count * calls_per_step
-            )
+    llm_allocations = (
+        mphiq_models
+        if mphiq_models is not None
+        else tuple(
+            allocation
+            for cohort in cohorts
+            if cohort.technology == "llm"
+            for allocation in cohort.allocations
+            for _ in range(allocation.count)
+        )
+    )
+    for allocation in llm_allocations:
+        if allocation.pricing_key is None:  # compiler already rejects this
+            raise ValueError(f"LLM allocation {allocation.model_id} lacks pricing_key")
+        calls_by_key[allocation.pricing_key] = (
+            calls_by_key.get(allocation.pricing_key, 0) + steps * calls_per_step
+        )
     return (
         ExactCountsSpec(
             runs=1,
@@ -212,6 +271,244 @@ def _validate_model(
     return registry_key, None
 
 
+def _stable_index(key: str, length: int) -> int:
+    return int(hashlib.sha256(key.encode()).hexdigest(), 16) % length
+
+
+def _balanced_permutation(values: list[Any], count: int, key: str) -> list[Any]:
+    base = [values[index % len(values)] for index in range(count)]
+    order = sorted(
+        range(count),
+        key=lambda index: hashlib.sha256(f"{key}|{index}".encode()).hexdigest(),
+    )
+    return [base[index] for index in order]
+
+
+def _perfectly_confounded(left: list[str], right: list[str]) -> bool:
+    left_to_right: dict[str, set[str]] = {}
+    right_to_left: dict[str, set[str]] = {}
+    for left_value, right_value in zip(left, right, strict=True):
+        left_to_right.setdefault(left_value, set()).add(right_value)
+        right_to_left.setdefault(right_value, set()).add(left_value)
+    return all(len(values) == 1 for values in left_to_right.values()) and all(
+        len(values) == 1 for values in right_to_left.values()
+    )
+
+
+def _mphiq_model_assignments(
+    cohort: CohortSpec, code: str, same_model_id: str
+) -> tuple[ModelAllocationSpec, ...]:
+    allocations = {allocation.model_id: allocation for allocation in cohort.allocations}
+    if code[0] == "1":
+        selected = allocations[same_model_id]
+        return tuple(selected for _ in range(cohort.total_agents))
+    return tuple(allocation for allocation in cohort.allocations for _ in range(allocation.count))
+
+
+def _mphiq_same_model_schedule(
+    stage: CompiledStage, cohorts: tuple[CohortSpec, ...]
+) -> dict[tuple[str, int], str]:
+    if stage.design != "mphiq":
+        return {}
+    if len(cohorts) != 1 or cohorts[0].technology != "llm":
+        raise ValueError("MPHIQ materialization requires exactly one LLM cohort")
+    cohort = cohorts[0]
+    blocks = sorted(
+        (trajectory_id, seed) for trajectory_id in stage.trajectory_ids for seed in stage.seeds
+    )
+    choices: list[str] = []
+    for allocation in cohort.allocations:
+        numerator = len(blocks) * allocation.count
+        if numerator % cohort.total_agents:
+            raise ValueError(
+                f"{stage.stage_id}: MPHIQ same-model blocks cannot preserve the frozen "
+                f"pricing allocation for {allocation.model_id}; add independent blocks"
+            )
+        choices.extend([allocation.model_id] * (numerator // cohort.total_agents))
+    if len(choices) != len(blocks):
+        raise ValueError(f"{stage.stage_id}: MPHIQ same-model schedule does not reconcile")
+    ordered_choices = _balanced_permutation(
+        choices, len(choices), f"{stage.stage_id}|same-model-schedule"
+    )
+    return dict(zip(blocks, ordered_choices, strict=True))
+
+
+def _prompt_semantic_groups(prompt_dir: Path) -> dict[str, str]:
+    catalog_path = prompt_dir / "catalog.yaml"
+    raw = yaml.safe_load(catalog_path.read_text())
+    if not isinstance(raw, dict):
+        raise ValueError("prompt catalog must contain one mapping")
+    return {
+        str(item["id"]): str(item["semantic_group"]) for item in raw.get("semantic_paraphrases", [])
+    }
+
+
+def _mphiq_groups(
+    *,
+    stage: CompiledStage,
+    trajectory: TrajectoryWindowSpec,
+    cell: MaterializedCell,
+    seed: int,
+    cohort: CohortSpec,
+    same_model_id: str,
+    levels: MPHIQExecutionLevels,
+    defaults: StageExecutionDefaults,
+    resolution: ExecutionResolution,
+    models: dict[str, ModelSpec],
+    root: Path,
+) -> tuple[CohortConfig | None, set[str], tuple[str, ...]]:
+    blockers = list(levels.validate_unique_levels())
+    if cell.mphiq_code is None:
+        return None, set(), ("MPHIQ cell is missing its scheme code",)
+    code = cell.mphiq_code
+    if cohort.technology != "llm" or cohort.ecology != "heterogeneous":
+        blockers.append("MPHIQ execution requires one heterogeneous LLM source cohort")
+
+    registry_keys: dict[str, str] = {}
+    deployments: set[str] = set()
+    for allocation in cohort.allocations:
+        registry_key, error = _validate_model(allocation, resolution, models)
+        if error is not None:
+            blockers.append(error)
+            continue
+        assert registry_key is not None
+        registry_keys[allocation.model_id] = registry_key
+        deployments.add(models[registry_key].provider)
+
+    for persona_id in levels.persona_ids:
+        try:
+            load_persona(persona_id, root / "configs/personas")
+        except (FileNotFoundError, ValueError) as error:
+            blockers.append(f"persona {persona_id!r} cannot be resolved: {error}")
+    prompt_dir = root / "configs/prompts"
+    try:
+        semantic_groups = _prompt_semantic_groups(prompt_dir)
+    except (FileNotFoundError, KeyError, TypeError, ValueError) as error:
+        blockers.append(f"prompt semantic catalog cannot be resolved: {error}")
+        semantic_groups = {}
+    for prompt_id in levels.prompt_ids:
+        try:
+            resolve_prompt(prompt_id, prompt_dir)
+        except (FileNotFoundError, KeyError, ValueError) as error:
+            blockers.append(f"prompt {prompt_id!r} cannot be resolved: {error}")
+        if semantic_groups.get(prompt_id) != levels.prompt_semantic_group:
+            blockers.append(
+                f"prompt {prompt_id!r} is not in semantic group {levels.prompt_semantic_group!r}"
+            )
+    if blockers:
+        return None, deployments, tuple(sorted(set(blockers)))
+
+    total = cohort.total_agents
+    model_pool = list(_mphiq_model_assignments(cohort, "00000", same_model_id))
+    pools: dict[str, list[Any]] = {
+        "model_id": model_pool,
+        "profile_id": list(levels.persona_ids),
+        "harness_id": list(levels.harness_presets),
+        "information_policy": list(levels.information_policies),
+        "prompt_id": list(levels.prompt_ids),
+    }
+    id_value = {
+        "model_id": lambda value: value.model_id,
+        "profile_id": str,
+        "harness_id": lambda value: value.level_id,
+        "information_policy": str,
+        "prompt_id": str,
+    }
+    block_key = f"{stage.stage_id}|{trajectory.trajectory_id}|{seed}"
+    different: dict[str, list[Any]] | None = None
+    for nonce in range(256):
+        candidate = {
+            name: _balanced_permutation(values, total, f"{block_key}|{name}|{nonce}")
+            for name, values in pools.items()
+        }
+        encoded = {
+            name: [id_value[name](value) for value in values] for name, values in candidate.items()
+        }
+        names = list(encoded)
+        if not any(
+            _perfectly_confounded(encoded[left], encoded[right])
+            for index, left in enumerate(names)
+            for right in names[index + 1 :]
+        ):
+            different = candidate
+            break
+    if different is None:
+        return (
+            None,
+            deployments,
+            ("MPHIQ level pools cannot produce non-confounded per-agent assignments",),
+        )
+
+    same_model = next(
+        allocation for allocation in cohort.allocations if allocation.model_id == same_model_id
+    )
+    same: dict[str, Any] = {
+        "model_id": same_model,
+        "profile_id": levels.persona_ids[
+            _stable_index(f"{block_key}|profile_id|same", len(levels.persona_ids))
+        ],
+        "harness_id": levels.harness_presets[
+            _stable_index(f"{block_key}|harness_id|same", len(levels.harness_presets))
+        ],
+        "information_policy": levels.information_policies[
+            _stable_index(
+                f"{block_key}|information_policy|same",
+                len(levels.information_policies),
+            )
+        ],
+        "prompt_id": levels.prompt_ids[
+            _stable_index(f"{block_key}|prompt_id|same", len(levels.prompt_ids))
+        ],
+    }
+    factor_names = list(pools)
+    assigned = {
+        name: ([same[name]] * total if bit == "1" else different[name])
+        for bit, name in zip(code, factor_names, strict=True)
+    }
+    groups: list[AgentGroup] = []
+    for agent_index in range(total):
+        allocation = assigned["model_id"][agent_index]
+        persona_id = assigned["profile_id"][agent_index]
+        harness = assigned["harness_id"][agent_index]
+        information_policy = assigned["information_policy"][agent_index]
+        prompt_id = assigned["prompt_id"][agent_index]
+        treatment_payload = {
+            "scheme_code": code,
+            "agent_index": agent_index,
+            "model_id": allocation.model_id,
+            "model_revision": allocation.revision,
+            "model_registry_key": registry_keys[allocation.model_id],
+            "profile_id": persona_id,
+            "harness_id": harness.harness_id,
+            "harness_temperature": harness.temperature,
+            "harness_memory": harness.memory,
+            "information_policy": information_policy,
+            "prompt_id": prompt_id,
+            "prompt_semantic_group": levels.prompt_semantic_group,
+        }
+        digest_payload = json.dumps(treatment_payload, sort_keys=True, separators=(",", ":"))
+        treatment = MPHIQAgentTreatment(
+            **treatment_payload,
+            assignment_digest=hashlib.sha256(digest_payload.encode()).hexdigest(),
+        )
+        groups.append(
+            AgentGroup(
+                kind="llm",
+                count=1,
+                model=treatment.model_registry_key,
+                persona=persona_id,
+                temperature=harness.temperature,
+                memory=harness.memory,
+                harness_id=harness.harness_id,
+                prompt_id=prompt_id,
+                information_policy=information_policy,
+                grounding_mode=defaults.grounding_mode,
+                mphiq_treatment=treatment,
+            )
+        )
+    return CohortConfig(name=cohort.cohort_id, agents=groups), deployments, ()
+
+
 def _execution_config(
     assignment_id: str,
     stage: CompiledStage,
@@ -225,6 +522,7 @@ def _execution_config(
     models: dict[str, ModelSpec],
     root: Path,
     hypothesis_ids: list[str],
+    mphiq_same_model_id: str | None = None,
 ) -> tuple[dict[str, Any] | None, tuple[str, ...]]:
     blockers: list[str] = []
     if resolution is None:
@@ -240,17 +538,13 @@ def _execution_config(
         blockers.append(f"missing trajectory_datasets mapping for {trajectory.trajectory_id}")
     else:
         try:
-            entry = Registry(root / "datasets").get(dataset)
-            dataset_errors = Registry(root / "datasets").verify(entry)
+            registry = Registry(root / "datasets")
+            entry = registry.get(dataset)
+            dataset_errors = registry.verify(entry)
             blockers.extend(f"dataset {dataset!r}: {error}" for error in dataset_errors)
         except KeyError as error:
             blockers.append(str(error))
 
-    if stage.design == "mphiq":
-        blockers.append(
-            "MPHIQ cells require per-agent M/P/H/I/Q treatment assignments not "
-            "represented by ExperimentConfig"
-        )
     if stage.design == "capital_share":
         blockers.append(
             "capital-share cells require capital-weighted agent/background allocation "
@@ -259,52 +553,80 @@ def _execution_config(
 
     groups_by_cohort: list[CohortConfig] = []
     deployments: set[str] = set()
-    for cohort in cohorts:
-        groups: list[AgentGroup] = []
-        for allocation in cohort.allocations:
-            if cohort.technology == "llm":
-                registry_key, error = _validate_model(allocation, resolution, models)
-                if error is not None:
-                    blockers.append(error)
-                    continue
-                assert registry_key is not None
-                deployments.add(models[registry_key].provider)
-                if defaults is None or defaults.persona_id is None:
-                    blockers.append(f"missing persona_id for LLM cohort {cohort.cohort_id}")
-                    continue
-                if defaults.prompt_id is None:
-                    blockers.append(f"missing prompt_id for LLM cohort {cohort.cohort_id}")
-                    continue
-                groups.append(
-                    AgentGroup(
-                        kind="llm",
-                        count=allocation.count,
-                        model=registry_key,
-                        persona=defaults.persona_id,
-                        temperature=defaults.temperature,
-                        memory=defaults.memory,
-                        harness_id=defaults.harness_id,
-                        prompt_id=defaults.prompt_id,
-                        information_policy=defaults.information_policy,
-                        grounding_mode=defaults.grounding_mode,
-                    )
-                )
+    if stage.design == "mphiq":
+        levels = resolution.mphiq_levels.get(stage.stage_id)
+        if levels is None:
+            blockers.append(f"missing mphiq_levels for {stage.stage_id}")
+        if mphiq_same_model_id is None:
+            blockers.append("missing block-level MPHIQ same-model assignment")
+        if defaults is not None and levels is not None and mphiq_same_model_id is not None:
+            if len(cohorts) != 1:
+                blockers.append("MPHIQ execution requires exactly one source cohort")
             else:
-                kind = resolution.baseline_kinds.get(allocation.model_id)
-                if kind is None:
-                    blockers.append(f"missing baseline_kinds mapping for {allocation.model_id}")
-                    continue
-                groups.append(AgentGroup(kind=kind, count=allocation.count))
-        if groups:
-            groups_by_cohort.append(CohortConfig(name=cohort.cohort_id, agents=groups))
+                resolved, providers, mphiq_blockers = _mphiq_groups(
+                    stage=stage,
+                    trajectory=trajectory,
+                    cell=cell,
+                    seed=seed,
+                    cohort=cohorts[0],
+                    same_model_id=mphiq_same_model_id,
+                    levels=levels,
+                    defaults=defaults,
+                    resolution=resolution,
+                    models=models,
+                    root=root,
+                )
+                deployments.update(providers)
+                blockers.extend(mphiq_blockers)
+                if resolved is not None:
+                    groups_by_cohort.append(resolved)
+    else:
+        for cohort in cohorts:
+            groups: list[AgentGroup] = []
+            for allocation in cohort.allocations:
+                if cohort.technology == "llm":
+                    registry_key, error = _validate_model(allocation, resolution, models)
+                    if error is not None:
+                        blockers.append(error)
+                        continue
+                    assert registry_key is not None
+                    deployments.add(models[registry_key].provider)
+                    if defaults is None or defaults.persona_id is None:
+                        blockers.append(f"missing persona_id for LLM cohort {cohort.cohort_id}")
+                        continue
+                    if defaults.prompt_id is None:
+                        blockers.append(f"missing prompt_id for LLM cohort {cohort.cohort_id}")
+                        continue
+                    groups.append(
+                        AgentGroup(
+                            kind="llm",
+                            count=allocation.count,
+                            model=registry_key,
+                            persona=defaults.persona_id,
+                            temperature=defaults.temperature,
+                            memory=defaults.memory,
+                            harness_id=defaults.harness_id,
+                            prompt_id=defaults.prompt_id,
+                            information_policy=defaults.information_policy,
+                            grounding_mode=defaults.grounding_mode,
+                        )
+                    )
+                else:
+                    kind = resolution.baseline_kinds.get(allocation.model_id)
+                    if kind is None:
+                        blockers.append(f"missing baseline_kinds mapping for {allocation.model_id}")
+                        continue
+                    groups.append(AgentGroup(kind=kind, count=allocation.count))
+            if groups:
+                groups_by_cohort.append(CohortConfig(name=cohort.cohort_id, agents=groups))
 
     if defaults is not None:
-        if defaults.persona_id is not None:
+        if stage.design != "mphiq" and defaults.persona_id is not None:
             try:
                 load_persona(defaults.persona_id, root / "configs/personas")
             except (FileNotFoundError, ValueError) as error:
                 blockers.append(f"persona {defaults.persona_id!r} cannot be resolved: {error}")
-        if defaults.prompt_id is not None:
+        if stage.design != "mphiq" and defaults.prompt_id is not None:
             try:
                 resolve_prompt(defaults.prompt_id, root / "configs/prompts")
             except (FileNotFoundError, KeyError, ValueError) as error:
@@ -378,6 +700,7 @@ def materialize_study(
     for compiled in sorted(plan.stages, key=lambda item: item.order):
         source_stage = stages[compiled.stage_id]
         selected_cohorts = tuple(cohorts[cohort_id] for cohort_id in compiled.cohort_ids)
+        same_model_schedule = _mphiq_same_model_schedule(compiled, selected_cohorts)
         hypotheses = sorted(
             {estimands[estimand_id].hypothesis_id for estimand_id in compiled.estimand_ids}
         )
@@ -387,10 +710,19 @@ def materialize_study(
             for seed in compiled.seeds:
                 for cell_id in compiled.design_cells:
                     cell = _cell(plan, compiled, cell_id)
+                    same_model_id = same_model_schedule.get((trajectory_id, seed))
+                    mphiq_models = None
+                    if cell.mphiq_code is not None:
+                        if same_model_id is None:
+                            raise ValueError("MPHIQ assignment lacks a same-model schedule")
+                        mphiq_models = _mphiq_model_assignments(
+                            selected_cohorts[0], cell.mphiq_code, same_model_id
+                        )
                     exact, calls_by_key = _calls(
                         selected_cohorts,
                         source_stage.steps_per_run,
                         source_stage.calls_per_llm_agent_step,
+                        mphiq_models,
                     )
                     assignment_id = (
                         f"{plan.study_id}--{compiled.stage_id}--{trajectory_id}--{cell_id}--s{seed}"
@@ -408,6 +740,7 @@ def materialize_study(
                         models,
                         root,
                         hypotheses,
+                        same_model_id,
                     )
                     assignments.append(
                         RunAssignment(

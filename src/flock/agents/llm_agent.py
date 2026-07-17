@@ -187,6 +187,7 @@ class LLMAgent:
         task_prompt: str = "",
         information_policy: str = "shared-all",
         harness_id: str = "default",
+        mphiq_treatment: dict[str, Any] | None = None,
         cache: ResponseCache | None = None,
         before_request: Callable[[str, str, int, int], Any] | None = None,
         record_response: Callable[[Any, ChatResponse], None] | None = None,
@@ -207,6 +208,7 @@ class LLMAgent:
         self.task_prompt = task_prompt
         self.information_policy = information_policy
         self.harness_id = harness_id
+        self.mphiq_treatment = mphiq_treatment
         self.cache = cache
         self.before_request = before_request
         self.record_response = record_response
@@ -214,7 +216,7 @@ class LLMAgent:
         self._memory_log: list[str] = []
 
     def describe(self) -> dict:
-        return {
+        description: dict[str, Any] = {
             "kind": self.kind,
             "model": self.chat_model.model_key,
             "model_id": self.chat_model.model_id,
@@ -227,6 +229,9 @@ class LLMAgent:
             "harness_id": self.harness_id,
             "seed": self.seed,
         }
+        if self.mphiq_treatment is not None:
+            description["mphiq_treatment"] = self.mphiq_treatment
+        return description
 
     @property
     def system_prompt(self) -> str:
