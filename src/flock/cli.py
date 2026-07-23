@@ -11,6 +11,7 @@ Commands:
     flock compile-study          Compile a strict study YAML to a frozen JSON plan.
     flock validate-study         Recompile and validate a frozen study plan.
     flock materialize-study      Export deterministic run assignments/configs.
+    flock aggregate-study        Aggregate verified raw runs into crossed inputs.
 """
 
 from pathlib import Path
@@ -218,6 +219,22 @@ def materialize_study_command(
             err=True,
         )
         raise typer.Exit(code=1)
+
+
+@app.command("aggregate-study")
+def aggregate_study_command(
+    assignments: Path = typer.Argument(..., help="Materialized assignment-bundle JSON"),
+    output: Path = typer.Option(..., help="New directory for hashed aggregate inputs"),
+) -> None:
+    """Derive crossed H1/H3/H4 inputs from complete verified raw runs."""
+    from flock.experiments.aggregate import aggregate_study
+
+    result = aggregate_study(assignments, output)
+    typer.echo(
+        f"aggregates -> {result.output_dir} ({result.independent_blocks} independent blocks, "
+        f"{result.source_runs} verified runs, {result.evidence_kind}, "
+        f"hash {result.aggregation_hash})"
+    )
 
 
 @app.command("estimate")
