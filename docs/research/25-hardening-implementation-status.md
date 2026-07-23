@@ -1,7 +1,7 @@
 # 25 — API-Key-to-Paper Hardening: Implementation Status
 
-**Audit date:** 2026-07-17  
-**Implementation branch:** `feat/paper-ready-experiments`  
+**Audit date:** 2026-07-23
+**Implementation branch:** `feat/paper-ready-reconciliation`
 **Scientific status:** scaffold verified; confirmatory execution blocked
 
 This document consolidates the five requested review lenses, the implemented corrections, and the
@@ -31,7 +31,8 @@ it does not mean a paid study, empirical result, independent review, or paper re
   plan hash `8df6027377f3a1226f62db70acfcc3c2d8824a43960ed6b9ff9e12b2b4e9f015`.
 - `flock materialize-study` deterministically expands those totals into 197 lineage-preserving run
   assignments. It emits runner configs only when dataset, model, persona, prompt, runtime-budget,
-  and treatment semantics resolve explicitly; otherwise it exports auditable blockers and exits 1.
+  and treatment semantics resolve explicitly. `--allow-unresolved` exports auditable blockers
+  without making an assignment executable.
 
 ### Provider execution and cost control
 
@@ -84,13 +85,16 @@ it does not mean a paid study, empirical result, independent review, or paper re
 - The authenticity package records ownership, AI assistance, design mistakes, unresolved
   weaknesses, independent-review slots, and the 3–5 minute walkthrough path.
 
-## Current verification evidence
+## Current verification evidence (2026-07-23)
 
-- Clean-room `pytest`: **165 passed**.
+- Clean-room `pytest`: **166 passed**.
 - Ruff: **all checks passed**.
 - Pyright: **0 errors, 0 warnings**.
-- Clean offline smoke run: **720 decisions, 1,236 fills, 720 portfolio rows; verification passed**.
+- Fresh offline smoke run: **720 decisions, 1,274 fills, 720 portfolio rows; verification passed**.
+- Local ignored history contains synthetic mock pipeline and shared-exchange diagnostics only.
+- No paid frontier-model pilot, confirmatory run, or paper-level empirical result exists.
 - Repository validation: `scaffold_ok=true`, `execution_ready=false`, no scaffold errors.
+- Study materialization: **197 planned runs, 0 executable assignments**.
 - No LaTeX engine is installed in the current environment, so manuscript compilation was not run.
 
 ## Open release blockers
@@ -99,8 +103,8 @@ it does not mean a paid study, empirical result, independent review, or paper re
 
 1. Hydrate or relocate the iCloud `dataless` result artifact detected by `flock doctor`; never
    delete it as an automated workaround.
-2. Add keys through the environment and run bounded metadata-only live probes for every exact
-   endpoint. Provider/data SDK extras are installed; do not substitute a mutable alias.
+2. Install the provider/data extras, add keys through the environment, and run bounded
+   metadata-only live probes for every exact endpoint. Do not substitute a mutable alias.
 3. Acquire and hash the exact equity windows; acquire a legally usable prediction panel only if
    H2/H1 prediction-market harmonization remains in scope.
 4. Resolve the materialized assignments into experiment configs. MPHIQ per-agent treatments are
@@ -132,7 +136,7 @@ it does not mean a paid study, empirical result, independent review, or paper re
 7. Obtain statistics, market-microstructure, and reproducibility reviews; populate the response
    table with real dated reviewer evidence.
 
-## Authorized execution sequence
+## Proposed gated execution sequence
 
 ```bash
 uv run flock validate
@@ -146,10 +150,11 @@ uv run flock estimate --plan results/paper-core/plan.json --stage canary
 uv run flock doctor --live
 ```
 
-Stop if any command fails. After the P0 materializer/mock-matrix work is complete, authorize only
-the `$50` canary. Re-estimate before the pilot and keep cumulative paid pilot authorization below
-`$5,200`. Confirmatory calls remain unauthorized until all pilot, power, preregistration, data,
-failure, drift, throughput, and cost gates pass.
+Stop if any command fails. `doctor --live`, provider calls, and registration require explicit
+authorization. After the P0 materializer/mock-matrix work is complete, the first paid request may
+be only the separately approved `$50` canary. Re-estimate before the pilot and keep cumulative paid
+pilot authorization below `$5,200`. Confirmatory calls remain unauthorized until all pilot, power,
+preregistration, data, failure, drift, throughput, and cost gates pass.
 
 ## Defensible current conclusion
 

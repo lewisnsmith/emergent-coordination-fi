@@ -4,7 +4,7 @@
 strategies?**
 
 flock is an experiment zone for measuring *common-response convergence* and *outcome
-homogenization* in LLM trading agents. The first paper uses a matched
+homogenization* in LLM trading agents. The proposed study uses a matched
 `technology (LLM/classical) × ecology (homogeneous/heterogeneous)` design and asks how model
 lineage, profiles, harnesses, information, and wording affect convergence. It does not infer
 coordination or collusion from agents independently responding to the same information.
@@ -25,19 +25,22 @@ See [`docs/research/`](docs/research/) and the machine-readable
 - [19–23 – authorship, research log, mistake case study, review, and release](docs/research/19-authorship-and-tool-use.md)
 - [24 – H5 ODD/STRESS report and simulator gate](docs/research/24-simulator-odd-stress.md)
 
-The first-paper contract is H1/H3/H4. H2 is a conditional descriptive external anchor, and H5 is
-a separate causal experiment whose claims are bounded to the validated simulator. H6–H12 are the
-future research program, not claims of the first paper. The working manuscript is
+The proposed first study is H1/H3/H4. H2 is a conditional descriptive external anchor, and H5 is
+a separate causal experiment whose claims are bounded to the validated simulator. H6–H12 are
+future work, not claims of the proposed study. The working manuscript is
 [`paper/main.tex`](paper/main.tex); it is a skeleton with no confirmatory results.
 
 ## Current readiness
 
-The repository has an offline mock smoke test and scaffolding for 13 hypotheses (H1–H12 plus H2b),
-25 protocols, all 32 MPHIQ schemes, 24 prompt-pressure cells, 24 profiles, and six proposed
-frontier endpoints. Only the synthetic dataset is currently acquired. The confirmatory first paper
-is **not execution-ready**: real datasets and nonoverlapping windows, immutable model releases,
-matched cohort weights, final prompts, power-derived top-level sample sizes, and a frozen
-preregistration are still required. No paper-level result can be inferred from a smoke run.
+The software scaffold passes its offline test, lint, type, study-compilation, and fresh synthetic
+mock-smoke gates. Local ignored history also contains mock shared-exchange diagnostics. These runs
+validate code paths only: no paid frontier-model pilot or confirmatory study has run, the
+preregistration is not frozen or registered, and no paper-level empirical result exists.
+
+The proposed study is **not execution-ready**. It still requires real datasets and nonoverlapping
+windows, immutable model releases, matched cohort weights and activity, final prompts,
+power-derived top-level sample sizes, deterministic raw-run aggregation, and a frozen
+preregistration.
 
 Run the preflight rather than inferring readiness from config files:
 

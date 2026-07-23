@@ -1,16 +1,16 @@
 # 04 — Datasets
 
 The project uses **inputs** (market data and reference panels) to produce **outputs** (the
-publishable agent-decision datasets). Input payloads are local and gitignored;
+candidate agent-decision research artifacts). Input payloads are local and gitignored;
 `datasets/manifests.json` versions each dataset and hashes its complete file bundle. Builders live in
 `src/flock/data/builders/` and run through `flock data build <builder>`.
 
-## Acquisition status (2026-07-13)
+## Acquisition status (2026-07-23)
 
-Only `synthetic-equities-v1` is currently registered and acquired. Equity, prediction-market,
-13F, participant trust/delegation, AI-exposure/adoption, and causal-event datasets are required
-but not acquired. `flock validate` reports these as execution blockers; documentation or a
-builder does not count as acquired data.
+Only the seeded `synthetic-equities-v1` dataset is acquired; its latest registry entry is bundle-
+hashed version 2. Equity, prediction-market, 13F, participant trust/delegation,
+AI-exposure/adoption, and causal-event datasets are not acquired. `flock validate` reports required
+missing inputs as execution blockers; documentation or a builder does not count as acquired data.
 
 ## Input datasets
 
@@ -66,8 +66,8 @@ Representative LLM decision record:
 }
 ```
 
-Together, the artifacts provide publishable `(observation, agent parameterization, decision,
-rationale, outcome)` tuples for studying LLM financial decision-making beyond this paper.
+After licensing and release verification, the artifacts can provide `(observation, agent
+parameterization, decision, rationale, outcome)` tuples for research beyond the proposed study.
 
 Study outputs add `assignments.parquet`, `contrasts.parquet`, `verification.json`,
 `safety_failures.parquet`, and `claims.json`. Real-market data products keep four labels
