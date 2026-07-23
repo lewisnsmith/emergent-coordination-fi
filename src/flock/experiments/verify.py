@@ -72,6 +72,322 @@ class PortfolioRecord(TypedDict):
     cash: float
 
 
+def _exchange_event_errors(
+    market_events: pd.DataFrame,
+    fills: pd.DataFrame,
+    decisions: pd.DataFrame,
+    *,
+    n_steps: int,
+    symbols: set[str],
+    tolerance: float,
+) -> list[str]:
+    """Reconstruct exchange order state and reconcile it to snapshots and fills."""
+    errors: list[str] = []
+    required = {"event_type", "event_sequence", "step"}
+    if missing := sorted(required - set(market_events.columns)):
+        return [f"exchange event schema missing {missing}"]
+    records = cast(list[dict[str, Any]], market_events.to_dict("records"))
+    supported = {
+        "order_submitted",
+        "trade",
+        "book_snapshot",
+        "order_cancelled",
+        "order_expired",
+        "endogenous_bar",
+    }
+    event_types = {str(record["event_type"]) for record in records}
+    if unknown := sorted(event_types - supported):
+        errors.append(f"exchange event stream contains unsupported types {unknown}")
+
+    steps = {int(record["step"]) for record in records}
+    if steps != set(range(n_steps)):
+        errors.append("exchange event stream step domain is incomplete")
+    for step in sorted(steps):
+        sequences = [
+            int(record["event_sequence"])
+            for record in records
+            if int(record["step"]) == step
+        ]
+        if sequences != list(range(len(sequences))):
+            errors.append(f"exchange event sequence is not contiguous at step {step}")
+
+    orders: dict[str, dict[str, Any]] = {}
+    snapshots: set[tuple[int, str, str]] = set()
+    bars: set[tuple[int, str]] = set()
+    expected_fills: list[dict[str, Any]] = []
+
+    def missing_number(value: Any) -> bool:
+        return value is None or (
+            isinstance(value, float) and bool(np.isnan(value))
+        )
+
+    def active_snapshot(symbol: str, side: str) -> dict[str, dict[str, Any]]:
+        return {
+            order_id: state
+            for order_id, state in orders.items()
+            if state["symbol"] == symbol
+            and state["side"] == side
+            and state["price"] is not None
+            and state["remaining"] > tolerance
+        }
+
+    for record in records:
+        event_type = str(record["event_type"])
+        if event_type not in supported:
+            continue
+        step = int(record["step"])
+        if event_type == "order_submitted":
+            order_id = str(record.get("order_id", ""))
+            if not order_id or order_id in orders:
+                errors.append(f"duplicate or empty submitted order id {order_id!r}")
+                continue
+            quantity = float(record.get("quantity", 0.0))
+            side = str(record.get("side", ""))
+            symbol = str(record.get("symbol", ""))
+            if quantity <= 0 or side not in {"buy", "sell"} or symbol not in symbols:
+                errors.append(f"invalid order submission {order_id!r}")
+                continue
+            price = record.get("price")
+            if missing_number(price):
+                resolved_price = None
+            else:
+                assert price is not None
+                resolved_price = float(price)
+            orders[order_id] = {
+                "agent_id": str(record.get("agent_id", "")),
+                "symbol": symbol,
+                "side": side,
+                "price": resolved_price,
+                "remaining": quantity,
+            }
+            continue
+
+        if event_type == "trade":
+            quantity = float(record.get("quantity", 0.0))
+            price = float(record.get("price", 0.0))
+            buyer_id = str(record.get("buyer_id", ""))
+            seller_id = str(record.get("seller_id", ""))
+            buyer_order_id = str(record.get("buyer_order_id", ""))
+            seller_order_id = str(record.get("seller_order_id", ""))
+            if quantity <= 0 or price <= 0 or buyer_id == seller_id:
+                errors.append(f"invalid exchange trade at step {step}")
+                continue
+            trade_orders = (
+                (buyer_order_id, buyer_id, "buy"),
+                (seller_order_id, seller_id, "sell"),
+            )
+            valid = True
+            for order_id, agent_id, side in trade_orders:
+                state = orders.get(order_id)
+                if (
+                    state is None
+                    or state["agent_id"] != agent_id
+                    or state["side"] != side
+                    or state["remaining"] + tolerance < quantity
+                ):
+                    errors.append(
+                        f"trade references inconsistent {side} order {order_id!r}"
+                    )
+                    valid = False
+            if not valid:
+                continue
+            orders[buyer_order_id]["remaining"] -= quantity
+            orders[seller_order_id]["remaining"] -= quantity
+            symbol = str(record.get("symbol", ""))
+            expected_fills.extend(
+                [
+                    {
+                        "agent_id": buyer_id,
+                        "step": step,
+                        "symbol": symbol,
+                        "side": "buy",
+                        "quantity": quantity,
+                        "price": price,
+                    },
+                    {
+                        "agent_id": seller_id,
+                        "step": step,
+                        "symbol": symbol,
+                        "side": "sell",
+                        "quantity": quantity,
+                        "price": price,
+                    },
+                ]
+            )
+            continue
+
+        if event_type in {"order_cancelled", "order_expired"}:
+            order_id = str(record.get("order_id", ""))
+            state = orders.get(order_id)
+            quantity = float(record.get("quantity", 0.0))
+            if (
+                state is None
+                or state["agent_id"] != str(record.get("agent_id", ""))
+                or not np.isclose(
+                    state["remaining"], quantity, atol=tolerance, rtol=1e-9
+                )
+            ):
+                errors.append(f"{event_type} does not reconcile for order {order_id!r}")
+                continue
+            state["remaining"] = 0.0
+            continue
+
+        if event_type == "book_snapshot":
+            symbol = str(record.get("symbol", ""))
+            side = str(record.get("side", ""))
+            key = (step, symbol, side)
+            if key in snapshots or symbol not in symbols or side not in {"buy", "sell"}:
+                errors.append(f"duplicate or invalid book snapshot {key}")
+                continue
+            snapshots.add(key)
+            nested = record.get("orders")
+            if not isinstance(nested, list):
+                errors.append(f"book snapshot {key} lacks an order list")
+                continue
+            actual: dict[str, dict[str, Any]] = {}
+            for order in nested:
+                if not isinstance(order, dict):
+                    errors.append(f"book snapshot {key} contains an invalid order")
+                    continue
+                order_id = str(order.get("order_id", ""))
+                if not order_id or order_id in actual:
+                    errors.append(f"book snapshot {key} has duplicate order ids")
+                    continue
+                actual[order_id] = order
+            expected = active_snapshot(symbol, side)
+            if set(actual) != set(expected):
+                errors.append(f"book snapshot {key} does not match live order ids")
+                continue
+            for order_id, order in actual.items():
+                state = expected[order_id]
+                if (
+                    str(order.get("agent_id", "")) != state["agent_id"]
+                    or str(order.get("symbol", "")) != symbol
+                    or str(order.get("side", "")) != side
+                    or not np.isclose(
+                        float(order.get("quantity", 0.0)),
+                        state["remaining"],
+                        atol=tolerance,
+                        rtol=1e-9,
+                    )
+                    or not np.isclose(
+                        float(order.get("price", 0.0)),
+                        state["price"],
+                        atol=tolerance,
+                        rtol=1e-9,
+                    )
+                ):
+                    errors.append(f"book snapshot {key} corrupts order {order_id!r}")
+            continue
+
+        if event_type == "endogenous_bar":
+            key = (step, str(record.get("symbol", "")))
+            if key in bars or key[1] not in symbols:
+                errors.append(f"duplicate or invalid endogenous bar {key}")
+            bars.add(key)
+
+    expected_snapshots = {
+        (step, symbol, side)
+        for step in range(n_steps)
+        for symbol in symbols
+        for side in ("buy", "sell")
+    }
+    if snapshots != expected_snapshots:
+        errors.append("exchange book snapshots are incomplete")
+    expected_bars = {
+        (step, symbol) for step in range(n_steps) for symbol in symbols
+    }
+    if bars != expected_bars:
+        errors.append("endogenous bar events are incomplete")
+    if any(state["remaining"] > tolerance for state in orders.values()):
+        errors.append("exchange event stream leaves unterminated live orders")
+
+    expected_submissions = [
+        {
+            "agent_id": str(decision["agent_id"]),
+            "step": int(decision["step"]),
+            "symbol": str(order["symbol"]),
+            "side": str(order["side"]),
+            "quantity": float(order["quantity"]),
+            "market": order.get("limit_price") is None,
+        }
+        for decision in cast(list[dict[str, Any]], decisions.to_dict("records"))
+        for order in decision.get("orders_clipped", [])
+    ]
+    actual_submissions = [
+        {
+            "agent_id": str(record.get("agent_id", "")),
+            "step": int(record["step"]),
+            "symbol": str(record.get("symbol", "")),
+            "side": str(record.get("side", "")),
+            "quantity": float(record.get("quantity", 0.0)),
+            "market": missing_number(record.get("price")),
+        }
+        for record in records
+        if record["event_type"] == "order_submitted"
+    ]
+    unmatched_submissions = list(actual_submissions)
+    for expected in expected_submissions:
+        match_index = next(
+            (
+                index
+                for index, actual in enumerate(unmatched_submissions)
+                if actual["agent_id"] == expected["agent_id"]
+                and actual["step"] == expected["step"]
+                and actual["symbol"] == expected["symbol"]
+                and actual["side"] == expected["side"]
+                and actual["market"] == expected["market"]
+                and np.isclose(
+                    actual["quantity"],
+                    expected["quantity"],
+                    atol=tolerance,
+                    rtol=1e-9,
+                )
+            ),
+            None,
+        )
+        if match_index is None:
+            errors.append("exchange submissions do not reconcile to clipped decisions")
+            break
+        unmatched_submissions.pop(match_index)
+    if unmatched_submissions or len(actual_submissions) != len(expected_submissions):
+        errors.append("exchange event stream contains unlinked order submissions")
+
+    actual_fills = cast(list[dict[str, Any]], fills.to_dict("records"))
+    unmatched = list(actual_fills)
+    for expected in expected_fills:
+        match_index = next(
+            (
+                index
+                for index, actual in enumerate(unmatched)
+                if actual.get("agent_id") == expected["agent_id"]
+                and int(actual.get("step", -1)) == expected["step"]
+                and actual.get("symbol") == expected["symbol"]
+                and actual.get("side") == expected["side"]
+                and np.isclose(
+                    float(actual.get("quantity", 0.0)),
+                    expected["quantity"],
+                    atol=tolerance,
+                    rtol=1e-9,
+                )
+                and np.isclose(
+                    float(actual.get("price", 0.0)),
+                    expected["price"],
+                    atol=tolerance,
+                    rtol=1e-9,
+                )
+            ),
+            None,
+        )
+        if match_index is None:
+            errors.append("exchange trade events do not reconcile to emitted fills")
+            break
+        unmatched.pop(match_index)
+    if unmatched or len(actual_fills) != len(expected_fills):
+        errors.append("exchange fills contain rows without matching trade events")
+    return errors
+
+
 def _yaml(path: Path):
     with path.open() as stream:
         return yaml.safe_load(stream)
@@ -307,38 +623,21 @@ def verify_run(run_dir: Path, tolerance: float = 1e-6) -> RunVerification:
         errors.append("one or more agents exceed the preregistered 20% parse-failure gate")
 
     if market_kind == "exchange" and not market_events.empty:
-        required_event_types = {"trade", "endogenous_bar"}
-        event_types = set(cast(pd.Series, market_events["event_type"]).astype(str))
-        missing_types = required_event_types - event_types
-        if missing_types:
-            errors.append(f"exchange event stream lacks {sorted(missing_types)}")
-        trades = cast(
-            pd.DataFrame, market_events[market_events["event_type"] == "trade"]
-        )
-        if len(fills) != 2 * len(trades):
-            errors.append("exchange trade events do not reconcile to two-sided fills")
-        if len(trades) and (trades["buyer_id"] == trades["seller_id"]).any():
-            errors.append("exchange event stream contains a self-trade")
         symbols = {
             symbol
             for record in decision_records
             for symbol in record.get("symbols", [])
         }
-        bars = cast(
-            pd.DataFrame,
-            market_events[market_events["event_type"] == "endogenous_bar"],
+        errors.extend(
+            _exchange_event_errors(
+                market_events,
+                fills,
+                decisions,
+                n_steps=int(manifest["n_steps"]),
+                symbols=symbols,
+                tolerance=tolerance,
+            )
         )
-        if len(bars) != manifest["n_steps"] * len(symbols):
-            errors.append("endogenous bar events are incomplete")
-        snapshots = cast(
-            pd.DataFrame,
-            market_events[market_events["event_type"] == "resting_order_snapshot"],
-        )
-        expiries = cast(
-            pd.DataFrame, market_events[market_events["event_type"] == "expiry"]
-        )
-        if len(snapshots) != len(expiries):
-            errors.append("resting order snapshots do not reconcile to expiries")
     return RunVerification(
         ok=not errors,
         errors=errors,

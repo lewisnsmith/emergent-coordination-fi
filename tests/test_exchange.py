@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 
 import pandas as pd
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from flock.core.types import Order
 from flock.experiments.ledger import Ledger
 from flock.experiments.runner import log_exchange_events
+from flock.experiments.verify import _exchange_event_errors
 from flock.logging_.decisions import RunWriter
 from flock.markets.exchange import ExchangeMarket
 
@@ -281,4 +283,105 @@ def test_exchange_events_export_lifecycle_book_tape_and_endogenous_bars(tmp_path
         event["event_type"] == "order_expired"
         and event["reason"] == "step_end"
         for event in events
+    )
+
+
+def test_exchange_event_verifier_reconstructs_and_rejects_tampering():
+    market = _market(max_steps=1)
+    market.submit("seller", (Order("X", "sell", 7, limit_price=100.0),))
+    market.submit("buyer", (Order("X", "buy", 5, limit_price=100.0),))
+    fills = market.step()
+    events = pd.DataFrame(market.last_step_events)
+    fill_rows = pd.DataFrame([asdict(fill) for fill in fills])
+    decisions = pd.DataFrame(
+        [
+            {
+                "agent_id": "seller",
+                "step": 0,
+                "orders_clipped": [
+                    {
+                        "symbol": "X",
+                        "side": "sell",
+                        "quantity": 7,
+                        "limit_price": 100.0,
+                    }
+                ],
+            },
+            {
+                "agent_id": "buyer",
+                "step": 0,
+                "orders_clipped": [
+                    {
+                        "symbol": "X",
+                        "side": "buy",
+                        "quantity": 5,
+                        "limit_price": 100.0,
+                    }
+                ],
+            },
+        ]
+    )
+
+    assert _exchange_event_errors(
+        events,
+        fill_rows,
+        decisions,
+        n_steps=1,
+        symbols={"X"},
+        tolerance=1e-6,
+    ) == []
+
+    missing_submission = events.drop(
+        events.index[events["event_type"] == "order_submitted"][0]
+    )
+    assert any(
+        "trade references inconsistent" in error
+        for error in _exchange_event_errors(
+            missing_submission,
+            fill_rows,
+            decisions,
+            n_steps=1,
+            symbols={"X"},
+            tolerance=1e-6,
+        )
+    )
+
+    corrupt_snapshot = events.copy(deep=True)
+    snapshot_index = corrupt_snapshot.index[
+        (corrupt_snapshot["event_type"] == "book_snapshot")
+        & (corrupt_snapshot["side"] == "sell")
+    ][0]
+    corrupt_snapshot.at[snapshot_index, "orders"] = [
+        {
+            **corrupt_snapshot.at[snapshot_index, "orders"][0],
+            "quantity": 999.0,
+        }
+    ]
+    assert any(
+        "corrupts order" in error
+        for error in _exchange_event_errors(
+            corrupt_snapshot,
+            fill_rows,
+            decisions,
+            n_steps=1,
+            symbols={"X"},
+            tolerance=1e-6,
+        )
+    )
+
+    missing_expiry = events[
+        ~(
+            (events["event_type"] == "order_expired")
+            & (events["reason"] == "step_end")
+        )
+    ]
+    assert "exchange event stream leaves unterminated live orders" in (
+        _exchange_event_errors(
+            missing_expiry,
+            fill_rows,
+            decisions,
+            n_steps=1,
+            symbols={"X"},
+            tolerance=1e-6,
+        )
     )
