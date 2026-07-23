@@ -588,9 +588,20 @@ def test_aggregate_study_rejects_mixed_evidence_and_pseudoreplication(
         _first_paper_assignments(invalid)
 
 
-def test_current_paper_plan_exposes_incompatible_first_paper_block_sets():
+def test_current_paper_plan_uses_common_blocks_but_remains_execution_gated():
     materialized = materialize_study(
         compile_study_file(Path("configs/studies/paper-core.yaml"))
     )
-    with pytest.raises(ValueError, match="exactly the same independent blocks"):
+    replay_blocks = {
+        item.trajectory_id
+        for item in materialized.assignments
+        if item.stage_id == "confirmatory-replay"
+    }
+    mphiq_blocks = {
+        item.trajectory_id
+        for item in materialized.assignments
+        if item.stage_id == "mphiq-factorial"
+    }
+    assert replay_blocks == mphiq_blocks
+    with pytest.raises(ValueError, match="first-paper assignments are not executable"):
         _first_paper_assignments(materialized)

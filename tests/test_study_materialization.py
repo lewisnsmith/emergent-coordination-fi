@@ -33,6 +33,12 @@ def test_materializes_every_frozen_cell_with_exact_lineage_and_counts():
     mphiq = [item for item in first.assignments if item.stage_id == "mphiq-factorial"]
     assert len(mphiq) == 128
     assert {item.cell.mphiq_code for item in mphiq} == {f"{value:05b}" for value in range(32)}
+    assert {item.trajectory_id for item in mphiq} == {
+        item.trajectory_id
+        for item in first.assignments
+        if item.stage_id == "confirmatory-replay"
+    }
+    assert {item.seed for item in mphiq} == {3101}
     assert all(item.cell.mphiq_pairs for item in mphiq)
 
     h5 = [item for item in first.assignments if item.stage_id == "h5-capital-share"]

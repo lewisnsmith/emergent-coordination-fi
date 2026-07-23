@@ -374,9 +374,9 @@ stages:
     order: 4
     authorization_stage: confirmatory
     design: mphiq
-    trajectory_ids: [equities-2019-h2-v1, equities-2022-bear-v1]
+    trajectory_ids: [equities-2018-h1-v1, equities-2019-h2-v1, equities-2020-crisis-v1, equities-2022-bear-v1]
     cohort_ids: [llm-heterogeneous-v1]
-    seeds: [3101, 3102]
+    seeds: [3101]
     steps_per_run: 80
     calls_per_llm_agent_step: 1
     mphiq_pair_ids: [mphiq-edge-01, mphiq-edge-02, mphiq-edge-03, mphiq-edge-04, mphiq-edge-05, mphiq-edge-06, mphiq-edge-07, mphiq-edge-08, mphiq-edge-09, mphiq-edge-10, mphiq-edge-11, mphiq-edge-12, mphiq-edge-13, mphiq-edge-14, mphiq-edge-15, mphiq-edge-16, mphiq-edge-17, mphiq-edge-18, mphiq-edge-19, mphiq-edge-20, mphiq-edge-21, mphiq-edge-22, mphiq-edge-23, mphiq-edge-24, mphiq-edge-25, mphiq-edge-26, mphiq-edge-27, mphiq-edge-28, mphiq-edge-29, mphiq-edge-30, mphiq-edge-31]
