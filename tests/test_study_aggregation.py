@@ -524,7 +524,14 @@ def test_aggregate_study_is_byte_identical_and_bundle_compatible(tmp_path, monke
     monkeypatch.chdir(tmp_path)
     cli = CliRunner().invoke(
         app,
-        ["aggregate-study", str(assignments), "--output", str(tmp_path / "aggregate-cli")],
+        [
+            "aggregate-study",
+            str(assignments),
+            "--output",
+            str(tmp_path / "aggregate-cli"),
+            "--results-root",
+            str(results_root),
+        ],
     )
     assert cli.exit_code == 0, cli.output
     assert "66 verified runs" in cli.output

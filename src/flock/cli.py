@@ -226,11 +226,14 @@ def materialize_study_command(
 def aggregate_study_command(
     assignments: Path = typer.Argument(..., help="Materialized assignment-bundle JSON"),
     output: Path = typer.Option(..., help="New directory for hashed aggregate inputs"),
+    results_root: Path = typer.Option(
+        Path("results"), help="Root containing completed raw run directories"
+    ),
 ) -> None:
     """Derive crossed H1/H3/H4 inputs from complete verified raw runs."""
     from flock.experiments.aggregate import aggregate_study
 
-    result = aggregate_study(assignments, output)
+    result = aggregate_study(assignments, output, results_root=results_root)
     typer.echo(
         f"aggregates -> {result.output_dir} ({result.independent_blocks} independent blocks, "
         f"{result.source_runs} verified runs, {result.evidence_kind}, "
