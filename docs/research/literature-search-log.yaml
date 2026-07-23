@@ -1,0 +1,141 @@
+version: 1
+search_date: "2026-07-23"
+timezone: "America/Los_Angeles"
+review_scope: "LLM trading convergence, market simulation, algorithmic monoculture, H2 herding measurement, and H5 market-design comparators"
+protocol:
+  databases:
+    - arXiv
+    - ACL Anthology
+    - NeurIPS Proceedings
+    - Oxford Academic
+    - NBER
+    - SSRN
+    - publisher DOI records
+  queries:
+    - '"LLM trading" convergence experimental asset markets'
+    - '"Machine Spirits" LLM asset markets'
+    - '"Dissecting AI Trading"'
+    - '"Can Large Language Models Trade" order book'
+    - '"Agent Trading Arena"'
+    - '"Monoculture or Multiplicity"'
+    - '"algorithmic pricing and liquidity" securities markets'
+    - '"fund manager herding" LSV measurement bias'
+    - '"measuring mutual fund herding" structural approach'
+    - '"Agentic Trading" survey'
+  inclusion:
+    - direct LLM trading or investment-recommendation experiments
+    - measurement papers defining or auditing LSV/Sias-style herding
+    - algorithmic monoculture or outcome-homogenization studies
+    - market-design or learning papers that constrain H5 claims
+    - systematic reviews with explicit search/evidence protocols
+  exclusion:
+    - performance-only trading agents without a convergence, ecology, measurement, or market-design implication
+    - commentary without a stable primary record
+    - real-market AI-causation claims lacking verified exposure and a counterfactual
+  refresh_points:
+    - before_preregistration
+    - before_submission
+  metadata_policy: "Prefer publisher/proceedings records; retain dated arXiv or SSRN identifiers for working papers."
+  correction_policy: "Check publisher pages for linked errata/corrections; never infer a correction from an article DOI."
+
+records:
+  - id: henning2025llm
+    status: include
+    role: direct_precedent
+    primary_url: "https://arxiv.org/abs/2502.15800"
+    last_verified: "2026-07-23"
+    decision: "Occupies broad lower-dispersion and homogeneous/mixed LLM market claims."
+  - id: joglar2026converging
+    status: include
+    role: direct_precedent
+    primary_url: "https://ssrn.com/abstract=6852518"
+    last_verified: "2026-07-23"
+    decision: "Occupies broad cross-model investment-recommendation convergence."
+  - id: saxena2026machine
+    status: include
+    role: direct_precedent
+    primary_url: "https://arxiv.org/abs/2604.18602"
+    last_verified: "2026-07-23"
+    decision: "Occupies homogeneous/heterogeneous LLM ecology and simulated-instability claims."
+  - id: ouyang2026dissecting
+    status: include
+    role: direct_precedent
+    primary_url: "https://arxiv.org/abs/2604.18373"
+    last_verified: "2026-07-23"
+    decision: "Occupies generic prompt-intervention-to-market-effect novelty."
+  - id: lopezlira2025trade
+    status: include
+    role: direct_precedent
+    primary_url: "https://arxiv.org/abs/2504.10789"
+    last_verified: "2026-07-23"
+    decision: "Persistent order book and endogenous simulated price effects are enabling methods, not firsts."
+  - id: ma2025agent
+    status: include
+    role: direct_precedent
+    primary_url: "https://aclanthology.org/2025.findings-emnlp.294/"
+    last_verified: "2026-07-23"
+    decision: "Competitive multi-agent trading arena and numerical-reasoning benchmark."
+  - id: xia2026agentic
+    status: include
+    role: systematic_review
+    primary_url: "https://arxiv.org/abs/2605.19337"
+    last_verified: "2026-07-23"
+    decision: "Use its protocol audit as a minimum reporting gate; refresh its evidence map."
+  - id: gorecki2025monoculture
+    status: include
+    role: monoculture_measurement
+    primary_url: "https://papers.neurips.cc/paper_files/paper/2025/hash/ef4f4a6beb8b14b2d70a7ef5b386375d-Abstract-Conference.html"
+    last_verified: "2026-07-23"
+    decision: "Modern evidence that monoculture and multiplicity can coexist across models and prompts."
+  - id: bommasani2022picking
+    status: include
+    role: monoculture_foundation
+    primary_url: "https://arxiv.org/abs/2211.13972"
+    last_verified: "2026-07-23"
+    decision: "Defines component-sharing and outcome-homogenization mechanisms."
+  - id: horton2023large
+    status: include
+    role: simulated_agent_validity
+    primary_url: "https://www.nber.org/papers/w31122"
+    version_note: "Revised February 2026"
+    last_verified: "2026-07-23"
+    decision: "Motivates controlled LLM-agent experiments but not unvalidated claims about humans."
+  - id: wylie2005fund
+    status: include
+    role: h2_measurement_bias
+    primary_url: "https://doi.org/10.1086/426529"
+    last_verified: "2026-07-23"
+    decision: "Requires bias-aware interpretation of traditional LSV estimates."
+  - id: frey2014measuring
+    status: include
+    role: h2_structural_sensitivity
+    primary_url: "https://doi.org/10.1016/j.intfin.2014.05.006"
+    last_verified: "2026-07-23"
+    decision: "Requires a structural/unbiased sensitivity alongside traditional LSV."
+  - id: colliard2026algorithmic
+    status: include
+    role: h5_competitive_benchmark
+    primary_url: "https://doi.org/10.1093/rfs/hhag010"
+    version_note: "Published 2026-02-17; corrected and typeset 2026-03-23."
+    last_verified: "2026-07-23"
+    decision: "Supports competitive/null/deviation gates for learning market makers."
+  - id: smith1962experimental
+    status: include
+    role: market_design_foundation
+    primary_url: "https://doi.org/10.1086/258609"
+    correction_check: "Publisher record checked; no linked erratum recorded in this log."
+    last_verified: "2026-07-23"
+    decision: "Historical double-auction benchmark; not evidence that the current simulator is validated."
+  - id: klein2021autonomous
+    status: include
+    role: algorithmic_collusion_comparator
+    primary_url: "https://doi.org/10.1111/1756-2171.12383"
+    correction_check: "This DOI identifies the original article, not a correction."
+    last_verified: "2026-07-23"
+    decision: "Strategic sequential-pricing comparator; cannot label replay agreement collusion."
+  - id: quantagents2025
+    status: exclude_from_core_map
+    role: background_trading_agent
+    primary_url: "https://aclanthology.org/2025.findings-emnlp.945/"
+    last_verified: "2026-07-23"
+    decision: "Performance-oriented multi-agent system without a central convergence/ecology estimand."

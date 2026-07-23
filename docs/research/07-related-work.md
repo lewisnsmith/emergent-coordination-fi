@@ -1,8 +1,8 @@
 # 07 — Related Work
 
-Working bibliography grounding the design, updated through July 2026. Verify bibliographic
-metadata against the originals before submission; this file is a claim map, not the bibliography
-of record.
+Working claim map for the design. The dated, reproducible search protocol and screening decisions
+are in [`literature-search-log.yaml`](literature-search-log.yaml); `paper/references.bib` is the
+bibliographic source of record. Refresh both before preregistration and submission.
 
 ## Novelty boundary
 
@@ -12,10 +12,10 @@ mixed model markets, prompt-sensitive market effects, and LLM trading in price-f
 simulations. This project must not claim to be the first demonstration that LLM financial agents
 converge, herd, or affect simulated markets.
 
-The defensible first-paper contribution is narrower: a matched
+The defensible proposed contribution is narrower: a matched
 `technology (LLM/classical) × ecology (homogeneous/heterogeneous)` benchmark, family-weighted
-estimands, causal decomposition of model/profile/harness/information/wording components, and
-inference over independent trajectories or nonoverlapping windows. H5 is a separate,
+estimands, a design intended to decompose model/profile/harness/information/wording components,
+and inference over independent trajectories or nonoverlapping windows. H5 is a separate,
 simulator-bounded consequence experiment; H2 is a conditional descriptive anchor.
 
 ## Herding measurement (our H2/H5 statistics come from here)
@@ -26,6 +26,10 @@ simulator-bounded consequence experiment; H2 is a conditional descriptive anchor
 - **Sias (2004)**, "Institutional herding," *RFS*. Serial cross-sectional correlation of
   institutional demand; decomposition into own-following and crowd-following.
 - **Wermers (1999)**, mutual-fund herding; grounds activity filters and interpretation.
+- **Wylie (2005)** and **Frey, Herbst & Walter (2014)** show that traditional LSV estimates can
+  be biased by the data structure and activity process. H2 therefore requires period-specific
+  expected-buy fractions, quarter-to-quarter holdings changes, activity reporting, and structural
+  sensitivity analysis rather than treating 13F overlap as a universal human benchmark.
 
 ## Algorithmic coordination and collusion
 
@@ -33,9 +37,11 @@ simulator-bounded consequence experiment; H2 is a conditional descriptive anchor
   pricing, and collusion,” *AER*. Q-learning pricers converge to supra-competitive prices
   without communication. This is a strategic pricing result, not authority to call correlated
   Phase-1 decisions collusion.
-- **Klein (2021)** and follow-ups on reinforcement-learning collusion robustness.
-- **SEC/CFTC and FSB reports on AI in finance (2023–2025)** — policy framing for herding via
-  shared models ("model monoculture", third-party AI concentration risk).
+- **Klein (2021)** studies sequential Q-learning pricing. DOI
+  `10.1111/1756-2171.12383` is the article identifier, not a correction notice.
+- **Colliard, Foucault & Lovo (2026)** show that Q-learning market makers can fail to learn
+  competitive pricing because experimentation is limited and profit feedback is noisy. This is a
+  direct benchmark for H5 competitive/null/deviation tests.
 
 ## Crowding & systemic risk
 
@@ -73,6 +79,10 @@ simulator-bounded consequence experiment; H2 is a conditional descriptive anchor
   a persistent order book, market and limit orders, partial fills, heterogeneous strategies and
   information, and endogenous liquidity and price behavior. Exchange infrastructure and simulated
   price effects are therefore enabling methods, not firsts.
+- **Ma et al. (2025),
+  [“Agent Trading Arena”](https://aclanthology.org/2025.findings-emnlp.294/).** A competitive
+  zero-sum stock arena studies numerical and visual reasoning under endogenous agent interaction.
+  It further occupies generic multi-agent trading-arena novelty.
 - **“Agentic Trading: When LLM Agents Meet Financial Markets” (2026),
   [systematic review](https://arxiv.org/abs/2605.19337).** The review maps 77 studies and identifies
   recurring weaknesses in temporal splits, transaction costs, survivorship controls, and
@@ -83,16 +93,18 @@ simulator-bounded consequence experiment; H2 is a conditional descriptive anchor
 
 - **Homogenization / algorithmic monoculture**: Kleinberg & Raghavan (2021) on monoculture in
   algorithmic decision-making; Bommasani et al. (2022), “Picking on the Same Person,” on outcome
-  homogenization from shared algorithmic components. The first paper extends this mechanism into
-  a matched trading benchmark; it does not originate the monoculture concept.
-- **LLM behavioral finance**: studies of LLM risk preferences, probability calibration, and
-  economic rationality (e.g., Horton 2023, “LLMs as simulated economic agents”) motivate
-  persona axis and demographic instructions.
+  homogenization from shared algorithmic components; and Gorecki & Hardt (2025) on empirical
+  monoculture versus model multiplicity across 50 language models. The proposed study applies
+  these mechanisms to a matched trading benchmark; it does not originate them.
+- **LLM behavioral finance**: Horton, Filippas & Manning (2023, revised 2026), “LLMs as simulated
+  economic agents,” motivates the persona axis while also reinforcing that simulated-agent
+  behavior is not evidence about humans without external validation.
 
 ## Experimental market microstructure
 
-- **Smith (1962)** and the experimental-economics tradition of induced-value double auctions —
-  our Phase-2 exchange follows the continuous double auction convention.
+- **Smith (1962)** and the experimental-economics tradition of induced-value double auctions
+  motivate the market-design benchmark. The current H5 simulator is not yet a validated continuous
+  double auction and remains disabled until its explicit gates pass.
 - **Gode & Sunder (1993)**, zero-intelligence traders: market institutions can produce
   efficiency without agent rationality — the reason our null cohort exists.
 
@@ -105,7 +117,7 @@ synchronization under their assumptions, but not strategic collusion. “Tacit c
 reserved for evidence of strategic response, profitable joint deviation, punishment, or a
 comparable supra-competitive mechanism.
 
-The first paper should be positioned as a replication and extension: reproduce static/advisory
+The proposed study should be positioned as a replication and extension: reproduce static/advisory
 convergence and reduced dispersion in bridge cells, then ask *which shared components cause the
 effect, whether it survives a fair classical comparison, and how ecology changes it*. It must not
 promise that LLM cohorts are more convergent than human or institutional infrastructure unless the
