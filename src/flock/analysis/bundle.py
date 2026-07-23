@@ -139,6 +139,7 @@ class StudyBundleSpec(BaseModel):
     run_dirs: list[str] = Field(min_length=2)
     preregistration: PreregistrationRef | None = None
     first_paper_inputs: FirstPaperInputs | None = None
+    rehearsal_contract: FirstPaperStatisticalContract | None = None
 
     @model_validator(mode="after")
     def validate_counts(self) -> StudyBundleSpec:
@@ -149,6 +150,8 @@ class StudyBundleSpec(BaseModel):
             raise ValueError("one run directory is required per expected independent block")
         if self.first_paper_inputs is not None and len(self.run_dirs) < len(blocks):
             raise ValueError("paper studies require at least one treatment run per block")
+        if self.rehearsal_contract is not None and self.evidence_kind != "mock":
+            raise ValueError("rehearsal_contract is restricted to mock evidence")
         return self
 
 
@@ -544,11 +547,15 @@ def _emit_first_paper_bundle(
     manifests: list[dict[str, Any]],
     run_checks: list[RunVerification],
     evidence_kind: Literal["mock", "real"],
+    contract: FirstPaperStatisticalContract,
+    paper_requested: bool,
     seed: int,
 ) -> Path:
     """Emit the preregistered crossed H1/H3/H4 bundle; never infer from raw agents."""
     source_dir = source_manifest.parent
-    contract = _first_paper_contract(spec, source_dir)
+    margin_status = (
+        "frozen-preregistered" if paper_requested else "mock-rehearsal-only"
+    )
     input_paths, crossed_rows, lineage_rows, mphiq_rows = _paper_input_frames(
         spec, source_dir
     )
@@ -645,7 +652,7 @@ def _emit_first_paper_bundle(
     effects = result.effects.copy()
     effects.insert(0, "study_id", spec.study_id)
     effects["evidence_kind"] = evidence_kind
-    effects["margin_status"] = "frozen-preregistered"
+    effects["margin_status"] = margin_status
     for index, row in effects.iterrows():
         thresholds = contract.estimands[f"{row['estimand_id']}::{row['metric']}"]
         for field, value in thresholds.model_dump().items():
@@ -727,17 +734,18 @@ def _emit_first_paper_bundle(
             {
                 "estimand_id": estimand_id,
                 "metric": metric,
-                "margin_status": "frozen-preregistered",
+                "margin_status": margin_status,
                 "equivalence": {
                     **tost.__dict__,
                     "decision_rule": "both TOST one-sided p-values must be below alpha",
-                    "paper_claim_allowed": tost.equivalent,
+                    "paper_claim_allowed": tost.equivalent and paper_requested,
                 },
                 "noninferiority": {
                     **noninferiority,
                     "paper_claim_allowed": bool(
                         noninferiority["statistically_noninferior"]
-                    ),
+                    )
+                    and paper_requested,
                 },
             }
         )
@@ -759,7 +767,7 @@ def _emit_first_paper_bundle(
                 "inference": "paired sign-flip test over independent block effects",
                 **thresholds.model_dump(),
                 "alpha": contract.alpha,
-                "margin_status": "frozen-preregistered",
+                "margin_status": margin_status,
                 "limitations": [
                     "sampled dated model releases and classical families only",
                     "block-effect sign flips require the stated symmetry assumption",
@@ -785,9 +793,11 @@ def _emit_first_paper_bundle(
                     "limited to the frozen sampled releases, families, and trajectories",
                     "sign-flip inference assumes symmetric block effects",
                 ],
-                "verification_status": "paper-eligible",
+                "verification_status": (
+                    "paper-eligible" if paper_requested else "mock-rehearsal"
+                ),
                 "evidence_kind": evidence_kind,
-                "margin_status": "frozen-preregistered",
+                "margin_status": margin_status,
             }
         )
 
@@ -795,8 +805,8 @@ def _emit_first_paper_bundle(
         destination / "equivalence_noninferiority.json",
         {
             "study_id": spec.study_id,
-            "margin_status": "frozen-preregistered",
-            "margins_provisional": False,
+            "margin_status": margin_status,
+            "margins_provisional": not paper_requested,
             "results": equivalence_results,
             "interpretation_rule": "nonsignificance is never evidence of equivalence",
         },
@@ -815,8 +825,8 @@ def _emit_first_paper_bundle(
             "independent_unit": "trajectory or nonoverlapping market-window block",
             "nested_units_not_counted": result.multiplicity["nested_units_not_counted"],
             "inference_method": "paired block sign flips with unified Holm correction",
-            "margin_status": "frozen-preregistered",
-            "margins_frozen_before_analysis": True,
+            "margin_status": margin_status,
+            "margins_frozen_before_analysis": paper_requested,
             "run_verifications": [check.model_dump() for check in run_checks],
         },
     )
@@ -838,14 +848,14 @@ def _emit_first_paper_bundle(
             "study_id": spec.study_id,
             "status": "complete",
             "evidence_kind": evidence_kind,
-            "paper_requested": True,
+            "paper_requested": paper_requested,
             "analysis_seed": seed,
             "expected_independent_blocks": sorted(expected_blocks),
             "preregistration": spec.preregistration.model_dump()
-            if spec.preregistration
+            if paper_requested and spec.preregistration
             else None,
             "first_paper_statistical_contract": contract.model_dump(),
-            "margin_status": "frozen-preregistered",
+            "margin_status": margin_status,
             "source_manifest": str(source_manifest),
             "source_manifest_sha256": _sha256(source_manifest),
             "run_input_sha256": {
@@ -859,7 +869,7 @@ def _emit_first_paper_bundle(
             "artifact_sha256": artifact_hashes,
         },
     )
-    verification = verify_study_bundle(destination, require_paper=True)
+    verification = verify_study_bundle(destination, require_paper=paper_requested)
     if not verification.ok:
         raise ValueError(f"emitted study bundle failed verification: {verification.errors}")
     return destination
@@ -878,14 +888,22 @@ def analyze_study_bundle(
     run_dirs, manifests, run_checks, evidence_kind = _validate_source_runs(
         spec, source_manifest.parent
     )
-    if not paper and spec.first_paper_inputs is not None:
-        raise ValueError(
-            "crossed first-paper inputs require --paper and cannot use the legacy analyzer"
-        )
-    if paper:
-        if spec.evidence_kind != "real" or evidence_kind != "real":
-            raise ValueError("paper export rejects mock evidence")
-        _check_preregistration(spec, source_manifest.parent)
+    if spec.first_paper_inputs is not None:
+        if paper:
+            if spec.evidence_kind != "real" or evidence_kind != "real":
+                raise ValueError("paper export rejects mock evidence")
+            _check_preregistration(spec, source_manifest.parent)
+            contract = _first_paper_contract(spec, source_manifest.parent)
+        else:
+            if spec.evidence_kind != "mock" or evidence_kind != "mock":
+                raise ValueError(
+                    "crossed first-paper inputs require --paper for real evidence"
+                )
+            if spec.rehearsal_contract is None:
+                raise ValueError(
+                    "mock crossed inputs require an explicit rehearsal_contract"
+                )
+            contract = spec.rehearsal_contract
         return _emit_first_paper_bundle(
             spec=spec,
             source_manifest=source_manifest,
@@ -894,8 +912,16 @@ def analyze_study_bundle(
             manifests=manifests,
             run_checks=run_checks,
             evidence_kind=evidence_kind,
+            contract=contract,
+            paper_requested=paper,
             seed=seed,
         )
+    if paper:
+        if spec.evidence_kind != "real" or evidence_kind != "real":
+            raise ValueError("paper export rejects mock evidence")
+        _check_preregistration(spec, source_manifest.parent)
+        _first_paper_contract(spec, source_manifest.parent)
+        raise ValueError("paper export requires frozen first_paper_inputs")
     contract, margin_status = _statistical_contract(
         spec, source_manifest.parent, require_frozen=False
     )
@@ -1169,6 +1195,7 @@ def _verify_crossed_artifacts(
     errors: list[str] = []
     if contract is None:
         return ["release manifest lacks a valid first-paper statistical contract"]
+    paper_requested = bool(release.get("paper_requested"))
     effects_path = bundle_dir / "effects.parquet"
     blocks_path = bundle_dir / "block_effects.parquet"
     if not effects_path.is_file() or not blocks_path.is_file():
@@ -1326,11 +1353,21 @@ def _verify_crossed_artifacts(
                             ("p_lower", expected_tost.p_lower),
                             ("p_upper", expected_tost.p_upper),
                         )
-                    ) and bool(tost["equivalent"]) == expected_tost.equivalent
+                    ) and (
+                        bool(tost["equivalent"]) == expected_tost.equivalent
+                        and bool(tost["paper_claim_allowed"])
+                        == (expected_tost.equivalent and paper_requested)
+                    )
                     ni_ok = np.isclose(
                         float(ni["p_value"]), float(expected_ni["p_value"])
-                    ) and bool(ni["statistically_noninferior"]) == bool(
-                        expected_ni["statistically_noninferior"]
+                    ) and (
+                        bool(ni["statistically_noninferior"])
+                        == bool(expected_ni["statistically_noninferior"])
+                        and bool(ni["paper_claim_allowed"])
+                        == (
+                            bool(expected_ni["statistically_noninferior"])
+                            and paper_requested
+                        )
                     )
                 except (KeyError, TypeError, ValueError):
                     tost_ok = False
@@ -1367,16 +1404,21 @@ def _verify_crossed_artifacts(
         claim_map = {
             f"{row.get('estimand_id')}::{row.get('metric')}": row for row in claims
         }
+        expected_status = "paper-eligible" if paper_requested else "mock-rehearsal"
+        expected_evidence = "real" if paper_requested else "mock"
+        expected_margin = (
+            "frozen-preregistered" if paper_requested else "mock-rehearsal-only"
+        )
         if len(claims) != len(claim_map) or set(claim_map) != set(contract.estimands):
             errors.append("paper claims do not exactly cover the frozen estimand family")
         elif any(
             row.get("claim_id") != key
-            or row.get("verification_status") != "paper-eligible"
-            or row.get("evidence_kind") != "real"
-            or row.get("margin_status") != "frozen-preregistered"
+            or row.get("verification_status") != expected_status
+            or row.get("evidence_kind") != expected_evidence
+            or row.get("margin_status") != expected_margin
             for key, row in claim_map.items()
         ):
-            errors.append("paper claims contain inconsistent verification metadata")
+            errors.append("crossed claims contain inconsistent verification metadata")
     return errors
 
 

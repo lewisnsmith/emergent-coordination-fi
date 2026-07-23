@@ -46,6 +46,7 @@ def _source(
     status: str = "complete",
     preregistration: dict | None = None,
     first_paper_inputs: dict | None = None,
+    rehearsal_contract: dict | None = None,
 ) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     run_dirs = []
@@ -70,6 +71,7 @@ def _source(
         "run_dirs": run_dirs,
         "preregistration": preregistration,
         "first_paper_inputs": first_paper_inputs,
+        "rehearsal_contract": rehearsal_contract,
     }
     path = root / "study-source.json"
     path.write_text(json.dumps(payload))
@@ -131,6 +133,7 @@ def _first_paper_contract() -> dict:
 def _paper_inputs(
     root: Path, source_runs: dict[str, list[str]] | None = None
 ) -> dict:
+    root.mkdir(parents=True, exist_ok=True)
     source_runs = source_runs or {
         "block-a": ["run-block-a"],
         "block-b": ["run-block-b"],
@@ -364,6 +367,80 @@ def test_paper_gate_rejects_mock_and_missing_preregistration(tmp_path, monkeypat
     )
     with pytest.raises(ValueError, match="requires an immutable preregistration"):
         analyze_study_bundle(real_source, paper=True)
+
+
+def test_crossed_mock_rehearsal_is_verified_reproducible_and_never_paper_eligible(
+    tmp_path, monkeypatch
+):
+    source_runs = {
+        "block-a": ["run-block-a-llm", "run-block-a-classical"],
+        "block-b": ["run-block-b-llm", "run-block-b-classical"],
+    }
+    source = _source(
+        tmp_path / "mock-rehearsal",
+        [
+            _manifest(
+                "block-a",
+                "trajectory-a",
+                model="mock-momentum",
+                run_id="run-block-a-llm",
+                seed=1,
+            ),
+            _manifest(
+                "block-a",
+                "trajectory-a",
+                model="mock-momentum",
+                run_id="run-block-a-classical",
+                seed=2,
+            ),
+            _manifest(
+                "block-b",
+                "trajectory-b",
+                model="mock-momentum",
+                run_id="run-block-b-llm",
+                seed=1,
+            ),
+            _manifest(
+                "block-b",
+                "trajectory-b",
+                model="mock-momentum",
+                run_id="run-block-b-classical",
+                seed=2,
+            ),
+        ],
+        evidence_kind="mock",
+        first_paper_inputs=_paper_inputs(
+            tmp_path / "mock-rehearsal", source_runs
+        ),
+        rehearsal_contract=_first_paper_contract(),
+    )
+    monkeypatch.setattr("flock.analysis.bundle.verify_run", lambda _path: _verified())
+
+    bundle = analyze_study_bundle(source)
+    verification = verify_study_bundle(bundle)
+    assert verification.ok
+    assert not verification.paper_eligible
+    release = json.loads((bundle / "release-manifest.json").read_text())
+    assert release["paper_requested"] is False
+    assert release["preregistration"] is None
+    assert release["margin_status"] == "mock-rehearsal-only"
+    claims = json.loads((bundle / "claims.json").read_text())["claims"]
+    assert {claim["verification_status"] for claim in claims} == {"mock-rehearsal"}
+    assert not any(
+        result["equivalence"]["paper_claim_allowed"]
+        or result["noninferiority"]["paper_claim_allowed"]
+        for result in json.loads(
+            (bundle / "equivalence_noninferiority.json").read_text()
+        )["results"]
+    )
+
+    reproduced = reproduce_study_bundle(
+        bundle / "release-manifest.json", tmp_path / "mock-reproduction"
+    )
+    reproduced_release = json.loads(
+        (reproduced / "release-manifest.json").read_text()
+    )
+    assert release["artifact_sha256"] == reproduced_release["artifact_sha256"]
 
 
 def test_paper_bundle_requires_frozen_preregistration_and_detects_tampering(
