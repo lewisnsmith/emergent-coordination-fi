@@ -90,7 +90,7 @@ it does not mean a paid study, empirical result, independent review, or paper re
 
 ## Current verification evidence (2026-07-23)
 
-- Full-suite `pytest`: **182 passed**.
+- Full-suite `pytest`: **184 passed**.
 - Ruff: **all checks passed**.
 - Pyright: **0 errors, 0 warnings**.
 - Fresh offline smoke run: **720 decisions, 1,274 fills, 720 portfolio rows; verification passed**.
@@ -120,8 +120,10 @@ it does not mean a paid study, empirical result, independent review, or paper re
 4. Resolve the live materialized assignments against immutable provider revisions and licensed
    datasets. Offline mock mappings are complete; H5 capital weighting and calibrated background
    demand remain intentionally disabled.
-5. Finish H2 end to end: acquire lawful 13F inputs, emit harmonized quarterly activity artifacts,
-   build comparable simulated holdings changes, and enforce the activity-match gate.
+5. Acquire lawful 13F inputs and comparable realized simulated-holdings counts, then execute the
+   implemented `flock harmonize-h2` gate. It now emits hashed quarterly activity, coverage,
+   exclusions, canonical LSV cells, Sias components, and strict activity-match provenance; it
+   rejects intended-order comparisons and insufficient panels.
 6. Reconcile the three draft statistical-contract discrepancies before freeze: primary
    small-sample inference versus sign-flip sensitivity, the exact H1 contrasts, and unified Holm
    versus H4 hierarchical FDR.

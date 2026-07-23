@@ -42,8 +42,9 @@ preregistration is not frozen or registered, and no paper-level empirical result
 
 The proposed study is **not execution-ready**. It still requires real datasets and nonoverlapping
 windows, immutable model releases, matched cohort weights and activity, final prompts,
-power-derived top-level sample sizes and inference, complete H2 harmonization, the remaining H5
-simulator gates, reconciliation of the draft statistical contracts, and a frozen preregistration.
+power-derived top-level sample sizes and inference, acquired H2 inputs run through the implemented
+activity-match gate, the remaining H5 simulator gates, reconciliation of the draft statistical
+contracts, and a frozen preregistration.
 
 Run the preflight rather than inferring readiness from config files:
 

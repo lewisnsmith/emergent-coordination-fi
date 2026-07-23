@@ -36,12 +36,13 @@ confirmed duplicate files, and recovery-safe changes.
 - Gate 5 passes for the current 197-assignment materialization: 149 assignments completed and
   verified, 48 H5 assignments terminated as explicitly blocked, and the 144-run crossed analysis
   reproduced byte-identically. All generated artifacts remain ignored and non-paper-eligible.
-- Gate 2 remains open because H2 is tested at the library level but lacks acquired 13F data and a
-  complete harmonized artifact/CLI path.
+- Gate 2 passes at the software level: `flock harmonize-h2` emits hashed harmonization, coverage,
+  exclusions, LSV, Sias, and activity-match artifacts and fails on intended/realized basis drift.
+  H2 execution remains blocked on lawful 13F data and comparable realized simulated holdings.
 - Gate 4 remains open because H5 is disabled pending calibrated background agents, agent-facing
   cancellation, six-cell capital-share execution, restart/hash stress, benchmark calibration, and
   ODD/STRESS release gates.
-- Gate 6 passes for 182 tests, Ruff, and Pyright; manuscript compilation still awaits a
+- Gate 6 passes for 184 tests, Ruff, and Pyright; manuscript compilation still awaits a
   LaTeX-capable environment.
 
 Therefore broad file consolidation, speculative script deletion, and future-work archiving remain
