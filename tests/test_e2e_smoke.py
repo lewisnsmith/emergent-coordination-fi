@@ -69,6 +69,12 @@ def test_analyze_produces_report(smoke_run):
     assert "Primary contrast" in report
 
 
+def test_single_run_cannot_export_paper_evidence(smoke_run):
+    workdir, result = smoke_run
+    with pytest.raises(ValueError, match="single-run paper export is prohibited"):
+        analyze_run(result.run_id, results_root=workdir / "results", paper=True)
+
+
 def test_rerun_is_deterministic(smoke_run):
     workdir, result = smoke_run
     repo = Path(__file__).resolve().parents[1]

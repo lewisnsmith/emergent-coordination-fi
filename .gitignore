@@ -22,6 +22,7 @@ results/*
 .flock-cache/
 
 # Paper build artifacts
+paper/figures/
 paper/*.aux
 paper/*.log
 paper/*.out
