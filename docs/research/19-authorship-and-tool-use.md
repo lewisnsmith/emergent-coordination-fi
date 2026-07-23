@@ -1,17 +1,18 @@
 # 19 — Authorship and Tool Use
 
-**Status: DRAFT for Lewis to verify before any public release. Last updated: 2026-07-17.** This
+**Status: DRAFT for Lewis to verify before any public release. Last updated: 2026-07-23.** This
 statement describes the current working process. It is not an authorship certification, and it
 must be updated from the final release manifest, research log, git history, and human-review record.
 
 ## Responsibility and ownership
 
-Lewis initiated and directs the Flock research project. He is responsible for the research
-question ultimately pursued, the scientific claims retained, the decision to run or stop paid
-experiments, interpretation of the evidence, and every statement submitted under his name. AI
-assistance can propose, critique, implement, and explain work; it cannot accept scholarly
-responsibility, provide research consent, serve as an independent reviewer, or be listed as an
-author.
+Lewis is the repository owner and project director. The draft contribution table records his
+stated role and must be verified in first person before release; Git alone cannot prove who first
+supplied an idea. He is responsible for the research question ultimately pursued, the scientific
+claims retained, the decision to run or stop paid experiments, interpretation of the evidence, and
+every statement submitted under his name. AI assistance can propose, critique, implement, and
+explain work; it cannot accept scholarly responsibility, provide research consent, serve as an
+independent reviewer, or be listed as an author.
 
 The repository is evidence of work performed, not by itself proof of who supplied an idea or
 understood a change. Before release, Lewis must verify the following contribution record and add
@@ -37,7 +38,10 @@ cost estimation, implementation, testing, documentation, and manuscript planning
 AI-assisted review surfaced two material design problems: agent/call-level pseudoreplication and a
 classical-control comparison that confounded technology with the diversity of the supplied
 ecology. AI assistance also helped narrow the novelty claim from first evidence of convergence to
-a matched-control causal decomposition.
+a proposed matched-control component decomposition. On 2026-07-23, Codex subagents separately
+audited repository condensation, literature provenance, H2/statistics, raw-run aggregation, H5
+market mechanics, experiment status, and admissions-facing claims; these agents are internal tools,
+not independent reviewers.
 
 This is a process disclosure, not evidence that the identified problems are fully solved. The
 exact providers, model/release identifiers, dates, material prompts or task descriptions, and
@@ -75,7 +79,7 @@ Lewis's final sign-off should attest that he:
 
 ## Explicit non-claims at this stage
 
-As of 2026-07-17, this document does **not** claim that a paid study has run, a preregistration has
+As of 2026-07-23, this document does **not** claim that a paid study has run, a preregistration has
 been frozen, a human expert has reviewed the project, a result has replicated, or a paper has been
 accepted. Passing mock tests demonstrates software behavior under synthetic fixtures, not an
 empirical finding about frontier models or markets. Current milestones and blockers are recorded

@@ -1,6 +1,6 @@
 # 20 — Research Log
 
-**Status: ACTIVE. Last updated: 2026-07-17.** This file begins as a dated reconstruction from the
+**Status: ACTIVE. Last updated: 2026-07-23.** This file begins as a dated reconstruction from the
 repository and the 2026-07-17 hardening review. It must not be represented as a contemporaneous
 record of earlier work. Future entries should be written when decisions are made, before outcomes
 are known when possible, and should link to immutable evidence.
@@ -96,6 +96,56 @@ the original account.
 - **Open questions:** Study-level release bundles, claim-locked paper generation, clean-room
   reproduction, exact live endpoint availability, final licensed datasets, and external reviews
   remain incomplete until separately verified.
+
+## 2026-07-23 — Reconcile and protect the working branches
+
+- **Trigger:** Integrate the paper-hardening branch without losing the repository-condensation
+  work or treating generated mock artifacts as evidence.
+- **Evidence:** Dirty-tree inventory, binary patch, branch graph, conflict audit, test suite, and
+  tracked paper figures.
+- **Decision:** Preserve `docs/condense-repo` as a recovery point; create
+  `feat/paper-ready-reconciliation`; commit duplicate removal and document condensation
+  incrementally; merge `feat/paper-ready-experiments`; retain feature semantics where the shorter
+  text was scientifically outdated.
+- **Recovery evidence:** The external worktree patch and a clean-checkout reapplication had the
+  same SHA-256, `25cd2aa9f8f426987202a965713a0f82d0d88fa7419161d81a56f7334e812c63`.
+  Git history remains the durable recovery path.
+- **Generated evidence:** Remove five tracked figures/tables produced from one old mock run. The
+  files remain recoverable from commit `beb9263`; paper results remain locked off and single-run
+  paper export is tested to fail.
+- **Outcome visibility:** Local synthetic mock outputs were visible. No paid or confirmatory
+  outcome informed the reconciliation.
+
+## 2026-07-23 — Record the idea genealogy without a priority claim
+
+- **Trigger:** Ask how to describe independently motivated questions when overlapping papers
+  already existed.
+- **Contemporaneous evidence:** Commit `356963d` recorded the initial repository formulation on
+  2026-07-04 at 02:29 PDT; commit `26089c9` added the formal question, design, metrics,
+  preregistration draft, and related work four minutes later.
+- **Decision:** This establishes that the design existed in the repository by that date. It does
+  not prove conception before literature exposure, publication priority, or novelty over prior
+  papers. Any statement that the motivating intuition was reached independently must be a truthful
+  first-person recollection by Lewis and labeled as such.
+- **Positioning:** Make no broad first claim. Present the work as a matched, preregistered
+  replication/extension and document subsequent corrections rather than backdating them.
+- **Outcome visibility:** No confirmatory outcome was available.
+
+## 2026-07-23 — Refresh prior art and empirical status
+
+- **Trigger:** Verify whether overlapping papers were incorporated and whether any real
+  experiments had run.
+- **Evidence:** Primary arXiv, ACL, NeurIPS, publisher, NBER, SSRN, and DOI records; local ignored
+  result manifests; repository validation; a fresh seed-4242 smoke run.
+- **Decision:** Add a reproducible literature search log and complete bibliography entries for
+  retained direct precedents, H2 measurement-bias work, monoculture foundations, and H5 market
+  comparators. Correct the mistaken interpretation of Klein's DOI as a correction notice.
+- **Execution status:** A fresh synthetic mock smoke run produced 720 decisions, 1,274 fills, and
+  720 portfolio rows and passed logical verification. Local history also contains mock
+  shared-exchange diagnostics. No paid frontier-model canary, pilot, confirmatory run, frozen
+  preregistration, or paper-level empirical result exists.
+- **Open questions:** H2 harmonization, raw-run aggregation, H5 gates, complete mock
+  materialization, licensed real data, exact endpoints, and human review remain open.
 
 ## Next entries required
 
