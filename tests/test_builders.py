@@ -5,7 +5,12 @@ import pytest
 
 from flock.data.builders.kalshi import candles_to_bars
 from flock.data.builders.polymarket import history_to_bars, parse_market
-from flock.data.builders.real_world_refs import parse_info_table, recent_13f_accessions
+from flock.data.builders.real_world_refs import (
+    parse_info_table,
+    parse_info_table_records,
+    recent_13f_accessions,
+    recent_13f_filings,
+)
 from flock.data.schemas import write_dataset
 
 
@@ -53,12 +58,18 @@ def test_13f_info_table_parsing_with_namespace():
     xml = """<?xml version="1.0"?>
     <informationTable xmlns="http://www.sec.gov/edgar/document/thirteenf/informationtable">
       <infoTable><nameOfIssuer>ACME</nameOfIssuer><cusip>037833100</cusip>
-        <value>1500</value></infoTable>
+        <value>1500</value><shrsOrPrnAmt><sshPrnamt>10000</sshPrnamt>
+        <sshPrnamtType>SH</sshPrnamtType></shrsOrPrnAmt></infoTable>
       <infoTable><nameOfIssuer>BETA</nameOfIssuer><cusip>594918104</cusip>
-        <value>2500</value></infoTable>
+        <value>2500</value><shrsOrPrnAmt><sshPrnamt>20000</sshPrnamt>
+        <sshPrnamtType>SH</sshPrnamtType></shrsOrPrnAmt><putCall>CALL</putCall></infoTable>
     </informationTable>"""
     holdings = parse_info_table(xml)
     assert holdings == [("037833100", 1_500_000.0), ("594918104", 2_500_000.0)]
+    records = parse_info_table_records(xml)
+    assert records[0]["shares"] == 10_000
+    assert records[0]["shares_type"] == "SH"
+    assert records[1]["put_call"] == "CALL"
     assert parse_info_table("not xml") == []
 
 
@@ -69,11 +80,26 @@ def test_13f_accession_selection():
                 "form": ["10-K", "13F-HR", "13F-HR/A", "13F-HR"],
                 "accessionNumber": ["a", "b", "c", "d"],
                 "reportDate": ["2024-12-31", "2024-09-30", "2024-09-30", "2024-06-30"],
+                "filingDate": ["2025-01-01", "2024-11-14", "2024-11-20", "2024-08-14"],
+                "acceptanceDateTime": [
+                    "2025-01-01T00:00:00.000Z",
+                    "2024-11-14T17:00:00.000Z",
+                    "2024-11-20T17:00:00.000Z",
+                    "2024-08-14T17:00:00.000Z",
+                ],
             }
         }
     }
     accs = recent_13f_accessions(subs, quarters=2)
     assert accs == [("b", "2024-09-30"), ("d", "2024-06-30")]
+    filings = recent_13f_filings(subs, quarters=2)
+    assert filings[0] == {
+        "accession": "b",
+        "report_period": "2024-09-30",
+        "filing_date": "2024-11-14",
+        "acceptance_datetime": "2024-11-14T17:00:00.000Z",
+        "form": "13F-HR",
+    }
 
 
 def test_registry_primary_file(tmp_path):

@@ -14,11 +14,20 @@ import pandas as pd
 from scipy.stats import binom
 
 
+@dataclass(frozen=True)
+class HoldingsChangePanel:
+    """Quarterly 13F activity plus explicit coverage and exclusion records."""
+
+    activity: pd.DataFrame
+    period_coverage: pd.DataFrame
+    unmatched: pd.DataFrame
+
+
 def buy_sell_counts(decisions: pd.DataFrame, agents: list[str]) -> pd.DataFrame:
     """Per (step, symbol): number of cohort agents buying and selling.
 
     An agent counts once per (step, symbol) by the sign of its net clipped
-    flow there — the trade-level analogue of LSV's holdings-change sign.
+    flow there. These are intended clipped orders, not executed fills.
     """
     rows: list[dict[str, Any]] = []
     sub = cast(pd.DataFrame, decisions[decisions["agent_id"].isin(agents)])
@@ -39,14 +48,409 @@ def buy_sell_counts(decisions: pd.DataFrame, agents: list[str]) -> pd.DataFrame:
                     }
                 )
     if not rows:
-        return pd.DataFrame(columns=["step", "symbol", "buy", "sell"])
-    grouped = pd.DataFrame(rows).groupby(["step", "symbol"], as_index=False)[
-        ["buy", "sell"]
-    ].sum()
+        return pd.DataFrame(
+            columns=[
+                "step",
+                "symbol",
+                "buy",
+                "sell",
+                "n_active",
+                "n_eligible",
+                "activity_rate",
+                "decision_basis",
+                "execution_status",
+            ]
+        )
+    grouped = cast(
+        pd.DataFrame,
+        pd.DataFrame(rows).groupby(["step", "symbol"], as_index=False)[
+            ["buy", "sell"]
+        ].sum(),
+    )
+    grouped["n_active"] = grouped["buy"] + grouped["sell"]
+    grouped["n_eligible"] = len(agents)
+    grouped["activity_rate"] = grouped["n_active"] / grouped["n_eligible"]
+    grouped["decision_basis"] = "intended_clipped_order"
+    grouped["execution_status"] = "intended_not_executed"
     return cast(
         pd.DataFrame,
         grouped,
     )
+
+
+def harmonize_13f_holdings_changes(panel: pd.DataFrame) -> HoldingsChangePanel:
+    """Convert consecutive 13F holdings into a herding-compatible activity panel.
+
+    Share-count changes, rather than market-value changes, proxy realized
+    position changes. Only non-option ``SH`` positions enter the activity
+    panel. Missing provenance, share amounts, unsupported instruments, first
+    observations, and nonconsecutive quarters are retained in ``unmatched``.
+    """
+    required = {
+        "manager",
+        "period",
+        "cusip",
+        "shares",
+        "accession",
+        "filing_date",
+    }
+    missing = sorted(required - set(panel.columns))
+    if missing:
+        raise ValueError(f"13F panel missing required columns: {missing}")
+
+    work = panel.copy()
+    work["period_timestamp"] = pd.to_datetime(work["period"], errors="coerce")
+    if cast(pd.Series, work["period_timestamp"]).isna().any():
+        raise ValueError("13F panel contains invalid report periods")
+    work["period"] = cast(pd.Series, work["period_timestamp"]).dt.strftime("%Y-%m-%d")
+    work["shares"] = pd.to_numeric(work["shares"], errors="coerce")
+    for column, default in (
+        ("shares_type", ""),
+        ("put_call", ""),
+        ("acceptance_datetime", ""),
+        ("source_url", ""),
+        ("value_usd", 0.0),
+    ):
+        if column not in work:
+            work[column] = default
+    work["shares_type"] = (
+        cast(pd.Series, work["shares_type"]).fillna("").astype(str).str.upper()
+    )
+    work["put_call"] = (
+        cast(pd.Series, work["put_call"]).fillna("").astype(str).str.upper()
+    )
+
+    unmatched_rows: list[dict[str, Any]] = []
+    valid_period_keys: set[tuple[str, str]] = set()
+    for raw_key, group in work.groupby(["manager", "period"], sort=True):
+        manager, period = cast(tuple[Any, Any], raw_key)
+        accessions = {
+            str(value)
+            for value in cast(pd.Series, group["accession"]).dropna()
+            if str(value)
+        }
+        filing_dates = {
+            str(value)
+            for value in cast(pd.Series, group["filing_date"]).dropna()
+            if str(value)
+        }
+        if len(accessions) != 1 or len(filing_dates) != 1:
+            unmatched_rows.append(
+                {
+                    "unit_type": "manager_period",
+                    "manager": str(manager),
+                    "period": str(period),
+                    "symbol": None,
+                    "reason": "missing_or_ambiguous_filing_provenance",
+                }
+            )
+            continue
+        valid_period_keys.add((str(manager), str(period)))
+
+    invalid_provenance = [
+        (str(record["manager"]), str(record["period"])) not in valid_period_keys
+        for record in cast(list[dict[str, Any]], work.to_dict("records"))
+    ]
+    work = cast(pd.DataFrame, work.loc[~pd.Series(invalid_provenance, index=work.index)])
+
+    missing_shares = cast(pd.DataFrame, work[work["shares"].isna()])
+    for record in cast(list[dict[str, Any]], missing_shares.to_dict("records")):
+        unmatched_rows.append(
+            {
+                "unit_type": "manager_period_instrument",
+                "manager": record["manager"],
+                "period": record["period"],
+                "symbol": record["cusip"],
+                "reason": "missing_share_amount",
+            }
+        )
+
+    unsupported = cast(
+        pd.DataFrame,
+        work[
+            work["shares"].notna()
+            & ((work["shares_type"] != "SH") | (work["put_call"] != ""))
+        ],
+    )
+    for record in cast(list[dict[str, Any]], unsupported.to_dict("records")):
+        unmatched_rows.append(
+            {
+                "unit_type": "manager_period_instrument",
+                "manager": record["manager"],
+                "period": record["period"],
+                "symbol": record["cusip"],
+                "reason": "unsupported_position_type",
+            }
+        )
+    work = cast(
+        pd.DataFrame,
+        work[
+            work["shares"].notna()
+            & (work["shares_type"] == "SH")
+            & (work["put_call"] == "")
+        ].copy(),
+    )
+
+    activity_rows: list[dict[str, Any]] = []
+    eligible_by_period: dict[str, set[str]] = {}
+    for manager, manager_rows in work.groupby("manager", sort=True):
+        manager_frame = cast(pd.DataFrame, manager_rows)
+        periods = sorted(
+            cast(list[str], manager_frame["period"].drop_duplicates().tolist())
+        )
+        for period_index, period in enumerate(periods):
+            if period_index == 0:
+                unmatched_rows.append(
+                    {
+                        "unit_type": "manager_period",
+                        "manager": str(manager),
+                        "period": period,
+                        "symbol": None,
+                        "reason": "missing_prior_period",
+                    }
+                )
+                continue
+            prior_period = periods[period_index - 1]
+            current_quarter = cast(pd.Period, pd.Period(period, freq="Q"))
+            prior_quarter = cast(pd.Period, pd.Period(prior_period, freq="Q"))
+            if current_quarter.ordinal - prior_quarter.ordinal != 1:
+                unmatched_rows.append(
+                    {
+                        "unit_type": "manager_period",
+                        "manager": str(manager),
+                        "period": period,
+                        "symbol": None,
+                        "reason": "nonconsecutive_prior_period",
+                    }
+                )
+                continue
+
+            prior = cast(
+                pd.DataFrame,
+                manager_frame[manager_frame["period"] == prior_period],
+            )
+            current = cast(
+                pd.DataFrame,
+                manager_frame[manager_frame["period"] == period],
+            )
+            prior_holdings = cast(pd.Series, prior.groupby("cusip")["shares"].sum())
+            current_holdings = cast(pd.Series, current.groupby("cusip")["shares"].sum())
+            symbols = sorted(set(prior_holdings.index) | set(current_holdings.index))
+            eligible_by_period.setdefault(period, set()).add(str(manager))
+
+            prior_provenance = cast(dict[str, Any], prior.iloc[0].to_dict())
+            current_provenance = cast(dict[str, Any], current.iloc[0].to_dict())
+            for symbol in symbols:
+                previous_shares = (
+                    float(prior_holdings.loc[symbol])
+                    if symbol in prior_holdings.index
+                    else 0.0
+                )
+                current_shares = (
+                    float(current_holdings.loc[symbol])
+                    if symbol in current_holdings.index
+                    else 0.0
+                )
+                delta_shares = current_shares - previous_shares
+                if delta_shares == 0:
+                    continue
+                activity_rows.append(
+                    {
+                        "step": period,
+                        "period": period,
+                        "prior_period": prior_period,
+                        "symbol": str(symbol),
+                        "agent_id": str(manager),
+                        "manager": str(manager),
+                        "buy": float(delta_shares > 0),
+                        "sell": float(delta_shares < 0),
+                        "previous_shares": previous_shares,
+                        "current_shares": current_shares,
+                        "delta_shares": delta_shares,
+                        "prior_accession": prior_provenance["accession"],
+                        "accession": current_provenance["accession"],
+                        "prior_filing_date": prior_provenance["filing_date"],
+                        "filing_date": current_provenance["filing_date"],
+                        "prior_acceptance_datetime": prior_provenance[
+                            "acceptance_datetime"
+                        ],
+                        "acceptance_datetime": current_provenance[
+                            "acceptance_datetime"
+                        ],
+                        "prior_source_url": prior_provenance["source_url"],
+                        "source_url": current_provenance["source_url"],
+                        "decision_basis": "realized_holdings_change",
+                        "execution_status": "realized_position_not_order_level",
+                    }
+                )
+
+    coverage_rows = [
+        {
+            "step": period,
+            "period": period,
+            "n_eligible": len(managers),
+            "eligible_managers": sorted(managers),
+        }
+        for period, managers in sorted(eligible_by_period.items())
+    ]
+    activity_columns = [
+        "step",
+        "period",
+        "prior_period",
+        "symbol",
+        "agent_id",
+        "manager",
+        "buy",
+        "sell",
+        "previous_shares",
+        "current_shares",
+        "delta_shares",
+        "prior_accession",
+        "accession",
+        "prior_filing_date",
+        "filing_date",
+        "prior_acceptance_datetime",
+        "acceptance_datetime",
+        "prior_source_url",
+        "source_url",
+        "decision_basis",
+        "execution_status",
+    ]
+    unmatched_columns = ["unit_type", "manager", "period", "symbol", "reason"]
+    return HoldingsChangePanel(
+        activity=pd.DataFrame(activity_rows, columns=activity_columns),
+        period_coverage=pd.DataFrame(
+            coverage_rows,
+            columns=["step", "period", "n_eligible", "eligible_managers"],
+        ),
+        unmatched=pd.DataFrame(unmatched_rows, columns=unmatched_columns),
+    )
+
+
+def holdings_change_counts(harmonized: HoldingsChangePanel) -> pd.DataFrame:
+    """Aggregate realized 13F activity for canonical period-specific LSV."""
+    if harmonized.activity.empty:
+        return pd.DataFrame(
+            columns=[
+                "step",
+                "symbol",
+                "buy",
+                "sell",
+                "n_active",
+                "n_eligible",
+                "activity_rate",
+                "decision_basis",
+                "execution_status",
+            ]
+        )
+    counts = cast(
+        pd.DataFrame,
+        harmonized.activity.groupby(["step", "symbol"], as_index=False)[
+            ["buy", "sell"]
+        ].sum(),
+    )
+    counts["n_active"] = counts["buy"] + counts["sell"]
+    coverage = cast(
+        dict[Any, Any],
+        harmonized.period_coverage.set_index("step")["n_eligible"].to_dict(),
+    )
+    counts["n_eligible"] = counts["step"].map(lambda step: coverage[step])
+    counts["activity_rate"] = counts["n_active"] / counts["n_eligible"]
+    counts["decision_basis"] = "realized_holdings_change"
+    counts["execution_status"] = "realized_position_not_order_level"
+    return counts
+
+
+def activity_match_report(
+    reference_counts: pd.DataFrame,
+    comparison_counts: pd.DataFrame,
+    *,
+    min_traders: int = 3,
+    activity_rate_tolerance: float = 0.0,
+    require_same_basis: bool = True,
+) -> pd.DataFrame:
+    """Report whether every cell has a comparable activity stratum.
+
+    Matching requires the same active-trader count and activity rate within
+    ``activity_rate_tolerance``. By default it also rejects an intended-order
+    versus realized-holdings comparison rather than silently treating the two
+    as executed behavior.
+    """
+    required = {
+        "step",
+        "symbol",
+        "buy",
+        "sell",
+        "n_active",
+        "n_eligible",
+        "activity_rate",
+        "decision_basis",
+    }
+    for label, frame in (
+        ("reference", reference_counts),
+        ("comparison", comparison_counts),
+    ):
+        missing = sorted(required - set(frame.columns))
+        if missing:
+            raise ValueError(f"{label} counts missing activity columns: {missing}")
+    if activity_rate_tolerance < 0:
+        raise ValueError("activity_rate_tolerance must be nonnegative")
+
+    rows: list[dict[str, Any]] = []
+    frames = {
+        "reference": reference_counts,
+        "comparison": comparison_counts,
+    }
+    for panel_name, frame in frames.items():
+        other_name = "comparison" if panel_name == "reference" else "reference"
+        other = frames[other_name]
+        for record in cast(list[dict[str, Any]], frame.to_dict("records")):
+            n_active = int(record["n_active"])
+            activity_rate = float(record["activity_rate"])
+            candidates = cast(
+                pd.DataFrame,
+                other[
+                    (other["n_active"] == n_active)
+                    & (
+                        (other["activity_rate"] - activity_rate).abs()
+                        <= activity_rate_tolerance
+                    )
+                ],
+            )
+            activity_matched = n_active >= min_traders and not candidates.empty
+            basis_matched = (
+                not candidates.empty
+                and cast(pd.Series, candidates["decision_basis"])
+                .eq(record["decision_basis"])
+                .any()
+            )
+            matched = activity_matched and (
+                basis_matched or not require_same_basis
+            )
+            if n_active < min_traders:
+                reason = "below_min_traders"
+            elif candidates.empty:
+                reason = "no_matching_activity_stratum"
+            elif require_same_basis and not basis_matched:
+                reason = "decision_basis_mismatch"
+            else:
+                reason = "matched"
+            rows.append(
+                {
+                    "panel": panel_name,
+                    "step": record["step"],
+                    "symbol": record["symbol"],
+                    "n_active": n_active,
+                    "n_eligible": int(record["n_eligible"]),
+                    "activity_rate": activity_rate,
+                    "decision_basis": record["decision_basis"],
+                    "activity_matched": activity_matched,
+                    "basis_matched": basis_matched,
+                    "matched": matched,
+                    "reason": reason,
+                }
+            )
+    return pd.DataFrame(rows)
 
 
 def lsv_cell_statistics(counts: pd.DataFrame, min_traders: int = 3) -> pd.DataFrame:
@@ -67,7 +471,17 @@ def lsv_cell_statistics(counts: pd.DataFrame, min_traders: int = 3) -> pd.DataFr
     )
     if eligible.empty:
         return pd.DataFrame(
-            columns=["step", "symbol", "n", "buy_fraction", "expected_buy_fraction", "af", "h"]
+            columns=[
+                "step",
+                "symbol",
+                "n",
+                "buy_fraction",
+                "expected_buy_fraction",
+                "af",
+                "h",
+                "decision_basis",
+                "execution_status",
+            ]
         )
     rows: list[dict[str, Any]] = []
     for record in cast(list[dict[str, Any]], eligible.to_dict("records")):
@@ -90,6 +504,8 @@ def lsv_cell_statistics(counts: pd.DataFrame, min_traders: int = 3) -> pd.DataFr
                 "expected_buy_fraction": expected,
                 "af": adjustment,
                 "h": abs(buy_fraction - expected) - adjustment,
+                "decision_basis": record.get("decision_basis", "unspecified"),
+                "execution_status": record.get("execution_status", "unspecified"),
             }
         )
     return pd.DataFrame(rows)
@@ -146,8 +562,8 @@ def _agent_direction_panel(decisions: pd.DataFrame, agents: list[str]) -> pd.Dat
     return pd.DataFrame(rows, columns=["step", "symbol", "agent_id", "buy"])
 
 
-def sias_decomposition(
-    decisions: pd.DataFrame, agents: list[str], min_traders: int = 2
+def sias_decomposition_from_panel(
+    panel: pd.DataFrame, min_traders: int = 2
 ) -> SiasDecomposition:
     """Decompose serial demand correlation into own- and other-agent terms.
 
@@ -156,14 +572,17 @@ def sias_decomposition(
     ``following_own``; all cross-agent products contribute to ``following_others``.
     Only active traders enter each security-period buyer ratio.
     """
-    panel = _agent_direction_panel(decisions, agents)
     if panel.empty:
         return SiasDecomposition(*(float("nan"),) * 3, period_pairs=0)
-    grouped: dict[tuple[int, str], pd.DataFrame] = {}
+    required = {"step", "symbol", "agent_id", "buy"}
+    missing = sorted(required - set(panel.columns))
+    if missing:
+        raise ValueError(f"Sias activity panel missing columns: {missing}")
+    grouped: dict[tuple[Any, str], pd.DataFrame] = {}
     for raw_key, group in panel.groupby(["step", "symbol"]):
         step, symbol = cast(tuple[Any, Any], raw_key)
         if len(group) >= min_traders:
-            grouped[(int(step), str(symbol))] = cast(pd.DataFrame, group)
+            grouped[(step, str(symbol))] = cast(pd.DataFrame, group)
     own_terms: list[float] = []
     other_terms: list[float] = []
     pair_full: list[float] = []
@@ -220,6 +639,16 @@ def sias_decomposition(
         following_own=float(np.mean(own_terms)),
         following_others=float(np.mean(other_terms)),
         period_pairs=len(pair_full),
+    )
+
+
+def sias_decomposition(
+    decisions: pd.DataFrame, agents: list[str], min_traders: int = 2
+) -> SiasDecomposition:
+    """Build an intended-order direction panel and apply Sias decomposition."""
+    return sias_decomposition_from_panel(
+        _agent_direction_panel(decisions, agents),
+        min_traders=min_traders,
     )
 
 
