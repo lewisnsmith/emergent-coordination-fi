@@ -18,11 +18,12 @@ class DatasetEntry:
     name: str
     version: int
     path: str  # relative to repo root
-    sha256: str  # hash of bars.parquet
+    sha256: str  # canonical hash of the complete dataset directory
     rows: int
     source: str  # builder name
     created_at: str
     params: dict
+    files: dict[str, str] | None = None
 
 
 def _hash_file(path: Path) -> str:
@@ -31,6 +32,21 @@ def _hash_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def dataset_bundle_files(dataset_dir: Path) -> dict[str, str]:
+    """Hash every regular payload file in a stable relative-path order."""
+    return {
+        path.relative_to(dataset_dir).as_posix(): _hash_file(path)
+        for path in sorted(dataset_dir.rglob("*"))
+        if path.is_file() and not path.name.startswith(".")
+    }
+
+
+def dataset_bundle_hash(dataset_dir: Path) -> str:
+    files = dataset_bundle_files(dataset_dir)
+    encoded = json.dumps(files, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 class Registry:
@@ -46,11 +62,17 @@ class Registry:
 
     def _save(self, entries: list[dict]) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
-        with open(self.manifest_path, "w") as f:
+        temporary = self.manifest_path.with_suffix(".json.tmp")
+        with open(temporary, "w") as f:
             json.dump(entries, f, indent=2)
+        temporary.replace(self.manifest_path)
 
     def entries(self) -> list[DatasetEntry]:
         return [DatasetEntry(**e) for e in self._load()]
+
+    def _entry_path(self, entry: DatasetEntry) -> Path:
+        path = Path(entry.path)
+        return path if path.is_absolute() else self.root.parent / path
 
     def get(self, name: str) -> DatasetEntry:
         matches = [e for e in self.entries() if e.name == name]
@@ -60,9 +82,6 @@ class Registry:
                 f"{[e.name for e in self.entries()] or 'none'})"
             )
         return max(matches, key=lambda e: e.version)
-
-    def dataset_dir(self, name: str) -> Path:
-        return Path(self.get(name).path)
 
     def register(
         self,
@@ -75,16 +94,35 @@ class Registry:
         entries = self._load()
         version = 1 + max((e["version"] for e in entries if e["name"] == name), default=0)
         bars_path = dataset_dir / primary_file
+        files = dataset_bundle_files(dataset_dir)
         entry = DatasetEntry(
             name=name,
             version=version,
             path=str(dataset_dir),
-            sha256=_hash_file(bars_path),
+            sha256=dataset_bundle_hash(dataset_dir),
             rows=len(pd.read_parquet(bars_path)),
             source=source,
             created_at=datetime.now(UTC).isoformat(timespec="seconds"),
             params=params,
+            files=files,
         )
         entries.append(asdict(entry))
         self._save(entries)
         return entry
+
+    def verify(self, entry: DatasetEntry) -> list[str]:
+        dataset_dir = self._entry_path(entry)
+        if not dataset_dir.exists():
+            return [f"dataset payload is missing: {dataset_dir}"]
+        if entry.files is None:
+            return ["legacy manifest hashes only the primary file; rebuild dataset"]
+        actual_files = dataset_bundle_files(dataset_dir)
+        errors = []
+        if actual_files != entry.files:
+            errors.append("dataset file inventory or content hashes changed")
+        if dataset_bundle_hash(dataset_dir) != entry.sha256:
+            errors.append("dataset bundle hash changed")
+        return errors
+
+    def dataset_dir(self, name: str) -> Path:
+        return self._entry_path(self.get(name))

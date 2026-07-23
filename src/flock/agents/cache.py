@@ -7,8 +7,10 @@ re-derive offline and repeated sweeps are free.
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
+import os
 from dataclasses import asdict
 from pathlib import Path
 
@@ -44,5 +46,14 @@ class ResponseCache:
     def put(self, key: str, response: ChatResponse) -> None:
         p = self._path(key)
         p.parent.mkdir(parents=True, exist_ok=True)
-        with open(p, "w") as f:
-            json.dump(asdict(response), f)
+        lock_path = p.with_suffix(".lock")
+        with lock_path.open("a+") as lock:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            if p.exists():
+                return
+            temporary = p.with_suffix(f".{os.getpid()}.tmp")
+            with temporary.open("w") as stream:
+                json.dump(asdict(response), stream)
+                stream.flush()
+                os.fsync(stream.fileno())
+            temporary.replace(p)

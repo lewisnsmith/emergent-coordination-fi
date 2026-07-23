@@ -6,9 +6,11 @@ import pandas as pd
 from flock.analysis.coordination import (
     buy_sell_counts,
     detect_cascades,
+    lsv_cell_statistics,
     lsv_herding,
     net_flow_series,
     overlap_13f,
+    sias_decomposition,
     sias_herding,
 )
 
@@ -29,8 +31,12 @@ def _herded(n_agents=8, n_steps=30, seed=0):
     data = {}
     for step in range(n_steps):
         side = "buy" if rng.random() < 0.5 else "sell"
+        opposite = "sell" if side == "buy" else "buy"
         for i in range(n_agents):
-            data[(f"a{i}", step)] = [{"symbol": "X", "side": side, "quantity": 10.0}]
+            data[(f"a{i}", step)] = [
+                {"symbol": "X", "side": side, "quantity": 10.0},
+                {"symbol": "Y", "side": opposite, "quantity": 10.0},
+            ]
     return _decisions(data)
 
 
@@ -39,8 +45,14 @@ def _independent(n_agents=8, n_steps=200, seed=0):
     data = {}
     for step in range(n_steps):
         for i in range(n_agents):
-            side = "buy" if rng.random() < 0.5 else "sell"
-            data[(f"a{i}", step)] = [{"symbol": "X", "side": side, "quantity": 10.0}]
+            data[(f"a{i}", step)] = [
+                {
+                    "symbol": symbol,
+                    "side": "buy" if rng.random() < 0.5 else "sell",
+                    "quantity": 10.0,
+                }
+                for symbol in ("X", "Y")
+            ]
     return _decisions(data)
 
 
@@ -51,6 +63,21 @@ def test_lsv_high_for_herded_cohort():
     assert herded > 0.2
     assert independent < 0.05
     assert herded > independent
+
+
+def test_lsv_uses_contemporaneous_expected_buy_fraction():
+    counts = pd.DataFrame(
+        [
+            {"step": 0, "symbol": "A", "buy": 8, "sell": 2},
+            {"step": 0, "symbol": "B", "buy": 6, "sell": 4},
+            {"step": 1, "symbol": "A", "buy": 2, "sell": 8},
+            {"step": 1, "symbol": "B", "buy": 4, "sell": 6},
+        ]
+    )
+    cells = lsv_cell_statistics(counts)
+    assert cells.loc[cells["step"] == 0, "expected_buy_fraction"].eq(0.7).all()
+    assert cells.loc[cells["step"] == 1, "expected_buy_fraction"].eq(0.3).all()
+    assert lsv_herding(counts) == np.mean(cells["h"])
 
 
 def test_sias_detects_serial_herding():
@@ -66,6 +93,32 @@ def test_sias_detects_serial_herding():
             ]
     sias = sias_herding(buy_sell_counts(_decisions(rows), [f"a{i}" for i in range(6)]))
     assert sias > 0.3
+
+
+def test_sias_decomposition_reconciles_to_full_correlation():
+    rows = {}
+    patterns = {
+        "X": [1, 1, 1, 0],
+        "Y": [1, 0, 0, 0],
+        "Z": [1, 1, 0, 0],
+    }
+    for step in range(3):
+        for agent in range(4):
+            rows[(f"a{agent}", step)] = [
+                {
+                    "symbol": symbol,
+                    "side": "buy" if pattern[agent] else "sell",
+                    "quantity": 1.0,
+                }
+                for symbol, pattern in patterns.items()
+            ]
+    decisions = _decisions(rows)
+    result = sias_decomposition(decisions, [f"a{i}" for i in range(4)])
+    assert result.period_pairs == 2
+    np.testing.assert_allclose(
+        result.full, result.following_own + result.following_others, atol=1e-12
+    )
+    np.testing.assert_allclose(result.full, 1.0, atol=1e-12)
 
 
 def test_cascade_detection_flags_sustained_one_sided_flow():

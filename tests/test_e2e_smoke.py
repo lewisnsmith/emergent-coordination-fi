@@ -11,6 +11,7 @@ from flock.analysis.report import analyze_run
 from flock.core.config import load_experiment
 from flock.data import builders
 from flock.experiments.runner import run_experiment
+from flock.logging_.decisions import RunWriter
 
 
 @pytest.fixture(scope="module")
@@ -85,3 +86,28 @@ def test_rerun_is_deterministic(smoke_run):
         r1, r2 = json.loads(l1), json.loads(l2)
         for k in ("agent_id", "step", "action", "orders", "orders_clipped"):
             assert r1[k] == r2[k]
+
+
+def test_completed_run_resumes_without_rewriting_or_rebilling(smoke_run):
+    workdir, result = smoke_run
+    repo = Path(__file__).resolve().parents[1]
+    manifest_path = result.run_dir / "manifest.json"
+    before = manifest_path.read_bytes()
+    resumed = run_experiment(
+        repo / "configs" / "experiments" / "exp-000-smoke.yaml",
+        results_root=workdir / "results",
+        use_cache=False,
+    )
+    assert resumed == result
+    assert manifest_path.read_bytes() == before
+    assert json.loads(before)["status"] == "complete"
+
+
+def test_failed_attempt_preserves_terminal_manifest(tmp_path):
+    writer = RunWriter("interrupted-run", tmp_path)
+    writer.checkpoint(0, 0.0)
+    writer.fail(RuntimeError("provider interrupted"))
+    failure = json.loads((writer.work_dir / "failure.json").read_text())
+    assert failure["status"] == "failed"
+    assert failure["error_type"] == "RuntimeError"
+    assert not (writer.run_dir / "manifest.json").exists()

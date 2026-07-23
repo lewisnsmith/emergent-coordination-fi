@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Literal
+import json
+from dataclasses import asdict, dataclass, field
+from typing import Any, Literal
 
 Side = Literal["buy", "sell"]
 
@@ -62,15 +63,21 @@ class Observation:
     prices: dict[str, float]  # symbol -> current reference price
     news: tuple[NewsEvent, ...]
     portfolio: PortfolioView
+    instrument_context: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def digest_payload(self) -> str:
-        """Stable string of the market-visible part (excludes portfolio)."""
-        parts = [self.ts]
-        for s in self.symbols:
-            last = self.bars[s][-1]
-            parts.append(f"{s}:{last.close:.6f}:{len(self.bars[s])}")
-        parts.extend(f"{n.ts}|{n.symbol}|{n.headline}" for n in self.news)
-        return ";".join(parts)
+        """Stable serialization of the complete observation, including portfolio."""
+        payload = {
+            "step": self.step,
+            "ts": self.ts,
+            "symbols": self.symbols,
+            "bars": {symbol: [asdict(bar) for bar in self.bars[symbol]] for symbol in self.symbols},
+            "prices": self.prices,
+            "news": [asdict(event) for event in self.news],
+            "instrument_context": self.instrument_context,
+            "portfolio": asdict(self.portfolio),
+        }
+        return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
 @dataclass(frozen=True)
@@ -86,6 +93,13 @@ class Usage:
     input_tokens: int = 0
     output_tokens: int = 0
     cost_usd: float = 0.0
+    cached_input_tokens: int = 0
+    cache_write_tokens: int = 0
+    visible_output_tokens: int = 0
+    reasoning_tokens: int = 0
+    attempts: int = 0
+    request_ids: tuple[str, ...] = ()
+    retry_errors: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -97,6 +111,13 @@ class Decision:
     parse_ok: bool = True
     usage: Usage = field(default_factory=Usage)
     latency_s: float = 0.0
+    evidence_refs: tuple[str, ...] = ()
+    confidence: float | None = None
+    uncertainties: tuple[str, ...] = ()
+    grounding_ok: bool = True
+    grounding_failures: tuple[str, ...] = ()
+    prompt_hash: str = ""
+    raw_response_hash: str = ""
 
     @property
     def action(self) -> str:

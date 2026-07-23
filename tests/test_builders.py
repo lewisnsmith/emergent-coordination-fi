@@ -1,10 +1,12 @@
 """Pure-transform tests for network dataset builders (no network)."""
 
 import pandas as pd
+import pytest
 
 from flock.data.builders.kalshi import candles_to_bars
 from flock.data.builders.polymarket import history_to_bars, parse_market
 from flock.data.builders.real_world_refs import parse_info_table, recent_13f_accessions
+from flock.data.schemas import write_dataset
 
 
 def test_polymarket_parse_market():
@@ -31,7 +33,7 @@ def test_polymarket_history_settles_at_resolution():
     assert bars is not None
     assert bars.iloc[-1]["close"] == 1.0
     assert bars.iloc[-1]["high"] >= 1.0
-    assert (bars["ts"].sort_values() == bars["ts"]).all()
+    assert bars["ts"].is_monotonic_increasing
 
 
 def test_kalshi_candles_to_bars_converts_cents():
@@ -85,3 +87,111 @@ def test_registry_primary_file(tmp_path):
     reg = Registry(root=tmp_path)
     entry = reg.register("refs", "refs13f", d, {}, primary_file="holdings13f.parquet")
     assert entry.rows == 1
+
+
+def test_binary_dataset_allows_zero_settlement_with_complete_yes_semantics(tmp_path):
+    bars = pd.DataFrame(
+        [
+            {
+                "ts": "2030-01-01",
+                "symbol": "KX-TEST",
+                "open": 0.4,
+                "high": 0.5,
+                "low": 0.3,
+                "close": 0.4,
+                "volume": 10,
+            },
+            {
+                "ts": "2030-01-02",
+                "symbol": "KX-TEST",
+                "open": 0.4,
+                "high": 0.4,
+                "low": 0.0,
+                "close": 0.0,
+                "volume": 10,
+            },
+        ]
+    )
+    meta = {
+        "instrument_kind": "binary",
+        "contracts": [
+            {
+                "symbol": "KX-TEST",
+                "question": "Will the test resolve yes?",
+                "rules": "Resolves Yes when the test condition is met.",
+                "open_ts": "2030-01-01T00:00:00Z",
+                "close_ts": "2030-01-02T00:00:00Z",
+                "resolution": 0.0,
+                "yes_label": "Yes",
+                "no_label": "No",
+                "price_semantics": "YES probability in [0,1]",
+            }
+        ],
+    }
+    assert write_dataset(tmp_path / "binary", bars, meta=meta) == 2
+
+
+def test_binary_dataset_rejects_missing_contract_semantics(tmp_path):
+    bars = pd.DataFrame(
+        [
+            {
+                "ts": "2030-01-01",
+                "symbol": "PM-X",
+                "open": 0.5,
+                "high": 0.5,
+                "low": 0.5,
+                "close": 0.5,
+                "volume": 0,
+            }
+        ]
+    )
+    with pytest.raises(ValueError, match="contract metadata"):
+        write_dataset(
+            tmp_path / "binary",
+            bars,
+            meta={"instrument_kind": "binary", "contracts": [{"symbol": "PM-X"}]},
+        )
+
+
+def test_binary_dataset_rejects_bar_before_intraday_listing(tmp_path):
+    bars = pd.DataFrame(
+        [
+            {
+                "ts": "2030-01-01T00:00:00Z",
+                "symbol": "PM-X",
+                "open": 0.5,
+                "high": 0.5,
+                "low": 0.5,
+                "close": 0.5,
+                "volume": 0,
+            },
+            {
+                "ts": "2030-01-02T00:00:00Z",
+                "symbol": "PM-X",
+                "open": 0.5,
+                "high": 1.0,
+                "low": 0.5,
+                "close": 1.0,
+                "volume": 0,
+            },
+        ]
+    )
+    meta = {
+        "instrument_kind": "binary",
+        "contracts": [
+            {
+                "symbol": "PM-X",
+                "question": "Will X occur?",
+                "rules": "Resolves Yes if X occurs.",
+                "open_ts": "2030-01-01T12:00:00Z",
+                "close_ts": "2030-01-02T00:00:00Z",
+                "resolution": 1.0,
+                "yes_label": "Yes",
+                "no_label": "No",
+                "price_semantics": "YES probability in [0,1]",
+            }
+        ],
+    }
+
+    with pytest.raises(ValueError, match="outside the contract lifetime"):
+        write_dataset(tmp_path / "binary-intraday", bars, meta=meta)

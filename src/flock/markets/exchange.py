@@ -8,8 +8,10 @@ feedback loops can emerge. Mechanics per step:
   3. Each arriving limit order matches against resting opposite orders that
      cross (price-time priority, fill at the resting price) and then rests.
      Market orders match what they can and the remainder expires.
-  4. At step end the book is cleared and the step's trades are synthesized
-     into a bar (no trades -> carry-forward close, zero volume).
+  4. All unmatched limit orders expire at step end (the only supported order
+     lifetime is ``step``). The book is snapshotted for audit, then cleared,
+     and the step's trades are synthesized into a bar (no trades ->
+     carry-forward close, zero volume).
 
 Public information is the tape (bar history), not the intra-step book, so
 agents coordinate only through prices — the phenomenon under study.
@@ -21,12 +23,42 @@ prices become endogenous from the first step onward.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import cast
 
 import numpy as np
 import pandas as pd
 
-from flock.core.types import Bar, Fill, NewsEvent, Order
+from flock.core.types import Bar, Fill, NewsEvent, Order, Side
 from flock.markets.base import MarketState
+
+ORDER_LIFETIME = "step"
+
+
+@dataclass(frozen=True)
+class RestingOrderSnapshot:
+    """One auditable order in the end-of-step book before expiry."""
+
+    symbol: str
+    side: Side
+    price: float
+    quantity: float
+    agent_id: str
+    arrival: int
+
+
+@dataclass(frozen=True)
+class TradeRecord:
+    """Counterparty-linked trade from which both emitted fills can be rebuilt."""
+
+    step: int
+    sequence: int
+    ts: str
+    symbol: str
+    price: float
+    quantity: float
+    buyer_id: str
+    seller_id: str
+    fee_per_side: float
 
 
 @dataclass(order=True)
@@ -35,7 +67,7 @@ class _Resting:
     price: float
     arrival: int
     agent_id: str = field(compare=False)
-    side: str = field(compare=False)
+    side: Side = field(compare=False)
     quantity: float = field(compare=False)
 
     def __post_init__(self):
@@ -54,17 +86,23 @@ class ExchangeMarket:
         tick_size: float = 0.01,
         max_steps: int | None = None,
         seed: int = 0,
+        order_lifetime: str = ORDER_LIFETIME,
     ):
+        if order_lifetime != ORDER_LIFETIME:
+            raise ValueError(
+                f"Unsupported order_lifetime {order_lifetime!r}; only 'step' is supported"
+            )
         self.fee_bps = fee_bps
         self.tick = tick_size
         self.window = observation_window
         self.seed = seed
+        self.order_lifetime = order_lifetime
 
         bars = bars.sort_values(["ts", "symbol"])
         self.timestamps: list[str] = sorted(bars["ts"].unique().tolist())
         self.symbols: tuple[str, ...] = tuple(sorted(bars["symbol"].unique().tolist()))
         seeded = {
-            s: [Bar(**row) for row in g.to_dict("records")][: self.window]
+            cast(str, s): [Bar(**row) for row in g.to_dict("records")][: self.window]
             for s, g in bars.groupby("symbol")
         }
         self._history: dict[str, list[Bar]] = seeded
@@ -81,10 +119,22 @@ class ExchangeMarket:
     def reset(self) -> None:
         self._step = 0
         self._pending: list[tuple[str, Order]] = []
+        self.last_book_snapshot: dict[
+            str, dict[str, tuple[RestingOrderSnapshot, ...]]
+        ] = {symbol: {"buy": (), "sell": ()} for symbol in self.symbols}
+        self.last_step_trades: tuple[TradeRecord, ...] = ()
+        self.last_step_bars: tuple[Bar, ...] = ()
+        self.trade_tape: tuple[TradeRecord, ...] = ()
 
     @property
     def done(self) -> bool:
         return self._step >= self.n_steps
+
+    @property
+    def last_completed_step(self) -> int:
+        if self._step == 0:
+            raise RuntimeError("exchange has not completed a step")
+        return self._step - 1
 
     def _ts(self) -> str:
         return self.timestamps[self.window + self._step]
@@ -109,6 +159,7 @@ class ExchangeMarket:
         rng = np.random.default_rng([self.seed, self._step])
         arrival_order = rng.permutation(len(self._pending))
         fills: list[Fill] = []
+        step_trades: list[TradeRecord] = []
         trades: dict[str, list[tuple[float, float]]] = {s: [] for s in self.symbols}
         books: dict[str, dict[str, list[_Resting]]] = {
             s: {"buy": [], "sell": []} for s in self.symbols
@@ -121,18 +172,34 @@ class ExchangeMarket:
             opposite = book["sell" if order.side == "buy" else "buy"]
             opposite.sort()
             while remaining > 1e-9 and opposite:
-                best = opposite[0]
-                if order.limit_price is not None and not self._crosses(order, best):
+                match_index = self._match_index(agent_id, order, opposite)
+                if match_index is None:
                     break
+                best = opposite[match_index]
                 qty = min(remaining, best.quantity)
                 price = best.price
                 fills.append(self._fill(agent_id, ts, order.symbol, order.side, qty, price))
                 fills.append(self._fill(best.agent_id, ts, order.symbol, best.side, qty, price))
+                buyer_id = agent_id if order.side == "buy" else best.agent_id
+                seller_id = agent_id if order.side == "sell" else best.agent_id
+                step_trades.append(
+                    TradeRecord(
+                        step=self._step,
+                        sequence=len(step_trades),
+                        ts=ts,
+                        symbol=order.symbol,
+                        price=price,
+                        quantity=qty,
+                        buyer_id=buyer_id,
+                        seller_id=seller_id,
+                        fee_per_side=abs(price * qty) * self.fee_bps / 1e4,
+                    )
+                )
                 trades[order.symbol].append((price, qty))
                 remaining -= qty
                 best.quantity -= qty
                 if best.quantity <= 1e-9:
-                    opposite.pop(0)
+                    opposite.pop(match_index)
             if remaining > 1e-9 and order.limit_price is not None:
                 book[order.side].append(
                     _Resting(
@@ -141,27 +208,70 @@ class ExchangeMarket:
                     )
                 )
 
-        self._append_bars(ts, trades)
+        self.last_book_snapshot = self._snapshot_books(books)
+        self.last_step_trades = tuple(step_trades)
+        self.trade_tape += self.last_step_trades
+        self.last_step_bars = self._append_bars(ts, trades)
         self._pending = []
         self._step += 1
         return fills
 
+    @classmethod
+    def _match_index(
+        cls, agent_id: str, incoming: Order, opposite: list[_Resting]
+    ) -> int | None:
+        """Find the best crossing counterparty while skipping the agent's own orders."""
+        for index, resting in enumerate(opposite):
+            if incoming.limit_price is not None and not cls._crosses(incoming, resting):
+                return None
+            if resting.agent_id != agent_id:
+                return index
+        return None
+
+    @staticmethod
+    def _snapshot_books(
+        books: dict[str, dict[str, list[_Resting]]],
+    ) -> dict[str, dict[str, tuple[RestingOrderSnapshot, ...]]]:
+        snapshot: dict[str, dict[str, tuple[RestingOrderSnapshot, ...]]] = {}
+        for symbol, book in books.items():
+            snapshot[symbol] = {}
+            for side in ("buy", "sell"):
+                orders = sorted(book[side])
+                snapshot[symbol][side] = tuple(
+                    RestingOrderSnapshot(
+                        symbol=symbol,
+                        side=side,
+                        price=order.price,
+                        quantity=order.quantity,
+                        agent_id=order.agent_id,
+                        arrival=order.arrival,
+                    )
+                    for order in orders
+                )
+        return snapshot
+
     @staticmethod
     def _crosses(incoming: Order, resting: _Resting) -> bool:
+        limit_price = incoming.limit_price
+        if limit_price is None:
+            return True
         if incoming.side == "buy":
-            return resting.price <= incoming.limit_price
-        return resting.price >= incoming.limit_price
+            return resting.price <= limit_price
+        return resting.price >= limit_price
 
     def _snap(self, price: float) -> float:
         return round(round(price / self.tick) * self.tick, 10)
 
     def _fill(
-        self, agent_id: str, ts: str, symbol: str, side: str, qty: float, price: float
+        self, agent_id: str, ts: str, symbol: str, side: Side, qty: float, price: float
     ) -> Fill:
         fee = abs(price * qty) * self.fee_bps / 1e4
         return Fill(agent_id, self._step, ts, symbol, side, qty, price, fee)
 
-    def _append_bars(self, ts: str, trades: dict[str, list[tuple[float, float]]]) -> None:
+    def _append_bars(
+        self, ts: str, trades: dict[str, list[tuple[float, float]]]
+    ) -> tuple[Bar, ...]:
+        appended: list[Bar] = []
         for s in self.symbols:
             prev_close = self._history[s][-1].close
             t = trades[s]
@@ -176,6 +286,8 @@ class ExchangeMarket:
             else:
                 bar = Bar(ts, s, prev_close, prev_close, prev_close, prev_close, 0.0)
             self._history[s].append(bar)
+            appended.append(bar)
+        return tuple(appended)
 
 
 def cascade_ready_history(market: ExchangeMarket) -> pd.DataFrame:

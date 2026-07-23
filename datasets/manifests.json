@@ -10,5 +10,22 @@
     "params": {
       "seed": 42
     }
+  },
+  {
+    "name": "synthetic-equities-v1",
+    "version": 2,
+    "path": "datasets/synthetic-equities-v1-v2",
+    "sha256": "e37a1cbdd64a33a64f8a627acf92af559477eb172f2b82b647f9b23e32408e4d",
+    "rows": 1260,
+    "source": "synthetic",
+    "created_at": "2026-07-21T02:02:32+00:00",
+    "params": {
+      "seed": 42
+    },
+    "files": {
+      "bars.parquet": "bd1262c3e9dab856a8f4e73ba2dc5a11e73a5356a1e8c989bcc3a0fb9799405d",
+      "events.parquet": "7aeb5ecc2dd06dc078dca1bf43f7acb638246b90f40a33f72178e5b0dc3347f2",
+      "meta.json": "6e0e057e072043371b69a1fafe1d67012861b61b6cfa2fc128cceac6d649dc8f"
+    }
   }
 ]

@@ -33,6 +33,7 @@ flock = "flock.cli:app"
 
 [dependency-groups]
 dev = [
+    "pyright>=1.1.411",
     "pytest>=8.2",
     "ruff>=0.5",
 ]

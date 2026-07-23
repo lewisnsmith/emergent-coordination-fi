@@ -1,6 +1,15 @@
 # H1 on binary prediction contracts. Requires:
 #   uv run flock data build polymarket   (or kalshi)
 name: exp-002-replay-prediction
+model_policy: frontier_only
+runtime_budget:
+  max_requests: 1440       # 12 LLMs x 60 steps x one format repair
+  max_input_tokens: 10000000
+  max_output_tokens: 1500000
+  max_cost_usd: 50.0       # canary authorization; raise only after a compiled estimate
+  request_cost_reserve_usd: 1.0
+hypothesis_ids: [H1, H3]
+independent_block: prediction-window-config-required
 seed: 42
 dataset: polymarket-binary
 market:
@@ -14,17 +23,19 @@ max_position_per_symbol: 5000
 cohorts:
   - name: llm
     agents:
-      - { kind: llm, model: claude-sonnet, persona: neutral, count: 2, temperature: 0.7 }
-      - { kind: llm, model: claude-haiku, persona: neutral, count: 2, temperature: 0.7 }
-      - { kind: llm, model: gpt-5, persona: neutral, count: 2, temperature: 0.7 }
-      - { kind: llm, model: gemini-pro, persona: neutral, count: 2, temperature: 0.7 }
+      - { kind: llm, model: claude-opus-frontier, persona: neutral, count: 2, temperature: 0.7, grounding_mode: strict }
+      - { kind: llm, model: claude-sonnet-frontier, persona: neutral, count: 2, temperature: 0.7, grounding_mode: strict }
+      - { kind: llm, model: gpt-sol-frontier, persona: neutral, count: 2, temperature: 0.7, grounding_mode: strict }
+      - { kind: llm, model: gpt-terra-frontier, persona: neutral, count: 2, temperature: 0.7, grounding_mode: strict }
+      - { kind: llm, model: gemini-pro-frontier, persona: neutral, count: 2, temperature: 0.7, grounding_mode: strict }
+      - { kind: llm, model: gpt-oss-120b-local, persona: neutral, count: 2, temperature: 0.7, grounding_mode: strict }
   - name: baseline
     agents:
       - { kind: momentum, count: 2 }
       - { kind: mean_reversion, count: 2 }
       - { kind: market_maker, count: 2 }
-      - { kind: buy_hold, count: 1 }
-      - { kind: random, count: 1 }
+      - { kind: buy_hold, count: 3 }
+      - { kind: random, count: 3 }
   - name: "null"
     agents:
-      - { kind: random, count: 8 }
+      - { kind: random, count: 12 }

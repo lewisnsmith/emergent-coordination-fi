@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib
+
 from flock.agents.providers.base import ChatResponse
 from flock.agents.providers.pricing import cost_usd
 from flock.core.config import ModelSpec
@@ -15,9 +17,8 @@ class GoogleChatModel:
 
     def _get_client(self):
         if self._client is None:
-            from google import genai
-
-            self._client = genai.Client()
+            client_type = importlib.import_module("google.genai").Client
+            self._client = client_type()
         return self._client
 
     def complete(
@@ -37,10 +38,15 @@ class GoogleChatModel:
         )
         usage = resp.usage_metadata
         input_tokens = getattr(usage, "prompt_token_count", 0) or 0
-        output_tokens = getattr(usage, "candidates_token_count", 0) or 0
+        visible_output_tokens = getattr(usage, "candidates_token_count", 0) or 0
+        reasoning_tokens = getattr(usage, "thoughts_token_count", 0) or 0
+        output_tokens = visible_output_tokens + reasoning_tokens
         return ChatResponse(
             text=resp.text or "",
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             cost_usd=cost_usd(self.model_id, input_tokens, output_tokens),
+            request_id=str(getattr(resp, "response_id", "") or ""),
+            visible_output_tokens=visible_output_tokens,
+            reasoning_tokens=reasoning_tokens,
         )

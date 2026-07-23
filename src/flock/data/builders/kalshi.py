@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime
+from typing import cast
+
 import httpx
 import pandas as pd
 
 API = "https://api.elections.kalshi.com/trade-api/v2"
+type TimestampInput = str | date | datetime | pd.Timestamp
 
 
 def build_kalshi(
@@ -28,7 +32,19 @@ def build_kalshi(
                 continue
             frames.append(bars)
             contracts.append(
-                {"symbol": "KX-" + ticker, "title": m.get("title", ""), "result": result}
+                {
+                    "symbol": "KX-" + ticker,
+                    "question": m.get("title", ""),
+                    "rules": m.get("rules_primary") or m.get("subtitle", ""),
+                    "open_ts": m.get("open_time"),
+                    "close_ts": m.get("close_time") or m.get("expiration_time"),
+                    "resolution": 1.0 if result == "yes" else 0.0,
+                    "yes_label": "Yes",
+                    "no_label": "No",
+                    "price_semantics": "YES probability in [0,1]",
+                    "result": result,
+                    "status": "resolved",
+                }
             )
             if len(frames) >= limit:
                 break
@@ -46,8 +62,12 @@ def build_kalshi(
 def _fetch_candles(client: httpx.Client, market: dict) -> list[dict]:
     series_ticker = market.get("event_ticker", "").split("-")[0]
     ticker = market["ticker"]
-    open_ts = int(pd.Timestamp(market["open_time"]).timestamp())
-    close_ts = int(pd.Timestamp(market["close_time"]).timestamp())
+    open_time = cast(pd.Timestamp, pd.Timestamp(cast(TimestampInput, market["open_time"])))
+    close_time = cast(
+        pd.Timestamp, pd.Timestamp(cast(TimestampInput, market["close_time"]))
+    )
+    open_ts = int(open_time.timestamp())
+    close_ts = int(close_time.timestamp())
     resp = client.get(
         f"{API}/series/{series_ticker}/markets/{ticker}/candlesticks",
         params={"start_ts": open_ts, "end_ts": close_ts, "period_interval": 1440},

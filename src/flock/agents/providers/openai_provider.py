@@ -23,24 +23,24 @@ class OpenAIChatModel:
     def complete(
         self, system: str, user: str, *, temperature: float, seed: int, max_tokens: int
     ) -> ChatResponse:
-        resp = self._get_client().chat.completions.create(
+        # Frontier GPT releases use the Responses API. It has no seed field;
+        # reproducibility is preserved by full request hashing and response cache.
+        resp = self._get_client().responses.create(
             model=self.model_id,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
+            instructions=system,
+            input=user,
             temperature=temperature,
-            max_completion_tokens=max_tokens,
-            seed=seed,
+            max_output_tokens=max_tokens,
+            store=False,
         )
         usage = resp.usage
         return ChatResponse(
-            text=resp.choices[0].message.content or "",
-            input_tokens=usage.prompt_tokens if usage else 0,
-            output_tokens=usage.completion_tokens if usage else 0,
+            text=resp.output_text or "",
+            input_tokens=usage.input_tokens if usage else 0,
+            output_tokens=usage.output_tokens if usage else 0,
             cost_usd=cost_usd(
                 self.model_id,
-                usage.prompt_tokens if usage else 0,
-                usage.completion_tokens if usage else 0,
+                usage.input_tokens if usage else 0,
+                usage.output_tokens if usage else 0,
             ),
         )

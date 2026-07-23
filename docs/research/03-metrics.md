@@ -43,6 +43,31 @@ The headline result is the contrast `Δ = D(baseline cohort) − D(LLM cohort)` 
 p-value and bootstrap CI (below). Reported for κ (primary), portfolio overlap, and fingerprint
 distance (converted to a similarity via negative standardization).
 
+The implementation scores actions on the full `(step, symbol)` grid. Portfolio-net actions are
+retained only for display; they are not the confirmatory endpoint because offsetting buy/sell
+orders could otherwise be mislabeled as a hold.
+
+## Breadth and market-dynamics outcomes
+
+- **Convergence breadth (H2b):** fraction of investors, capital, assets, and consecutive periods
+  contained in a convergence cluster above a preregistered threshold. Pairwise convergence and
+  breadth are separate estimands.
+- **AI-share dose response (H5):** paired change from the zero-AI market in impact, realized
+  volatility, spreads, depth, efficiency, tail loss, cascade frequency, and capital-weighted
+  synchronization. The unit is a whole independently randomized market replica.
+- **Trust/adoption (H6/H7):** incentive-compatible delegated share and conditional threshold-
+  crossing distributions. Stated trust is secondary to revealed delegation.
+- **Transport/detection (H9/H10):** held-out discrimination and calibration. Detection is not a
+  causal endpoint; H10 additionally requires verified exposure and a credible counterfactual.
+
+## Quality, suitability, and safety outcomes
+
+Prompt-pressure results use normalized regret against a constrained oracle, goal attainment,
+shortfall probability, liquidity preservation, drawdown, turnover, hard-constraint violations,
+unsupported evidence, fabricated facts, unsupported certainty, and abstention. “Better” requires
+practical quality improvement plus safety/suitability noninferiority. “Equivalent” requires TOST;
+a nonsignificant difference is inconclusive.
+
 ## Herding / coordination (`coordination.py`, Phase 2 + real-world panels)
 
 - **LSV herding statistic** (Lakonishok–Shleifer–Vishny 1992): for each (t, s),
@@ -58,13 +83,16 @@ distance (converted to a similarity via negative standardization).
 
 ## Statistical inference (`stats.py`)
 
-- **Permutation test** for Δ: pool the two cohorts, permute cohort labels (respecting cohort
-  sizes), recompute Δ; two-sided p from ≥10,000 permutations (agent-level relabeling — agents,
-  not steps, are the exchangeable units).
-- **Bootstrap CIs**: BCa bootstrap over agents (and over seeds for cross-run aggregates),
-  ≥10,000 resamples, on every headline metric.
-- **Multiple comparisons**: Holm–Bonferroni across the pre-registered hypothesis family
-  H1–H5; exploratory analyses labeled as such.
+- **Randomization inference:** single-run agent relabeling is diagnostic only. Confirmatory
+  inference uses paired sign flips over independent market-window/seed blocks; Phase 2 assigns
+  whole market replicas because agents interfere.
+- **Bootstrap CIs:** BCa/hierarchical resampling uses the highest independent unit first (windows,
+  market replicas, people), preserving nested model/agent observations.
+- **Equivalence/noninferiority:** paired TOST uses preregistered SESOI bounds; one-sided safety
+  tests use adverse margins. Nonsignificance is never relabeled as sameness or safety.
+- **Multiple comparisons:** Holm correction applies within the locked confirmatory family;
+  exploratory high-dimensional MPHIQ screens use hierarchical false-discovery control before
+  held-out confirmation.
 - **Power analysis**: pilot variance from exp-000 sweeps determines seeds-per-cell to detect
   Δκ = 0.1 at power 0.8, α = 0.05 (procedure in `stats.py::power_seeds`).
 
@@ -73,3 +101,5 @@ distance (converted to a similarity via negative standardization).
 - Every figure/table states: cohort sizes, seed count, chance floor, null-cohort value, CI.
 - No metric is reported in isolation; the pre-registered hierarchy (κ → overlap → fingerprint)
   is always shown together.
+- Every claim records its independent unit, effect, interval, raw and corrected p-value or
+  equivalence verdict, sensitivity checks, config/data hashes, and linked output artifact.

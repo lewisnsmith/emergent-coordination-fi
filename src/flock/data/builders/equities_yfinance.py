@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Hashable
+from datetime import date, datetime
+from typing import SupportsFloat, cast
+
 import pandas as pd
 
 DEFAULT_SYMBOLS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "JPM"]
@@ -18,6 +22,8 @@ def build_equities(
     raw = yf.download(
         symbols, start=start, end=end, auto_adjust=True, group_by="ticker", progress=False
     )
+    if raw is None or not isinstance(raw, pd.DataFrame):
+        raise ValueError("yfinance returned no tabular data for the requested symbols/window")
     bars = flatten_yfinance(raw, symbols)
     meta = {
         "builder": "equities",
@@ -34,18 +40,21 @@ def flatten_yfinance(raw: pd.DataFrame, symbols: list[str]) -> pd.DataFrame:
     """Pure transform: yfinance multi-ticker frame -> flock bar schema."""
     rows = []
     for s in symbols:
-        df = raw[s] if len(symbols) > 1 else raw
-        df = df.dropna(subset=["Open", "High", "Low", "Close"])
+        df = cast(pd.DataFrame, raw[s]) if len(symbols) > 1 else raw
+        required = cast(list[Hashable], ["Open", "High", "Low", "Close"])
+        df = df.dropna(subset=required)
         for ts, r in df.iterrows():
             rows.append(
                 {
-                    "ts": pd.Timestamp(ts).strftime("%Y-%m-%d"),
+                    "ts": pd.Timestamp(
+                        cast(str | date | datetime | pd.Timestamp, ts)
+                    ).strftime("%Y-%m-%d"),
                     "symbol": s,
-                    "open": float(r["Open"]),
-                    "high": float(r["High"]),
-                    "low": float(r["Low"]),
-                    "close": float(r["Close"]),
-                    "volume": float(r.get("Volume", 0.0) or 0.0),
+                    "open": float(cast(SupportsFloat, r["Open"])),
+                    "high": float(cast(SupportsFloat, r["High"])),
+                    "low": float(cast(SupportsFloat, r["Low"])),
+                    "close": float(cast(SupportsFloat, r["Close"])),
+                    "volume": float(cast(SupportsFloat, r.get("Volume", 0.0) or 0.0)),
                 }
             )
     if not rows:

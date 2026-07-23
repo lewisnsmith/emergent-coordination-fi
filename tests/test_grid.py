@@ -1,9 +1,11 @@
 from flock.core.config import ExperimentConfig, SweepConfig
 from flock.experiments.grid import derive_cell, sweep_cells
+from flock.experiments.runner import build_agents
 
 BASE = ExperimentConfig(
     name="t",
     dataset="d",
+    model_policy="mock_only",
     cohorts=[
         {
             "name": "llm",
@@ -34,3 +36,39 @@ def test_sweep_cells_cardinality_and_unique_hashes():
     assert len(cells) == 6
     hashes = {c.config_hash() for c in cells}
     assert len(hashes) == 6
+
+
+def test_sweep_override_keeps_agent_ids_unique_across_llm_groups():
+    cfg = ExperimentConfig(
+        name="duplicate-groups",
+        dataset="synthetic-equities-v1",
+        model_policy="mock_only",
+        cohorts=[
+            {
+                "name": "llm",
+                "agents": [
+                    {
+                        "kind": "llm",
+                        "model": "mock-momentum",
+                        "persona": "neutral",
+                        "count": 2,
+                    },
+                    {
+                        "kind": "llm",
+                        "model": "mock-momentum",
+                        "persona": "neutral",
+                        "count": 2,
+                    },
+                ],
+            }
+        ],
+    )
+
+    ids = [agent.agent_id for agent in build_agents(cfg, cache=None)]
+
+    assert ids == [
+        "llm-mock-momentum-neutral-0",
+        "llm-mock-momentum-neutral-1",
+        "llm-mock-momentum-neutral-2",
+        "llm-mock-momentum-neutral-3",
+    ]

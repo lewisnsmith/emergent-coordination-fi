@@ -2,15 +2,14 @@
 
 ## Primary question
 
-**Do LLM-powered trading agents converge on similar trading strategies to a greater extent than
-current market infrastructure — retail traders, institutional managers, and classical trading
-algorithms?**
+**Which shared components make LLM trading agents converge, and how does that convergence compare
+with classical strategies under matched homogeneous and heterogeneous cohort ecologies?**
 
-We study this as a question about **emergent coordination**: if many market participants are
-instances of (or advised by) a small number of foundation models, do their decisions correlate
-more strongly than the decisions of today's heterogeneous participants — and does that
-correlation constitute a new systemic channel for herding, crowding, and coordinated price
-pressure?
+The first paper studies **common-response convergence** and **outcome homogenization**. Phase-1
+agents do not interact, observe each other, or move prices, so agreement there is not emergent
+coordination or collusion. The motivating risk is that many participants may independently respond
+similarly because they share model lineage, training priors, prompts, harnesses, or information.
+Whether that common response causes market harm is a separate simulator-bounded question under H5.
 
 ## Why it matters
 
@@ -21,28 +20,50 @@ pressure?
   would not detect.
 - **Market efficiency.** Convergent agents may arbitrage away the same signals faster, or may
   collectively neglect signals outside the models' shared blind spots.
-- **Algorithmic coordination policy.** Regulators already worry about algorithmic tacit collusion
-  (Calvano et al. 2020). LLM agents extend that concern from pricing algorithms to general
-  trading mandates.
+- **Model-risk policy.** Shared decision components may create correlated errors without
+  communication. That possibility is relevant to concentration, stress testing, and model-risk
+  governance, but convergence alone is not evidence of tacit collusion.
 
-## Hypotheses
+## First-paper hypotheses
 
 Let *D(C)* denote the within-cohort decision dispersion of cohort *C* (formally defined in
 [03 — Metrics](03-metrics.md); lower dispersion = more convergence).
 
-- **H1 (primary).** Given identical information sets, *D(LLM cohort) < D(baseline algo cohort)*,
-  where the baseline cohort spans classical strategy families (momentum, mean-reversion,
-  market-making, buy-and-hold, random).
-- **H2.** *D(LLM cohort)* is lower than the empirical dispersion of real-world participant
-  panels (13F institutional holdings overlap; prediction-market trader positioning) measured
-  with the same overlap/herding statistics.
-- **H3 (within- vs cross-family).** Same-provider agent pairs (e.g., Claude–Claude) agree more
-  than cross-provider pairs (Claude–GPT), which in turn agree more than chance.
-- **H4 (persona sensitivity).** Persona/demographic instructions reduce convergence, but by less
-  than information-set differentiation does: prompts change *style* more than *strategy*.
-- **H5 (shared-market amplification).** In a shared exchange where agents' trades move prices,
-  LLM cohorts produce stronger herding statistics (LSV, Sias) and more frequent one-sided
-  cascades than baseline cohorts of equal size and capital.
+- **H1 (technology × ecology).** In the matched 2×2 benchmark—LLM versus classical technology,
+  crossed with homogeneous versus heterogeneous family ecology—the family-weighted technology
+  contrast and technology-by-ecology interaction differ from zero. The directional expectation
+  that LLM cohorts are more convergent is frozen only after the SESOI and power design are fixed.
+- **H3 (lineage).** Within LLM technology, same-model and same-provider pairs differ in
+  convergence from provider-balanced cross-family pairs under held-constant information, profile,
+  harness, and prompt conditions.
+- **H4 (component decomposition).** In the balanced MPHIQ design, genuine information-set
+  differentiation changes convergence more than profile or wording differentiation; model,
+  profile, harness, information, and question effects are reported separately.
+
+The benchmark includes homogeneous LLM, heterogeneous LLM, homogeneous classical, and
+heterogeneous classical cells. Homogeneous cells sample one family with within-family variation;
+heterogeneous cells use the same frozen number and weights of families. Activity, capital,
+information, feasible actions, fees, and constraints are matched. Primary contrasts first average
+within each provider or strategy family and then apply frozen equal or population-justified family
+weights, so adding endpoints to one family cannot silently change the estimand.
+
+## Conditional anchor and future program
+
+- **H2 (conditional external anchor).** Real-investor convergence is descriptive and enters the
+  first paper only if universe, cadence, activity, sampling, position direction, and capital
+  weighting can be harmonized. Unmatched 13F or trader panels are reported separately and cannot
+  rank AI against “current infrastructure.”
+- **H5 (separate simulator experiment).** Randomized AI-managed capital share may change
+  preregistered market outcomes inside a validated shared-exchange simulator. Any causal language
+  is internal to that simulator and does not establish a real-market effect.
+- **H2b and H6–H12 (future program).** Delegation breadth, human trust, adoption forecasting,
+  interpretability, signature transport, real-market attribution, data products, and prompt
+  pressure remain separate protocols. They are neither first-paper endpoints nor claims.
+
+The machine-readable catalog is
+[`configs/research-program.yaml`](../../configs/research-program.yaml), which maps the broader
+H1–H12 program (including H2b) to `exp-000` through `exp-024`. The narrower first-paper claim and
+analysis contract is frozen through [06 — Preregistration](06-preregistration.md).
 
 ## Operationalization
 
@@ -51,16 +72,21 @@ Let *D(C)* denote the within-cohort decision dispersion of cohort *C* (formally 
 - A **strategy** is operationalized two ways: (a) the realized decision stream itself, and
   (b) a *strategy fingerprint* — loadings from regressing the agent's trades on canonical factor
   signals (momentum, reversal, value proxy, volatility).
-- **Convergence** is low within-cohort dispersion across the metric hierarchy: decision-level
-  (per-step action agreement), portfolio-level (position similarity over time), and
-  strategy-level (fingerprint distance, rationale-embedding distance).
-- **Current infrastructure** is proxied by (a) classical algo baselines run under identical
-  conditions (internal control) and (b) empirical dispersion panels from real markets (external
-  anchor). Both comparisons are reported; neither alone is dispositive.
+- **Common-response convergence** is low within-cohort dispersion across the metric hierarchy:
+  decision-level (per-step action agreement), portfolio-level (position similarity over time),
+  and strategy-level (fingerprint distance, rationale-embedding distance).
+- The **top-level independent unit** is an independently generated synthetic market trajectory or
+  a nonoverlapping historical market window. Windows that overlap or share a material common shock
+  remain in one dependence cluster. Seeds, agents, pairs, calls, steps, symbols, and prompt variants
+  are nested and cannot increase the paper-level sample size.
+- The **internal control** is the matched classical technology-by-ecology benchmark. Real-investor
+  panels are conditional external anchors, not interchangeable controls.
 
 ## Scope
 
-Markets: US equities (daily bars) and binary prediction markets (Polymarket/Kalshi-style
-contracts). Phase 1 uses historical **replay** (no price impact — isolates convergence);
-Phase 2 uses a **shared simulated exchange** (price impact and feedback — tests coordination).
-Real-money trading, RL/fine-tuned agents, and live deployment are out of scope.
+The first paper covers synthetic trajectories and nonoverlapping historical replay windows in US
+equities, with binary prediction-market replay as a held-out market-type replication if its data
+gate passes. It tests H1/H3/H4 only. H5 uses a separate shared simulated exchange, and H2 is
+included only under its harmonization gate. H6–H12 remain future papers. Real-money trading,
+automated live deployment, claims of individual financial advice, and real-market causal claims
+from simulated resemblance remain out of scope.

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Any, Protocol
 
 from flock.core.types import Bar, Fill, NewsEvent, Order
 
@@ -33,6 +33,7 @@ class MarketState:
     prices: dict[str, float]
     news: tuple[NewsEvent, ...] = ()
     books: dict[str, BookView] = field(default_factory=dict)
+    instrument_context: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 class Market(Protocol):

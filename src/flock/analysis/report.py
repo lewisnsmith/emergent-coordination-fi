@@ -1,7 +1,8 @@
 """Run analysis report: metrics tables + figures + headline contrast.
 
-`analyze_run` writes results/<run>/report/ (report.md + PNGs); with
-paper=True it also exports figures and a LaTeX table to paper/.
+`analyze_run` writes a diagnostic results/<run>/report/. A single run can
+never export paper headline evidence; confirmatory publication starts from a
+verified study bundle containing independent market blocks.
 """
 
 from __future__ import annotations
@@ -42,6 +43,11 @@ def _style_axes(ax) -> None:
 
 
 def analyze_run(run_id: str, paper: bool = False, results_root: Path = RESULTS_DIR) -> Path:
+    if paper:
+        raise ValueError(
+            "single-run paper export is prohibited; use a verified study bundle "
+            "with `flock analyze-study ... --paper`"
+        )
     run_dir = resolve_run_dir(run_id, results_root)
     run = convergence.load_run(run_dir)
     report_dir = run_dir / "report"
@@ -62,15 +68,11 @@ def analyze_run(run_id: str, paper: bool = False, results_root: Path = RESULTS_D
     _fig_equity_curves(run, cohorts, report_dir)
     _write_report_md(run_dir, manifest, metrics, contrast, report_dir)
 
-    if paper:
-        from flock.analysis.paper import export_paper_assets
-
-        export_paper_assets(manifest, metrics, contrast, report_dir)
     return report_dir
 
 
 def _primary_contrast(run: dict, cohorts: list[str]) -> dict | None:
-    """Δκ = κ(llm) − κ(baseline): permutation p (agent relabeling) + bootstrap CI."""
+    """Single-run agent-label diagnostic; never confirmatory evidence."""
     a_name, b_name = PRIMARY_CONTRAST
     if a_name not in cohorts or b_name not in cohorts:
         return None
@@ -193,15 +195,16 @@ def _write_report_md(
     if contrast:
         lo, hi = contrast["ci95"]
         lines += [
-            "## Primary contrast (H1)",
+            "## Primary contrast diagnostic (single-run; not confirmatory)",
             "",
             f"**{contrast['name']}** = {contrast['delta_kappa']:.4f} "
             f"(95% bootstrap CI [{lo:.4f}, {hi:.4f}]; "
             f"permutation p = {contrast['p_permutation']:.4f}, "
             f"{contrast['n_permutations']} permutations, agent relabeling)",
             "",
-            "Positive Δκ = the LLM cohort's decisions agree more than the baseline",
-            "cohort's beyond chance. See docs/research/03-metrics.md.",
+            "This interval and p-value resample agents within one market path. They",
+            "cannot support a paper claim or increase independent n. Confirmatory",
+            "inference must aggregate verified independent trajectories/windows.",
             "",
         ]
     lines += [

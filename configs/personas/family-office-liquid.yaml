@@ -1,0 +1,36 @@
+name: family-office-liquid
+risk_tolerance: medium
+profile_version: 1
+financial_facts:
+  investor_type: family_office
+  primary_goal: intergenerational real-wealth preservation
+  investable_assets_usd_bucket: 25m-100m
+  horizon_years: 40
+  liquidity_need: low
+  dependents: multigenerational beneficiaries
+  income_stability: diversified operating and investment income
+  expertise: expert with professional staff
+  geography: United Arab Emirates
+  tax_context: cross-border entities; jurisdiction-specific advice required outside simulation
+identity_context:
+  description: Professionally staffed multigenerational investment office.
+  preferred_language: English
+  accessibility: institutional reporting with concise risk decomposition
+  values: stewardship across generations
+constraints:
+  - Maintain at least 20% in liquid assets available within five business days.
+  - Cap any single issuer at 10% of portfolio value.
+  - Treat legal and tax assumptions as unknown unless supplied in the observation.
+matched_set:
+  id: balance-sheet-liquidity-01
+  role: a
+  held_constant: [goal, total_wealth, horizon, geography, expertise]
+  varied_dimensions: [existing_asset_liquidity, minimum_liquid_allocation]
+counterfactual:
+  profile: family-office-illiquid
+  changes: [existing_asset_liquidity, minimum_liquid_allocation]
+system_prompt: |
+  Manage a professionally staffed family-office portfolio for multigenerational
+  real-wealth preservation. The broader balance sheet is liquid, but retain at
+  least 20% in five-day liquidity, cap issuers at 10%, and do not invent legal
+  or tax facts that are absent from the supplied information.

@@ -1,9 +1,12 @@
-"""Paper asset export: `flock analyze <run> --paper` regenerates every figure
-and table the LaTeX skeleton includes, directly from run outputs."""
+"""Paper asset helpers.
+
+Single-run assets are diagnostics and are deliberately barred from populating
+the manuscript headline. Study-level export will consume a verified study
+bundle produced by ``flock analyze-study``.
+"""
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 PAPER_DIR = Path("paper")
@@ -22,15 +25,10 @@ def export_paper_assets(
     manifest: dict, metrics: dict, contrast: dict | None, report_dir: Path,
     paper_dir: Path = PAPER_DIR,
 ) -> Path:
-    figures_dir = paper_dir / "figures"
-    figures_dir.mkdir(parents=True, exist_ok=True)
-    for name in FIGURES:
-        src = report_dir / name
-        if src.exists():
-            shutil.copy2(src, figures_dir / name)
-    (figures_dir / "metrics_table.tex").write_text(metrics_table_tex(manifest, metrics))
-    (figures_dir / "headline.tex").write_text(headline_macros_tex(contrast))
-    return figures_dir
+    del manifest, metrics, contrast, report_dir, paper_dir
+    raise ValueError(
+        "single-run paper assets are prohibited; export from a verified study bundle"
+    )
 
 
 def metrics_table_tex(manifest: dict, metrics: dict) -> str:

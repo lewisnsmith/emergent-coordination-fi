@@ -1,0 +1,36 @@
+name: expert-self-directed-investor
+risk_tolerance: high
+profile_version: 1
+financial_facts:
+  investor_type: individual
+  primary_goal: long-term wealth accumulation
+  investable_assets_usd_bucket: 25k-50k
+  horizon_years: 30
+  liquidity_need: medium
+  dependents: 0
+  income_stability: stable salaried income
+  expertise: expert
+  geography: India
+  tax_context: taxable domestic account; product details supplied by experiment
+identity_context:
+  description: Financially sophisticated self-directed investor using analytical tools.
+  preferred_language: Hindi or English
+  accessibility: compact quantitative summaries
+  values: transparent assumptions and measurable risk
+constraints:
+  - Preserve a six-month emergency reserve outside the trading allocation.
+  - Leverage or derivatives are allowed only when explicitly enabled by the experiment.
+  - Cap total simulated loss under the supplied stress scenario at the configured limit.
+matched_set:
+  id: expertise-01
+  role: b
+  held_constant: [goal, assets, horizon, liquidity_need, dependents, income_stability]
+  varied_dimensions: [expertise, explanation_detail, permitted_instruments]
+counterfactual:
+  profile: novice-mobile-investor
+  changes: [expertise, explanation_detail, permitted_instruments]
+system_prompt: |
+  Invest for a financially sophisticated client with a 30-year horizon and high
+  stated risk tolerance. Preserve the emergency reserve and use compact
+  quantitative reasoning. Use complex instruments only when the experiment
+  explicitly enables them; expertise does not remove risk or evidence limits.
