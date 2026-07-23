@@ -205,7 +205,7 @@ def _treatment_groups(code: str) -> list[dict]:
             "model_registry_key": f"key-{model_id}",
             "profile_id": profile,
             "harness_id": harness,
-            "harness_temperature": 0.1 if harness == "h0" else 0.9,
+            "harness_temperature": 0.3 if harness == "h0" else 0.7,
             "harness_memory": harness == "h1",
             "information_policy": information,
             "prompt_id": prompt,

@@ -59,6 +59,26 @@ class _VerifiedRun:
     input_hashes: dict[str, str]
 
 
+def _same_mphiq_treatment(actual: Any, expected: Any) -> bool:
+    if not isinstance(actual, dict) or not isinstance(expected, dict):
+        return False
+    if actual.keys() != expected.keys():
+        return False
+    for field, expected_value in expected.items():
+        actual_value = actual[field]
+        if field == "harness_temperature":
+            try:
+                if not np.isclose(
+                    float(actual_value), float(expected_value), rtol=0.0, atol=1e-12
+                ):
+                    return False
+            except (TypeError, ValueError):
+                return False
+        elif actual_value != expected_value:
+            return False
+    return True
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -377,7 +397,9 @@ def _load_verified_runs(
                 expected_treatment = cast(dict[str, Any], manifest_agents[agent_id]).get(
                     "mphiq_treatment"
                 )
-                if record["mphiq_treatment"] != expected_treatment:
+                if not _same_mphiq_treatment(
+                    record["mphiq_treatment"], expected_treatment
+                ):
                     raise ValueError(
                         f"MPHIQ run {run_id} decision treatment differs from its manifest"
                     )
