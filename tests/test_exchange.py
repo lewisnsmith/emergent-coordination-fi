@@ -69,13 +69,91 @@ def test_market_order_unfilled_remainder_expires():
     fills = m.step()
     b_fills = [f for f in fills if f.agent_id == "b"]
     assert sum(f.quantity for f in b_fills) == 3
+    expiry = next(
+        event
+        for event in m.last_step_events
+        if event["event_type"] == "order_expired"
+        and event["reason"] == "unfilled_market_remainder"
+    )
+    assert expiry["quantity"] == 7
     # remainder expired; next step nothing rests
     assert m.step() == []
 
 
 def test_unsupported_order_lifetime_is_rejected():
-    with pytest.raises(ValueError, match="only 'step' is supported"):
-        _market(order_lifetime="good_til_cancelled")
+    with pytest.raises(ValueError, match="expected one of"):
+        _market(order_lifetime="immediate_or_cancel")
+
+
+def test_good_til_cancelled_orders_preserve_cross_step_price_time_priority():
+    m = _market(order_lifetime="good_til_cancelled")
+    m.submit("old-seller", (Order("X", "sell", 1, limit_price=100.0),))
+    assert m.step() == []
+
+    old = m.last_book_snapshot["X"]["sell"][0]
+    m.submit("new-seller", (Order("X", "sell", 1, limit_price=100.0),))
+    m.submit("buyer", (Order("X", "buy", 2, limit_price=100.0),))
+    m.step()
+
+    step_one_trades = [trade for trade in m.trade_tape if trade.step == 1]
+    assert [trade.seller_id for trade in step_one_trades] == [
+        "old-seller",
+        "new-seller",
+    ]
+    assert old.arrival < next(
+        event["arrival"]
+        for event in m.last_step_events
+        if event["event_type"] == "order_submitted"
+    )
+
+
+def test_good_til_cancelled_order_can_be_cancelled_by_owner_only():
+    m = _market(order_lifetime="good_til_cancelled")
+    m.submit("seller", (Order("X", "sell", 2, limit_price=100.0),))
+    m.step()
+    order_id = m.last_book_snapshot["X"]["sell"][0].order_id
+
+    assert not m.cancel("other", order_id)
+    assert m.cancel("seller", order_id)
+    assert m.open_orders("seller") == ()
+    m.submit("buyer", (Order("X", "buy", 2, limit_price=100.0),))
+    assert m.step() == []
+    cancellation = next(
+        event
+        for event in m.last_step_events
+        if event["event_type"] == "order_cancelled"
+    )
+    assert (cancellation["order_id"], cancellation["reason"]) == (
+        order_id,
+        "agent_cancel",
+    )
+
+
+def test_persistent_orders_remain_reserved_when_clipping_new_orders():
+    ledger = Ledger(initial_cash=1000.0, max_position_per_symbol=10.0, fee_bps=0.0)
+    existing = (Order("X", "buy", 8, limit_price=100.0),)
+
+    clipped = ledger.clip_orders(
+        (Order("X", "buy", 5, limit_price=100.0),),
+        {"X": 100.0},
+        existing_orders=existing,
+    )
+
+    assert clipped == (Order("X", "buy", 2, limit_price=100.0),)
+
+
+def test_good_til_cancelled_orders_expire_at_session_end():
+    m = _market(order_lifetime="good_til_cancelled", max_steps=1)
+    m.submit("seller", (Order("X", "sell", 2, limit_price=100.0),))
+
+    assert m.step() == []
+
+    assert m.open_orders("seller") == ()
+    assert any(
+        event["event_type"] == "order_expired"
+        and event["reason"] == "session_end"
+        for event in m.last_step_events
+    )
 
 
 def test_self_cross_does_not_fill_and_book_is_auditable():
@@ -158,7 +236,7 @@ def test_endogenous_history_grows():
     assert m.last_step_bars[0].close == 99.0
 
 
-def test_exchange_events_export_tape_book_expiry_and_endogenous_bars(tmp_path):
+def test_exchange_events_export_lifecycle_book_tape_and_endogenous_bars(tmp_path):
     m = _market()
     m.submit("seller", (Order("X", "sell", 7, limit_price=100.0),))
     m.submit("buyer", (Order("X", "buy", 5, limit_price=100.0),))
@@ -174,14 +252,33 @@ def test_exchange_events_export_tape_book_expiry_and_endogenous_bars(tmp_path):
     ]
     event_types = {event["event_type"] for event in events}
     assert event_types == {
+        "order_submitted",
         "trade",
-        "resting_order_snapshot",
-        "expiry",
+        "book_snapshot",
+        "order_expired",
         "endogenous_bar",
     }
+    assert [event["event_sequence"] for event in events] == list(range(len(events)))
     trade = next(event for event in events if event["event_type"] == "trade")
     assert (trade["buyer_id"], trade["seller_id"], trade["quantity"]) == (
         "buyer",
         "seller",
         5,
+    )
+    submitted_ids = {
+        event["order_id"]
+        for event in events
+        if event["event_type"] == "order_submitted"
+    }
+    assert {trade["buyer_order_id"], trade["seller_order_id"]} <= submitted_ids
+    sell_book = next(
+        event
+        for event in events
+        if event["event_type"] == "book_snapshot" and event["side"] == "sell"
+    )
+    assert sell_book["orders"][0]["quantity"] == 2
+    assert any(
+        event["event_type"] == "order_expired"
+        and event["reason"] == "step_end"
+        for event in events
     )

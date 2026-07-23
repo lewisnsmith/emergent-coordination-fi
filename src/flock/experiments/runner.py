@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -102,6 +102,7 @@ def build_market(cfg: ExperimentConfig, registry: Registry):
             tick_size=cfg.market.tick_size,
             max_steps=cfg.steps,
             seed=cfg.seed,
+            order_lifetime=cfg.market.order_lifetime,
         )
     return market, entry
 
@@ -184,37 +185,8 @@ def build_agents(
 
 def log_exchange_events(writer: RunWriter, market: ExchangeMarket) -> None:
     """Persist enough exchange state to reconstruct the tape and endogenous bars."""
-    for trade in market.last_step_trades:
-        writer.log_market_event({"event_type": "trade", **asdict(trade)})
-    for symbol, sides in market.last_book_snapshot.items():
-        for side, orders in sides.items():
-            for order in orders:
-                payload = asdict(order)
-                writer.log_market_event(
-                    {
-                        "event_type": "resting_order_snapshot",
-                        "step": market.last_completed_step,
-                        **payload,
-                    }
-                )
-                writer.log_market_event(
-                    {
-                        "event_type": "expiry",
-                        "reason": "step_end",
-                        "step": market.last_completed_step,
-                        "symbol": symbol,
-                        "side": side,
-                        **payload,
-                    }
-                )
-    for bar in market.last_step_bars:
-        writer.log_market_event(
-            {
-                "event_type": "endogenous_bar",
-                "step": market.last_completed_step,
-                **asdict(bar),
-            }
-        )
+    for event in market.last_step_events:
+        writer.log_market_event(event)
 
 
 def run_experiment(
@@ -287,7 +259,16 @@ def run_config(
                     obs = apply_information_policy(obs, agent.information_policy)
                 decision = agent.decide(obs)
                 total_cost += decision.usage.cost_usd
-                clipped = ledger.clip_orders(decision.orders, state.prices)
+                existing_orders = (
+                    market.open_orders(agent.agent_id)
+                    if isinstance(market, ExchangeMarket)
+                    else ()
+                )
+                clipped = ledger.clip_orders(
+                    decision.orders,
+                    state.prices,
+                    existing_orders=existing_orders,
+                )
                 market.submit(agent.agent_id, clipped)
                 writer.log_decision(decision, obs, agent.describe(), agent.cohort, clipped)
 

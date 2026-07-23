@@ -1,4 +1,4 @@
-"""Phase-2 shared exchange: a step-synchronous continuous double auction.
+"""Phase-2 shared exchange: a step-synchronous price-time-priority market.
 
 Agents' orders trade against each other, so herding has price impact and
 feedback loops can emerge. Mechanics per step:
@@ -8,13 +8,14 @@ feedback loops can emerge. Mechanics per step:
   3. Each arriving limit order matches against resting opposite orders that
      cross (price-time priority, fill at the resting price) and then rests.
      Market orders match what they can and the remainder expires.
-  4. All unmatched limit orders expire at step end (the only supported order
-     lifetime is ``step``). The book is snapshotted for audit, then cleared,
-     and the step's trades are synthesized into a bar (no trades ->
-     carry-forward close, zero volume).
+  4. Unmatched limits either expire at step end or persist until cancellation
+     or session end, according to ``order_lifetime``. Every lifecycle event and
+     complete book snapshot is retained for reconstruction.
+  5. The step's trades are synthesized into a bar (no trades -> carry-forward
+     close, zero volume).
 
-Public information is the tape (bar history), not the intra-step book, so
-agents coordinate only through prices — the phenomenon under study.
+Public information is the tape (bar history), not the intra-step book. Agents
+receive no intra-step cross-agent signal.
 
 The dataset provides symbols, seeded price history, timestamps, and news;
 prices become endogenous from the first step onward.
@@ -22,7 +23,7 @@ prices become endogenous from the first step onward.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import cast
 
 import numpy as np
@@ -32,18 +33,21 @@ from flock.core.types import Bar, Fill, NewsEvent, Order, Side
 from flock.markets.base import MarketState
 
 ORDER_LIFETIME = "step"
+ORDER_LIFETIMES = frozenset({ORDER_LIFETIME, "good_til_cancelled"})
 
 
 @dataclass(frozen=True)
 class RestingOrderSnapshot:
-    """One auditable order in the end-of-step book before expiry."""
+    """One auditable order in the end-of-step book."""
 
+    order_id: str
     symbol: str
     side: Side
     price: float
     quantity: float
     agent_id: str
     arrival: int
+    created_step: int
 
 
 @dataclass(frozen=True)
@@ -58,6 +62,8 @@ class TradeRecord:
     quantity: float
     buyer_id: str
     seller_id: str
+    buyer_order_id: str
+    seller_order_id: str
     fee_per_side: float
 
 
@@ -66,14 +72,23 @@ class _Resting:
     sort_key: tuple = field(init=False, repr=False)
     price: float
     arrival: int
+    order_id: str = field(compare=False)
     agent_id: str = field(compare=False)
     side: Side = field(compare=False)
     quantity: float = field(compare=False)
+    created_step: int = field(compare=False)
 
     def __post_init__(self):
         # bids: matched best (highest) first -> sort by -price; asks by price
         direction = -1.0 if self.side == "buy" else 1.0
         self.sort_key = (direction * self.price, self.arrival)
+
+
+@dataclass(frozen=True)
+class _Pending:
+    order_id: str
+    agent_id: str
+    order: Order
 
 
 class ExchangeMarket:
@@ -88,9 +103,10 @@ class ExchangeMarket:
         seed: int = 0,
         order_lifetime: str = ORDER_LIFETIME,
     ):
-        if order_lifetime != ORDER_LIFETIME:
+        if order_lifetime not in ORDER_LIFETIMES:
             raise ValueError(
-                f"Unsupported order_lifetime {order_lifetime!r}; only 'step' is supported"
+                f"Unsupported order_lifetime {order_lifetime!r}; "
+                f"expected one of {sorted(ORDER_LIFETIMES)}"
             )
         self.fee_bps = fee_bps
         self.tick = tick_size
@@ -118,10 +134,17 @@ class ExchangeMarket:
 
     def reset(self) -> None:
         self._step = 0
-        self._pending: list[tuple[str, Order]] = []
+        self._pending: list[_Pending] = []
+        self._books: dict[str, dict[str, list[_Resting]]] = {
+            symbol: {"buy": [], "sell": []} for symbol in self.symbols
+        }
+        self._submission_sequence = 0
+        self._arrival_sequence = 0
+        self._queued_order_events: list[dict] = []
         self.last_book_snapshot: dict[
             str, dict[str, tuple[RestingOrderSnapshot, ...]]
         ] = {symbol: {"buy": (), "sell": ()} for symbol in self.symbols}
+        self.last_step_events: tuple[dict, ...] = ()
         self.last_step_trades: tuple[TradeRecord, ...] = ()
         self.last_step_bars: tuple[Bar, ...] = ()
         self.trade_tape: tuple[TradeRecord, ...] = ()
@@ -152,7 +175,48 @@ class ExchangeMarket:
         )
 
     def submit(self, agent_id: str, orders: tuple[Order, ...]) -> None:
-        self._pending.extend((agent_id, o) for o in orders)
+        for order in orders:
+            order_id = f"o-{self._submission_sequence:012d}"
+            self._submission_sequence += 1
+            self._pending.append(_Pending(order_id, agent_id, order))
+
+    def open_orders(self, agent_id: str) -> tuple[Order, ...]:
+        """Return an agent's live limits for cross-step reservation accounting."""
+        return tuple(
+            Order(symbol, resting.side, resting.quantity, resting.price)
+            for symbol in self.symbols
+            for side in ("buy", "sell")
+            for resting in self._books[symbol][side]
+            if resting.agent_id == agent_id
+        )
+
+    def cancel(self, agent_id: str, order_id: str) -> bool:
+        """Cancel one live order owned by ``agent_id`` and queue an audit event."""
+        for symbol in self.symbols:
+            for side in ("buy", "sell"):
+                orders = self._books[symbol][side]
+                for index, resting in enumerate(orders):
+                    if resting.order_id != order_id:
+                        continue
+                    if resting.agent_id != agent_id:
+                        return False
+                    orders.pop(index)
+                    self._queued_order_events.append(
+                        {
+                            "event_type": "order_cancelled",
+                            "step": self._step,
+                            "ts": self._ts(),
+                            "order_id": resting.order_id,
+                            "agent_id": resting.agent_id,
+                            "symbol": symbol,
+                            "side": side,
+                            "price": resting.price,
+                            "quantity": resting.quantity,
+                            "reason": "agent_cancel",
+                        }
+                    )
+                    return True
+        return False
 
     def step(self) -> list[Fill]:
         ts = self._ts()
@@ -160,14 +224,47 @@ class ExchangeMarket:
         arrival_order = rng.permutation(len(self._pending))
         fills: list[Fill] = []
         step_trades: list[TradeRecord] = []
+        step_events: list[dict] = []
         trades: dict[str, list[tuple[float, float]]] = {s: [] for s in self.symbols}
-        books: dict[str, dict[str, list[_Resting]]] = {
-            s: {"buy": [], "sell": []} for s in self.symbols
-        }
 
-        for arrival, idx in enumerate(arrival_order):
-            agent_id, order = self._pending[idx]
-            book = books[order.symbol]
+        def emit(event: dict) -> None:
+            step_events.append({"event_sequence": len(step_events), **event})
+
+        for event in self._queued_order_events:
+            emit(event)
+        self._queued_order_events = []
+
+        for idx in arrival_order:
+            pending = self._pending[idx]
+            agent_id = pending.agent_id
+            submitted = pending.order
+            order = Order(
+                submitted.symbol,
+                submitted.side,
+                submitted.quantity,
+                (
+                    self._snap(submitted.limit_price)
+                    if submitted.limit_price is not None
+                    else None
+                ),
+            )
+            arrival = self._arrival_sequence
+            self._arrival_sequence += 1
+            emit(
+                {
+                    "event_type": "order_submitted",
+                    "step": self._step,
+                    "ts": ts,
+                    "order_id": pending.order_id,
+                    "agent_id": agent_id,
+                    "symbol": order.symbol,
+                    "side": order.side,
+                    "price": order.limit_price,
+                    "quantity": order.quantity,
+                    "arrival": arrival,
+                }
+            )
+            book = self._books[order.symbol]
             remaining = order.quantity
             opposite = book["sell" if order.side == "buy" else "buy"]
             opposite.sort()
@@ -182,19 +279,27 @@ class ExchangeMarket:
                 fills.append(self._fill(best.agent_id, ts, order.symbol, best.side, qty, price))
                 buyer_id = agent_id if order.side == "buy" else best.agent_id
                 seller_id = agent_id if order.side == "sell" else best.agent_id
-                step_trades.append(
-                    TradeRecord(
-                        step=self._step,
-                        sequence=len(step_trades),
-                        ts=ts,
-                        symbol=order.symbol,
-                        price=price,
-                        quantity=qty,
-                        buyer_id=buyer_id,
-                        seller_id=seller_id,
-                        fee_per_side=abs(price * qty) * self.fee_bps / 1e4,
-                    )
+                buyer_order_id = (
+                    pending.order_id if order.side == "buy" else best.order_id
                 )
+                seller_order_id = (
+                    pending.order_id if order.side == "sell" else best.order_id
+                )
+                trade = TradeRecord(
+                    step=self._step,
+                    sequence=len(step_trades),
+                    ts=ts,
+                    symbol=order.symbol,
+                    price=price,
+                    quantity=qty,
+                    buyer_id=buyer_id,
+                    seller_id=seller_id,
+                    buyer_order_id=buyer_order_id,
+                    seller_order_id=seller_order_id,
+                    fee_per_side=abs(price * qty) * self.fee_bps / 1e4,
+                )
+                step_trades.append(trade)
+                emit({"event_type": "trade", **asdict(trade)})
                 trades[order.symbol].append((price, qty))
                 remaining -= qty
                 best.quantity -= qty
@@ -204,14 +309,68 @@ class ExchangeMarket:
                 book[order.side].append(
                     _Resting(
                         price=self._snap(order.limit_price), arrival=arrival,
-                        agent_id=agent_id, side=order.side, quantity=remaining,
+                        order_id=pending.order_id, agent_id=agent_id,
+                        side=order.side, quantity=remaining, created_step=self._step,
                     )
                 )
+            elif remaining > 1e-9:
+                emit(
+                    {
+                        "event_type": "order_expired",
+                        "step": self._step,
+                        "ts": ts,
+                        "order_id": pending.order_id,
+                        "agent_id": agent_id,
+                        "symbol": order.symbol,
+                        "side": order.side,
+                        "price": None,
+                        "quantity": remaining,
+                        "reason": "unfilled_market_remainder",
+                    }
+                )
 
-        self.last_book_snapshot = self._snapshot_books(books)
+        self.last_book_snapshot = self._snapshot_books(self._books)
+        for symbol, sides in self.last_book_snapshot.items():
+            for side, orders in sides.items():
+                emit(
+                    {
+                        "event_type": "book_snapshot",
+                        "step": self._step,
+                        "ts": ts,
+                        "symbol": symbol,
+                        "side": side,
+                        "orders": [asdict(order) for order in orders],
+                    }
+                )
+        expiry_reason = (
+            "step_end"
+            if self.order_lifetime == ORDER_LIFETIME
+            else "session_end"
+            if self._step + 1 >= self.n_steps
+            else None
+        )
+        if expiry_reason is not None:
+            for sides in self.last_book_snapshot.values():
+                for orders in sides.values():
+                    for order in orders:
+                        emit(
+                            {
+                                "event_type": "order_expired",
+                                "step": self._step,
+                                "ts": ts,
+                                **asdict(order),
+                                "reason": expiry_reason,
+                            }
+                        )
+            self._books = {
+                symbol: {"buy": [], "sell": []} for symbol in self.symbols
+            }
         self.last_step_trades = tuple(step_trades)
         self.trade_tape += self.last_step_trades
         self.last_step_bars = self._append_bars(ts, trades)
+        for bar in self.last_step_bars:
+            emit({"event_type": "endogenous_bar", "step": self._step, **asdict(bar)})
+        self.last_step_events = tuple(step_events)
         self._pending = []
         self._step += 1
         return fills
@@ -243,8 +402,10 @@ class ExchangeMarket:
                         side=side,
                         price=order.price,
                         quantity=order.quantity,
+                        order_id=order.order_id,
                         agent_id=order.agent_id,
                         arrival=order.arrival,
+                        created_step=order.created_step,
                     )
                     for order in orders
                 )

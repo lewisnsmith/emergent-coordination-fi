@@ -148,6 +148,7 @@ class MarketConfig(BaseModel):
     fee_bps: float = 5.0
     slippage_bps: float = 2.0  # replay only
     tick_size: float = 0.01  # exchange only
+    order_lifetime: Literal["step", "good_til_cancelled"] = "step"
 
 
 class RuntimeBudget(BaseModel):

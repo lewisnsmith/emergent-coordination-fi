@@ -23,19 +23,40 @@ class Ledger:
         self.qty: dict[str, float] = {}
         self.avg_price: dict[str, float] = {}
 
-    def clip_orders(self, orders: tuple[Order, ...], prices: dict[str, float]) -> tuple[Order, ...]:
+    def clip_orders(
+        self,
+        orders: tuple[Order, ...],
+        prices: dict[str, float],
+        existing_orders: tuple[Order, ...] = (),
+    ) -> tuple[Order, ...]:
         """Enforce constraints using fill-independent reservations.
 
         Orders in one decision are simultaneous: an unfilled buy cannot provide
         inventory for a sell, and an unfilled sell cannot provide cash or position
-        room for a buy. Reservations are therefore tracked independently against
-        the portfolio at the start of the decision.
+        room for a buy. Persistent limits from prior steps remain reserved until
+        they fill, cancel, or expire.
         """
         clipped: list[Order] = []
         reserved_cash = 0.0
         reserved_buys: dict[str, float] = {}
         reserved_sells: dict[str, float] = {}
         fee_multiplier = 1 + self.fee_bps / 1e4
+
+        for order in existing_orders:
+            reference = (
+                order.limit_price
+                if order.limit_price is not None
+                else prices[order.symbol]
+            )
+            if order.side == "buy":
+                reserved_cash += order.quantity * reference * fee_multiplier
+                reserved_buys[order.symbol] = (
+                    reserved_buys.get(order.symbol, 0.0) + order.quantity
+                )
+            else:
+                reserved_sells[order.symbol] = (
+                    reserved_sells.get(order.symbol, 0.0) + order.quantity
+                )
 
         for o in orders:
             ref = o.limit_price if o.limit_price is not None else prices[o.symbol]
