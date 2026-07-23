@@ -3,11 +3,9 @@
 **Do LLM-powered trading agents converge on similar trading strategies to a greater extent than
 current market infrastructure?**
 
-flock is an experiment zone for measuring *strategy convergence* and *emergent coordination* in
-LLM trading agents, compared against classical algorithmic baselines and empirical dispersion of
-real-world traders. It sweeps across markets (equities, prediction markets), model providers,
-harness parameters, personas/demographic instructions, and information sets — and produces
-publishable decision-log datasets for agents in finance.
+flock measures *strategy convergence* and *emergent coordination* in LLM trading agents against
+classical algorithmic baselines and real-world trader dispersion. It varies markets, models,
+harness parameters, personas, and information sets, producing publishable decision logs.
 
 See [`docs/research/`](docs/research/) for the full research design:
 
@@ -21,11 +19,11 @@ See [`docs/research/`](docs/research/) for the full research design:
 
 ## Quickstart (no API keys required)
 
-The whole pipeline runs offline with deterministic mock models:
+The pipeline runs offline with deterministic mock models:
 
 ```bash
 uv sync
-uv run flock data build synthetic          # build a seeded synthetic equities dataset
+uv run flock data build synthetic          # seeded synthetic equities
 uv run flock run configs/experiments/exp-000-smoke.yaml
 uv run flock analyze latest                # convergence report with bootstrap CIs
 ```
@@ -50,10 +48,10 @@ Phase 1 (Replay):                      Phase 2 (Shared exchange):
                                         emergent coordination)
 ```
 
-Every run pits an **LLM cohort** against a **baseline cohort** (momentum, mean-reversion,
-market-making, buy-and-hold, random) under identical conditions, then measures within-cohort
-dispersion of decisions, positions, and strategy fingerprints. Real-world reference data
-(13F overlap, prediction-market traders) anchors the comparison externally.
+Each run compares an **LLM cohort** with a matched **baseline cohort** (momentum,
+mean-reversion, market-making, buy-and-hold, random), measuring within-cohort dispersion in
+decisions, positions, and strategy fingerprints. 13F overlap and prediction-market trader data
+provide external anchors.
 
 ## Repo map
 
@@ -70,20 +68,17 @@ dispersion of decisions, positions, and strategy fingerprints. Real-world refere
 
 ## Reproducibility
 
-Every run writes a manifest (config hash, git SHA, dataset hashes, model params, seeds) under
-`results/<run-id>/`. LLM responses are cached content-addressed in `.flock-cache/` so published
-results can be re-derived offline. Decision logs are JSONL with full rationales, token usage,
-and cost.
+Each run writes a local manifest (config hash, git SHA, dataset hashes, model params, seeds) to
+`results/<run-id>/`; `datasets/manifests.json` is the checked-in input registry. Content-addressed
+LLM responses in `.flock-cache/` make analyses reproducible offline. JSONL decision logs retain
+rationales, token usage, and cost.
 
 ## Development
 
 ```bash
-uv run pytest
-uv run ruff check .
+uv run pytest && uv run ruff check .
 ```
 
-**If this repo lives in an iCloud-synced folder** (e.g. `~/Documents`), export
-`UV_NO_EDITABLE=1` in your shell before running uv: iCloud re-hides `.venv` `.pth` files and
-modern CPython skips hidden `.pth` files, which intermittently breaks editable installs with
-`ModuleNotFoundError: flock`. Non-editable installs are immune. (Claude Code sessions get this
-automatically via `.claude/settings.json`.)
+In iCloud-synced folders (for example, `~/Documents`), export `UV_NO_EDITABLE=1` before running
+uv. iCloud can hide editable-install `.pth` files, causing intermittent `ModuleNotFoundError`
+failures; `.claude/settings.json` sets this automatically for Claude Code sessions.

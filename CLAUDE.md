@@ -1,14 +1,13 @@
 # flock — repo guide for Claude sessions
 
-Experiment zone measuring strategy convergence / emergent coordination in LLM trading agents.
-Read `docs/research/01-research-question.md` and `02-experimental-design.md` before touching
-experiment logic — the code exists to serve that design.
+Experiment zone measuring strategy convergence and emergent coordination in LLM trading agents.
+Before changing experiment logic, read `docs/research/01-research-question.md` and
+`02-experimental-design.md`; the code serves that design.
 
 ## Stack
 
-Python 3.12, `uv` (run everything via `uv run`), pydantic v2 configs, pandas+pyarrow data,
-typer CLI, pytest, ruff (no mypy configured — don't claim type-check success, run
-`uv run ruff check .` instead).
+Python 3.12; `uv`; pydantic v2; pandas + pyarrow; typer; pytest; ruff. Run tools via `uv run`.
+No type-checker is configured; do not claim type-check success.
 
 ## Commands
 
@@ -45,15 +44,11 @@ uv run pytest && uv run ruff check .      # required before claiming done
   (tag `prereg-v1`), metric/exclusion-rule changes require an amendment entry there.
 - **Offline-first.** `flock run` + `flock analyze` must work with zero API keys and zero
   network. Network happens only in `flock data build` and real-provider calls.
-- **Manifests over memory.** Anything a result depends on (config, dataset hash, git SHA,
-  model params) goes in the run manifest.
-- Datasets/results payloads are gitignored; manifests are checked in.
+- **Manifests over memory.** Record every result dependency (config, dataset hash, git SHA,
+  model params) in the local run manifest. Payloads and run manifests are gitignored;
+  `datasets/manifests.json` is the checked-in input registry.
 - `src/flock/logging_/` has the underscore to avoid shadowing stdlib `logging`.
-- **iCloud quirk — `UV_NO_EDITABLE=1` is load-bearing.** This repo lives in an iCloud-synced
-  folder. iCloud keeps re-applying macOS's `hidden` flag to files in `.venv`, and modern
-  CPython's site.py silently skips hidden `.pth` files, which breaks *editable* installs
-  intermittently (`ModuleNotFoundError: flock` from `uv run`). Fix: install non-editable.
-  `.claude/settings.json` sets `UV_NO_EDITABLE=1` for Claude sessions; human shells should
-  export it too (see README). Consequence: uv rebuilds the wheel on source changes — normal.
-  iCloud can also evict repo files under disk pressure (reads fail with "Operation canceled"
-  or time out); `brctl download <path>` re-materializes them.
+- **iCloud quirk — `UV_NO_EDITABLE=1` is load-bearing.** Hidden `.pth` files make editable
+  installs fail intermittently, so `.claude/settings.json` selects non-editable installs and
+  human shells must export the variable too. Wheel rebuilds after source changes are normal.
+  If iCloud evicts a file (`Operation canceled` or timeout), run `brctl download <path>`.

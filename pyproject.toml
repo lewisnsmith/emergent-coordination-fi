@@ -38,9 +38,7 @@ dev = [
 ]
 
 [tool.uv]
-# Rebuild the (non-editable) wheel whenever sources change. Non-editable is
-# required here: iCloud re-hides .venv .pth files and CPython skips hidden
-# .pth files, so editable installs break intermittently. See CLAUDE.md.
+# Rebuild the non-editable wheel after source changes; see CLAUDE.md for the iCloud constraint.
 cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.py" }]
 
 [build-system]
