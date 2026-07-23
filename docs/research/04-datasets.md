@@ -1,72 +1,50 @@
 # 04 — Datasets
 
-Two kinds of datasets: **inputs** (market data agents trade on; reference panels) and
-**outputs** (decision logs — the publishable "agents in finance" datasets).
-
-All datasets are local, versioned, and content-hashed. `datasets/manifests.json` is the
-checked-in registry; payloads under `datasets/` are gitignored. Builders live in
-`src/flock/data/builders/` and are invoked via `flock data build <builder>`.
+The project uses **inputs** (market data and reference panels) to produce **outputs** (the
+publishable agent-decision datasets). Input payloads are local and gitignored;
+`datasets/manifests.json` versions each dataset and hashes its primary file. Builders live in
+`src/flock/data/builders/` and run through `flock data build <builder>`.
 
 ## Input datasets
 
-### `synthetic` — regime-switching synthetic market (offline, free, seeded)
-- Regime-switching price process: trending / mean-reverting / crisis regimes with Markov
-  transitions; per-symbol idiosyncratic + common factor components; templated news events with
-  known sentiment attached to regime shifts.
-- Purpose: pipeline validation, metric calibration on cohorts of *known* convergence,
-  contamination-free robustness sets.
-- Schema: `bars` (ts, symbol, open, high, low, close, volume) + `events` (ts, symbol, headline,
-  sentiment).
-
-### `equities` — US daily bars (yfinance)
-- Daily OHLCV for a configurable symbol list and window. Multiple windows spanning distinct
-  regimes (e.g., 2020 crash, 2021 melt-up, 2022 drawdown, post-cutoff periods for
-  contamination robustness).
-
-### `polymarket` / `kalshi` — binary prediction contracts
-- Historical resolved markets: contract metadata, price history, resolution outcome.
-- Rendered for agents as binary contracts with price ∈ (0,1).
-
-### `refs13f` — real-world reference panels (external anchor, H2)
-- 13F quarterly holdings for a panel of institutional managers (SEC EDGAR, descriptive
-  User-Agent required); used to compute empirical portfolio overlap and LSV herding among real
-  managers.
-- Prediction-market positioning panels where obtainable.
-- These are *reference* datasets: they feed the analysis layer directly, not the replay engine.
+| Builder | Contents | Purpose |
+|---|---|---|
+| `synthetic` | Seeded Markov transitions among trending, mean-reverting, and crisis regimes; common and per-symbol idiosyncratic factors; known-sentiment templated news at regime shifts. Schema: `bars` (`ts`, `symbol`, OHLCV) + `events` (`ts`, `symbol`, `headline`, `sentiment`). | Free, offline pipeline validation, known-convergence metric calibration, and contamination-free robustness. |
+| `equities` | yfinance daily OHLCV for configurable symbols across multiple windows, including the 2020 crash, 2021 melt-up, 2022 drawdown, and post-cutoff periods. | Historical equity replay and contamination robustness. |
+| `polymarket`, `kalshi` | Historical resolved binary contracts: metadata, price history, and outcome, rendered at prices in `(0,1)`. | Prediction-market replay. |
+| `refs13f` | SEC EDGAR quarterly holdings for institutional-manager panels (with a descriptive User-Agent), plus prediction-market positioning where obtainable. | H2 external anchors for portfolio overlap and LSV herding. These feed analysis directly, not replay. |
 
 ## Output datasets (deliverables)
 
-### Decision logs — `results/<run-id>/decisions.jsonl`
-One record per agent-step:
+| Artifact | Unit and contents |
+|---|---|
+| `results/<run-id>/decisions.jsonl` | One record per agent-step: agent metadata, observation digest, requested and clipped orders, rationale, parse status, usage, and latency. |
+| `results/<run-id>/fills.parquet` | Executed fills with prices and fees. |
+| `results/<run-id>/portfolio.parquet` | Per-step, per-agent cash, positions, and equity. |
+| `results/<run-id>/manifest.json` | Inline config and hash, code git SHA, dataset name/version/hash, agent model parameters and seeds, run seed, timing, and cost. |
+
+Representative LLM decision record:
 
 ```json
 {
   "run_id": "...", "step": 42, "ts": "2024-03-01",
   "agent_id": "llm-claude-x-neutral-0", "cohort": "llm",
-  "kind": "llm", "model": "claude-x", "persona": "neutral",
+  "kind": "llm", "model": "claude-x", "model_id": "...", "persona": "neutral",
   "temperature": 0.7, "seed": 7,
-  "observation_digest": "sha256:...",
-  "prompt_hash": "sha256:...",
+  "observation_digest": "0123456789abcdef", "action": "buy",
   "orders": [{"symbol": "AAPL", "side": "buy", "quantity": 10, "limit_price": null}],
+  "orders_clipped": [{"symbol": "AAPL", "side": "buy", "quantity": 10, "limit_price": null}],
   "rationale": "...", "parse_ok": true,
   "usage": {"input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0},
   "latency_s": 0.0
 }
 ```
 
-### Trade/portfolio history — `results/<run-id>/fills.parquet`, `portfolio.parquet`
-Fills with prices/fees; per-step per-agent cash, positions, equity.
-
-### Run manifest — `results/<run-id>/manifest.json`
-Config (inline + hash), code git SHA, dataset name/hash, model params, seeds, timing, cost.
-
-Together these form the publishable dataset: (observation, agent parameterization, decision,
-rationale, outcome) tuples suitable for studying LLM financial decision-making beyond this
-paper's question.
+Together, the artifacts provide publishable `(observation, agent parameterization, decision,
+rationale, outcome)` tuples for studying LLM financial decision-making beyond this paper.
 
 ## Provenance & licensing notes
 
-- yfinance data is for research use; published artifacts include derived decision logs, not
-  redistributed raw vendor data.
-- EDGAR data is public domain; Polymarket/Kalshi historical data via their public APIs, cached
-  with retrieval timestamps in the manifest.
+- Published artifacts contain derived decision logs, not redistributed raw yfinance/vendor data.
+- SEC EDGAR and public Polymarket/Kalshi APIs supply reference inputs. Verify source-specific
+  licensing and redistribution terms before publishing raw payloads.
