@@ -1,6 +1,7 @@
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from typer.testing import CliRunner
@@ -156,6 +157,10 @@ def test_execute_materialized_rejects_real_and_records_terminal_resume(
         "flock.experiments.materialized_execution.run_config",
         fake_run,
     )
+    monkeypatch.setattr(
+        "flock.experiments.materialized_execution.verify_run",
+        lambda _run_dir: SimpleNamespace(ok=True, errors=[]),
+    )
     results_root = tmp_path / "results"
     first = CliRunner().invoke(
         app,
@@ -228,3 +233,35 @@ def test_execute_materialized_rejects_real_and_records_terminal_resume(
     with pytest.raises(ValueError, match="only accepts evidence_kind=mock"):
         execute_materialized(real_path, tmp_path / "rejected")
     assert len(attempts) == 3
+
+    tampered = bundle.assignments[0]
+    tampered_config = ExperimentConfig.model_validate(
+        tampered.execution_config
+    ).model_dump(mode="json")
+    first_llm = next(
+        group
+        for cohort in tampered_config["cohorts"]
+        for group in cohort["agents"]
+        if group["kind"] == "llm"
+    )
+    first_llm["model"] = "mock-hold"
+    tampered = tampered.model_copy(update={"execution_config": tampered_config})
+    tampered_payload = tampered.model_dump(mode="json")
+    rejected_payload = {
+        **bundle.model_dump(mode="json"),
+        "assignments": [tampered_payload],
+        "exact_runs": 1,
+        "exact_steps": tampered.exact_counts.steps,
+        "exact_agent_steps": tampered.exact_counts.agent_steps,
+        "exact_calls": tampered.exact_counts.calls,
+        "executable_runs": 1,
+        "materialization_hash": hashlib.sha256(
+            json.dumps(
+                [tampered_payload], sort_keys=True, separators=(",", ":")
+            ).encode()
+        ).hexdigest(),
+    }
+    rejected_path = tmp_path / "unmapped-mock-bundle.json"
+    rejected_path.write_text(json.dumps(rejected_payload))
+    with pytest.raises(ValueError, match="explicit frozen substitution"):
+        execute_materialized(rejected_path, tmp_path / "unmapped")

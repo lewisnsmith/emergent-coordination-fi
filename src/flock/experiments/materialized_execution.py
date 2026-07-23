@@ -10,6 +10,7 @@ from typing import Any
 from flock.core.config import ExperimentConfig, load_models
 from flock.experiments.materialize import MaterializedStudy, RunAssignment
 from flock.experiments.runner import make_run_id, resolved_config_hash, run_config
+from flock.experiments.verify import verify_run
 
 TERMINAL_STATUSES = {"completed", "reused", "blocked", "failed"}
 
@@ -81,6 +82,22 @@ def _validate_mock_assignment(
             f"{assignment.assignment_id}: missing explicit mock substitutions for "
             f"{sorted(missing_substitutions)}"
         )
+    source_llm_models = {
+        allocation.model_id
+        for cohort in assignment.cohorts
+        if cohort.technology == "llm"
+        for allocation in cohort.allocations
+    }
+    unexpected_substitutions = (
+        assignment.model_registry_substitutions.keys() - source_llm_models
+    )
+    substitution_targets = list(assignment.model_registry_substitutions.values())
+    if unexpected_substitutions or len(substitution_targets) != len(
+        set(substitution_targets)
+    ):
+        raise ValueError(
+            f"{assignment.assignment_id}: invalid mock substitution provenance"
+        )
     if assignment.execution_config is None:
         if not assignment.execution_blockers:
             raise ValueError(
@@ -109,6 +126,19 @@ def _validate_mock_assignment(
         raise ValueError(
             f"{assignment.assignment_id}: execution config provenance drift: {', '.join(drift)}"
         )
+    native_mock_models = {
+        allocation.model_id
+        for cohort in assignment.cohorts
+        if cohort.technology == "llm"
+        for allocation in cohort.allocations
+        if allocation.provider == "mock"
+    }
+    native_mock_keys = {
+        registry_key
+        for registry_key, spec in models.items()
+        if spec.provider == "mock" and spec.model_id in native_mock_models
+    }
+    allowed_mock_keys = set(substitution_targets) | native_mock_keys
     for group in (group for cohort in config.cohorts for group in cohort.agents):
         if group.kind != "llm":
             continue
@@ -118,6 +148,11 @@ def _validate_mock_assignment(
         if spec.provider != "mock" or spec.deployment != "mock":
             raise ValueError(
                 f"{assignment.assignment_id}: model {group.model!r} is not local mock-only"
+            )
+        if group.model not in allowed_mock_keys:
+            raise ValueError(
+                f"{assignment.assignment_id}: model {group.model!r} is not an "
+                "explicit frozen substitution"
             )
     return config
 
@@ -143,6 +178,16 @@ def _manifest_error(path: Path, config: ExperimentConfig) -> str | None:
         if actual != expected
     ]
     return "; ".join(mismatches) if mismatches else None
+
+
+def _completed_run_error(run_dir: Path, config: ExperimentConfig) -> str | None:
+    manifest_error = _manifest_error(run_dir / "manifest.json", config)
+    if manifest_error is not None:
+        return manifest_error
+    verification = verify_run(run_dir)
+    if not verification.ok:
+        return f"raw-run verification failed: {'; '.join(verification.errors)}"
+    return None
 
 
 def _summary(entries: list[dict[str, Any]]) -> dict[str, int]:
@@ -252,7 +297,7 @@ def execute_materialized(
         manifest_path = run_dir / "manifest.json"
         entry.update({"run_id": run_id, "run_dir": str(run_dir), "error": None})
         if manifest_path.exists():
-            error = _manifest_error(manifest_path, config)
+            error = _completed_run_error(run_dir, config)
             if error is None:
                 entry["status"] = "reused"
             else:
@@ -263,7 +308,7 @@ def execute_materialized(
             result = run_config(config, results_root=results_root)
             if result.run_id != run_id:
                 raise ValueError("runner returned a run id different from the resolved config")
-            error = _manifest_error(result.run_dir / "manifest.json", config)
+            error = _completed_run_error(result.run_dir, config)
             if error is not None:
                 raise ValueError(error)
             entry.update(

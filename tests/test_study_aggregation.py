@@ -34,6 +34,14 @@ BASELINES = (
 STEPS = 3
 
 
+@pytest.fixture(autouse=True)
+def _stable_resolved_config_hash(monkeypatch):
+    monkeypatch.setattr(
+        "flock.experiments.aggregate.resolved_config_hash",
+        lambda _config: "resolved-hash",
+    )
+
+
 def _allocation(
     model_id: str,
     provider: str,
@@ -260,7 +268,12 @@ def _assignment(
     config: dict,
 ) -> dict:
     agents = sum(sum(item["count"] for item in cohort["allocations"]) for cohort in cohorts)
-    calls = agents * STEPS
+    llm_agents = sum(
+        sum(item["count"] for item in cohort["allocations"])
+        for cohort in cohorts
+        if cohort["technology"] == "llm"
+    )
+    calls = llm_agents * STEPS
     return {
         "assignment_id": config["name"],
         "ordinal": ordinal,
@@ -293,6 +306,13 @@ def _assignment(
             for cohort in cohorts
             for allocation in cohort["allocations"]
         },
+        "evidence_kind": "mock",
+        "model_registry_substitutions": {
+            allocation["model_id"]: f"key-{allocation['model_id']}"
+            for cohort in cohorts
+            if cohort["technology"] == "llm"
+            for allocation in cohort["allocations"]
+        },
         "execution_config": config,
         "execution_blockers": [],
     }
@@ -308,7 +328,7 @@ def _agents(config: dict) -> dict[str, dict]:
                 meta = {"cohort": cohort["name"], "kind": group["kind"]}
                 if group["kind"] == "llm":
                     meta["model"] = group["model"]
-                    meta["model_id"] = MODEL_BY_KEY[group["model"]]
+                    meta["model_id"] = f"runtime-{MODEL_BY_KEY[group['model']]}"
                     if group.get("mphiq_treatment") is not None:
                         meta["mphiq_treatment"] = group["mphiq_treatment"]
                 agents[agent_id] = meta
@@ -546,6 +566,15 @@ def test_aggregate_study_fails_closed_on_raw_run_violations(tmp_path, monkeypatc
             assignments_path, tmp_path / "parse-output", results_root=results_root
         )
 
+    monkeypatch.setattr("flock.experiments.aggregate.verify_run", lambda _path: _verified())
+    manifest = json.loads(manifest_path.read_text())
+    manifest["n_steps"] = STEPS - 1
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="frozen exact counts"):
+        aggregate_study(
+            assignments_path, tmp_path / "truncated-output", results_root=results_root
+        )
+
 
 def test_aggregate_study_rejects_mixed_evidence_and_pseudoreplication(
     tmp_path, monkeypatch
@@ -564,7 +593,11 @@ def test_aggregate_study_rejects_mixed_evidence_and_pseudoreplication(
         "request_cost_reserve_usd": 1.0,
     }
     real_assignment = real_assignment.model_copy(
-        update={"execution_config": real_config}
+        update={
+            "execution_config": real_config,
+            "evidence_kind": "real",
+            "model_registry_substitutions": {},
+        }
     )
     real_dir = next(
         path
@@ -586,6 +619,25 @@ def test_aggregate_study_rejects_mixed_evidence_and_pseudoreplication(
     invalid = materialized.model_copy(update={"assignments": tuple(assignments)})
     with pytest.raises(ValueError, match="dependence cluster"):
         _first_paper_assignments(invalid)
+
+    unresolved = replay[1].model_copy(update={"evidence_kind": "unresolved"})
+    with pytest.raises(ValueError, match="evidence kind is unresolved"):
+        _load_verified_runs([unresolved], results_root)
+
+    mock_run = next(
+        path
+        for path in results_root.iterdir()
+        if json.loads((path / "manifest.json").read_text())["config"]["name"]
+        == replay[1].assignment_id
+    )
+    mock_manifest = json.loads((mock_run / "manifest.json").read_text())
+    llm_agent = next(
+        meta for meta in mock_manifest["agents"].values() if meta["kind"] == "llm"
+    )
+    llm_agent["model"] = "undeclared-mock-key"
+    (mock_run / "manifest.json").write_text(json.dumps(mock_manifest))
+    with pytest.raises(ValueError, match="undeclared mock registry key"):
+        _load_verified_runs([replay[1]], results_root)
 
 
 def test_current_paper_plan_uses_common_blocks_but_remains_execution_gated():

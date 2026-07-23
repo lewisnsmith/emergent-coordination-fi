@@ -21,6 +21,7 @@ from flock.analysis import convergence
 from flock.analysis.crossed import H4_COMPONENTS
 from flock.core.config import ExperimentConfig
 from flock.experiments.materialize import MaterializedStudy, RunAssignment
+from flock.experiments.runner import resolved_config_hash
 from flock.experiments.verify import verify_run
 
 RAW_RUN_INPUTS = (
@@ -252,6 +253,27 @@ def _load_verified_runs(
             raise ValueError(f"run config schema violation: {run_dir}") from error
         if expected_config.model_dump(mode="json") != actual_config.model_dump(mode="json"):
             raise ValueError(f"run config does not match frozen assignment: {assignment_id}")
+        if assignment.evidence_kind not in {"mock", "real"}:
+            raise ValueError(
+                f"assignment evidence kind is unresolved: {assignment_id}"
+            )
+        expected_kind: Literal["mock", "real"] = (
+            "mock" if actual_config.model_policy == "mock_only" else "real"
+        )
+        if assignment.evidence_kind != expected_kind:
+            raise ValueError(
+                f"assignment evidence kind disagrees with execution config: {assignment_id}"
+            )
+        if assignment.evidence_kind == "real" and assignment.model_registry_substitutions:
+            raise ValueError(f"real assignment declares mock substitutions: {assignment_id}")
+        try:
+            expected_resolved_hash = resolved_config_hash(actual_config)
+        except (KeyError, FileNotFoundError, ValueError) as error:
+            raise ValueError(
+                f"run model/persona registry provenance cannot be resolved: {run_dir}"
+            ) from error
+        if manifest.get("resolved_config_hash") != expected_resolved_hash:
+            raise ValueError(f"run resolved config hash mismatch: {run_id}")
         if (
             actual_config.independent_block != assignment.trajectory_id
             or actual_config.trajectory_id != assignment.trajectory_id
@@ -280,6 +302,18 @@ def _load_verified_runs(
             raise ValueError(f"raw run {run_id} portfolio schema missing {missing}")
         if decisions.empty or portfolio.empty:
             raise ValueError(f"raw run {run_id} has empty decision or portfolio payload")
+        if (
+            int(manifest.get("n_steps", -1)) != assignment.exact_counts.steps
+            or int(manifest.get("n_agents", -1))
+            != assignment.exact_counts.agents_per_run
+            or len(decisions) != assignment.exact_counts.agent_steps
+            or len(portfolio) != assignment.exact_counts.agent_steps
+        ):
+            raise ValueError(f"raw run does not match frozen exact counts: {run_id}")
+        expected_steps = set(range(assignment.exact_counts.steps))
+        for label, frame in (("decision", decisions), ("portfolio", portfolio)):
+            if set(frame["step"].astype(int)) != expected_steps:
+                raise ValueError(f"raw run {run_id} has incomplete {label} step domain")
         parse_status = cast(pd.Series, decisions["parse_ok"])
         if not pd.api.types.is_bool_dtype(parse_status.dtype) or bool(
             parse_status.isna().any()
@@ -293,6 +327,36 @@ def _load_verified_runs(
             raise ValueError(f"raw run {run_id} agent manifest does not match decisions")
         if set(portfolio["agent_id"].astype(str)) != set(manifest_agents):
             raise ValueError(f"raw run {run_id} agent manifest does not match portfolios")
+        configured_llm_models = {
+            group.model
+            for cohort in actual_config.cohorts
+            for group in cohort.agents
+            if group.kind == "llm" and group.model is not None
+        }
+        manifested_llm_models = {
+            str(cast(dict[str, Any], meta).get("model", ""))
+            for meta in manifest_agents.values()
+            if cast(dict[str, Any], meta).get("kind") == "llm"
+        }
+        if undeclared := sorted(manifested_llm_models - configured_llm_models):
+            raise ValueError(
+                f"raw run {run_id} has an undeclared mock registry key {undeclared}"
+            )
+        llm_agent_ids = {
+            str(agent_id)
+            for agent_id, meta in manifest_agents.items()
+            if cast(dict[str, Any], meta).get("kind") == "llm"
+        }
+        llm_agent_steps = int(
+            np.count_nonzero(
+                decisions["agent_id"].astype(str).isin(list(llm_agent_ids)).to_numpy()
+            )
+        )
+        if (
+            llm_agent_steps * assignment.calls_per_llm_agent_step
+            != assignment.exact_counts.calls
+        ):
+            raise ValueError(f"raw run does not match frozen call count: {run_id}")
         if assignment.design == "mphiq":
             code = assignment.cell.mphiq_code
             if code is None or "mphiq_treatment" not in decisions.columns:
@@ -318,20 +382,7 @@ def _load_verified_runs(
                         f"MPHIQ run {run_id} decision treatment differs from its manifest"
                     )
 
-        llm_agents = [
-            cast(dict[str, Any], meta)
-            for meta in manifest_agents.values()
-            if cast(dict[str, Any], meta).get("kind") == "llm"
-        ]
-        mock_model_detected = any(
-            str(meta.get("model_id", meta.get("model", ""))).startswith("mock-")
-            for meta in llm_agents
-        )
-        if actual_config.model_policy == "frontier_only" and mock_model_detected:
-            raise ValueError(f"mock raw run was declared as real evidence: {run_id}")
-        kind: Literal["mock", "real"] = (
-            "mock" if actual_config.model_policy == "mock_only" else "real"
-        )
+        kind = expected_kind
         evidence_kinds.add(kind)
         loaded.append(
             _VerifiedRun(
@@ -372,8 +423,28 @@ def _agent_family_map(
     families: dict[str, list[str]] = {}
     lineage: dict[str, tuple[str, str]] = {}
     if source.technology == "llm":
+        reverse_substitutions: dict[str, str] = {}
+        if run.assignment.evidence_kind == "mock":
+            substitutions = run.assignment.model_registry_substitutions
+            if len(substitutions) != len(set(substitutions.values())):
+                raise ValueError(
+                    f"run {run.run_id} has non-unique mock substitution targets"
+                )
+            reverse_substitutions = {
+                registry_key: source_model_id
+                for source_model_id, registry_key in substitutions.items()
+            }
         for agent_id, meta in agents.items():
-            model_id = str(meta.get("model_id", ""))
+            if run.assignment.evidence_kind == "mock":
+                registry_key = str(meta.get("model", ""))
+                model_id = reverse_substitutions.get(registry_key, "")
+                if not model_id:
+                    raise ValueError(
+                        f"run {run.run_id} has an undeclared mock registry key "
+                        f"{registry_key!r}"
+                    )
+            else:
+                model_id = str(meta.get("model_id", ""))
             allocation = allocation_by_model.get(model_id)
             if allocation is None:
                 raise ValueError(f"run {run.run_id} has an undeclared model {model_id!r}")
@@ -458,6 +529,10 @@ def _crossed_and_lineage_rows(
             value = convergence.cohen_kappa(
                 cast(pd.Series, matrix[left]), cast(pd.Series, matrix[right])
             )
+            if not np.isfinite(value):
+                raise ValueError(
+                    f"run {run.run_id} produced a non-finite H3 pair kappa"
+                )
             pair_values.setdefault(
                 (block, relationship, stratum, pair_id), []
             ).append((float(value), run.run_id))
