@@ -12,6 +12,7 @@ Commands:
     flock validate-study         Recompile and validate a frozen study plan.
     flock materialize-study      Export deterministic run assignments/configs.
     flock aggregate-study        Aggregate verified raw runs into crossed inputs.
+    flock harmonize-h2           Build the activity-matched H2 reference bundle.
     flock execute-materialized   Execute a mock-only bundle with a terminal ledger.
 """
 
@@ -238,6 +239,35 @@ def aggregate_study_command(
         f"aggregates -> {result.output_dir} ({result.independent_blocks} independent blocks, "
         f"{result.source_runs} verified runs, {result.evidence_kind}, "
         f"hash {result.aggregation_hash})"
+    )
+
+
+@app.command("harmonize-h2")
+def harmonize_h2_command(
+    holdings: Path = typer.Argument(..., help="Acquired holdings13f.parquet"),
+    comparison_counts: Path = typer.Argument(
+        ..., help="Realized simulated-holdings count panel"
+    ),
+    output: Path = typer.Option(..., help="New directory for hashed H2 artifacts"),
+    min_traders: int = typer.Option(3, help="Minimum active managers per LSV/Sias cell"),
+    activity_rate_tolerance: float = typer.Option(
+        0.0, help="Maximum absolute activity-rate mismatch"
+    ),
+) -> None:
+    """Harmonize 13F changes and require comparable simulated activity."""
+    from flock.analysis.h2 import build_h2_artifacts
+
+    result = build_h2_artifacts(
+        holdings,
+        comparison_counts,
+        output,
+        min_traders=min_traders,
+        activity_rate_tolerance=activity_rate_tolerance,
+    )
+    typer.echo(
+        f"H2 artifacts -> {result.output_dir} ({result.source_rows} source rows, "
+        f"{result.activity_rows} activity rows, {result.lsv_cells} LSV cells, "
+        f"hash {result.artifact_hash})"
     )
 
 
