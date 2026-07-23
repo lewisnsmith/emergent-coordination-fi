@@ -217,6 +217,30 @@ def test_13f_harmonization_uses_share_changes_and_reports_unmatched_units():
     } <= reasons
 
 
+def test_13f_harmonization_does_not_turn_exclusions_into_liquidations():
+    panel = pd.DataFrame(
+        [
+            _holding("m1", "2024-03-31", "AAA", 100),
+            _holding("m1", "2024-03-31", "BBB", 50),
+            _holding("m1", "2024-06-30", "AAA", None),
+            _holding("m1", "2024-06-30", "BBB", 60),
+        ]
+    )
+
+    harmonized = harmonize_13f_holdings_changes(panel)
+
+    assert not (
+        (harmonized.activity["manager"] == "m1")
+        & (harmonized.activity["symbol"] == "AAA")
+    ).any()
+    bbb = harmonized.activity[harmonized.activity["symbol"] == "BBB"]
+    assert bbb.iloc[0]["delta_shares"] == 10
+    excluded = harmonized.unmatched[
+        harmonized.unmatched["reason"] == "comparison_input_excluded"
+    ]
+    assert set(excluded["symbol"]) == {"AAA"}
+
+
 def test_13f_output_is_lsv_and_sias_compatible():
     patterns = {
         "AAA": [1, 1, 1, 0],

@@ -14,6 +14,7 @@ import json
 import os
 import time
 import xml.etree.ElementTree as ET
+from datetime import date
 from pathlib import Path
 from typing import TypedDict
 
@@ -36,6 +37,7 @@ MANAGERS = {
 
 SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik:010d}.json"
 ARCHIVE_URL = "https://www.sec.gov/Archives/edgar/data/{cik}/{accession}"
+VALUE_UNIT_CHANGE_DATE = date(2023, 1, 3)
 
 
 class Filing13F(TypedDict):
@@ -72,7 +74,10 @@ def build_13f_panel(registry: Registry, name: str, quarters: int = 4) -> Dataset
                     continue
                 source_url = f"{filing_root}/{xml_name}"
                 xml = client.get(source_url).text
-                for holding in parse_info_table_records(xml):
+                for holding in parse_info_table_records(
+                    xml,
+                    value_scale=filing_value_scale(filing["filing_date"]),
+                ):
                     rows.append(
                         {
                             "manager": manager,
@@ -97,10 +102,11 @@ def build_13f_panel(registry: Registry, name: str, quarters: int = 4) -> Dataset
         json.dump(
             {
                 "builder": "refs13f",
-                "panel_schema_version": 2,
+                "panel_schema_version": 3,
                 "managers": list(MANAGERS),
                 "quarters": quarters,
                 "activity_basis": "realized_holdings_change",
+                "amendment_policy": "retain_all_and_quarantine_ambiguous_periods",
             },
             f,
         )
@@ -108,18 +114,24 @@ def build_13f_panel(registry: Registry, name: str, quarters: int = 4) -> Dataset
         name,
         "refs13f",
         dataset_dir,
-        {"quarters": quarters, "panel_schema_version": 2},
+        {"quarters": quarters, "panel_schema_version": 3},
         primary_file="holdings13f.parquet",
     )
 
 
 def recent_13f_filings(submissions: dict, quarters: int) -> list[Filing13F]:
-    """Pure transform: EDGAR submissions JSON -> filing provenance records."""
+    """Return originals and amendments for the latest report periods.
+
+    Amendments can either restate a filing or add previously confidential
+    holdings. Submissions metadata does not distinguish those semantics, so all
+    accessions for a selected period are retained and downstream harmonization
+    quarantines ambiguous manager-periods.
+    """
     recent = submissions.get("filings", {}).get("recent", {})
     forms = recent.get("form", [])
-    out: list[Filing13F] = []
+    candidates: list[Filing13F] = []
     for index, form in enumerate(forms):
-        if form != "13F-HR":
+        if form not in {"13F-HR", "13F-HR/A"}:
             continue
 
         def field(name: str, row_index: int = index) -> str:
@@ -130,7 +142,7 @@ def recent_13f_filings(submissions: dict, quarters: int) -> list[Filing13F]:
         report_period = field("reportDate")
         if not accession or not report_period:
             continue
-        out.append(
+        candidates.append(
             {
                 "accession": accession,
                 "report_period": report_period,
@@ -139,9 +151,15 @@ def recent_13f_filings(submissions: dict, quarters: int) -> list[Filing13F]:
                 "form": str(form),
             }
         )
-        if len(out) >= quarters:
+    selected_periods: list[str] = []
+    for filing in candidates:
+        period = filing["report_period"]
+        if period not in selected_periods:
+            selected_periods.append(period)
+        if len(selected_periods) == quarters:
             break
-    return out
+    selected = set(selected_periods)
+    return [filing for filing in candidates if filing["report_period"] in selected]
 
 
 def recent_13f_accessions(submissions: dict, quarters: int) -> list[tuple[str, str]]:
@@ -162,7 +180,20 @@ def pick_info_table(index: dict) -> str | None:
     return candidates[0] if candidates else None
 
 
-def parse_info_table_records(xml_text: str) -> list[Holding13F]:
+def filing_value_scale(filing_date: str) -> float:
+    """Return the SEC-mandated XML value multiplier for a filing date."""
+    try:
+        filed = date.fromisoformat(filing_date)
+    except ValueError as error:
+        raise ValueError(f"invalid 13F filing date {filing_date!r}") from error
+    return 1.0 if filed >= VALUE_UNIT_CHANGE_DATE else 1000.0
+
+
+def parse_info_table_records(
+    xml_text: str,
+    *,
+    value_scale: float = 1000.0,
+) -> list[Holding13F]:
     """Parse an information table with share counts required for activity."""
     try:
         root = ET.fromstring(xml_text)
@@ -183,11 +214,10 @@ def parse_info_table_records(xml_text: str) -> list[Holding13F]:
         )
         put_call = info.findtext(f"{prefix}putCall", default="", namespaces=ns)
         if cusip:
-            # 13F values are reported in thousands of dollars
             out.append(
                 {
                     "cusip": cusip.strip(),
-                    "value_usd": float(value) * 1000.0,
+                    "value_usd": float(value) * value_scale,
                     "shares": float(shares) if shares else None,
                     "shares_type": shares_type.strip().upper(),
                     "put_call": put_call.strip().upper(),

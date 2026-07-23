@@ -6,6 +6,7 @@ import pytest
 from flock.data.builders.kalshi import candles_to_bars
 from flock.data.builders.polymarket import history_to_bars, parse_market
 from flock.data.builders.real_world_refs import (
+    filing_value_scale,
     parse_info_table,
     parse_info_table_records,
     recent_13f_accessions,
@@ -70,6 +71,12 @@ def test_13f_info_table_parsing_with_namespace():
     assert records[0]["shares"] == 10_000
     assert records[0]["shares_type"] == "SH"
     assert records[1]["put_call"] == "CALL"
+    modern = parse_info_table_records(xml, value_scale=1.0)
+    assert modern[0]["value_usd"] == 1500.0
+    assert filing_value_scale("2023-01-02") == 1000.0
+    assert filing_value_scale("2023-01-03") == 1.0
+    with pytest.raises(ValueError, match="invalid 13F filing date"):
+        filing_value_scale("")
     assert parse_info_table("not xml") == []
 
 
@@ -91,7 +98,11 @@ def test_13f_accession_selection():
         }
     }
     accs = recent_13f_accessions(subs, quarters=2)
-    assert accs == [("b", "2024-09-30"), ("d", "2024-06-30")]
+    assert accs == [
+        ("b", "2024-09-30"),
+        ("c", "2024-09-30"),
+        ("d", "2024-06-30"),
+    ]
     filings = recent_13f_filings(subs, quarters=2)
     assert filings[0] == {
         "accession": "b",
@@ -100,6 +111,7 @@ def test_13f_accession_selection():
         "acceptance_datetime": "2024-11-14T17:00:00.000Z",
         "form": "13F-HR",
     }
+    assert filings[1]["form"] == "13F-HR/A"
 
 
 def test_registry_primary_file(tmp_path):

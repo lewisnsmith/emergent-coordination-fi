@@ -154,7 +154,11 @@ def harmonize_13f_holdings_changes(panel: pd.DataFrame) -> HoldingsChangePanel:
     work = cast(pd.DataFrame, work.loc[~pd.Series(invalid_provenance, index=work.index)])
 
     missing_shares = cast(pd.DataFrame, work[work["shares"].isna()])
+    excluded_keys: set[tuple[str, str, str]] = set()
     for record in cast(list[dict[str, Any]], missing_shares.to_dict("records")):
+        excluded_keys.add(
+            (str(record["manager"]), str(record["period"]), str(record["cusip"]))
+        )
         unmatched_rows.append(
             {
                 "unit_type": "manager_period_instrument",
@@ -173,6 +177,9 @@ def harmonize_13f_holdings_changes(panel: pd.DataFrame) -> HoldingsChangePanel:
         ],
     )
     for record in cast(list[dict[str, Any]], unsupported.to_dict("records")):
+        excluded_keys.add(
+            (str(record["manager"]), str(record["period"]), str(record["cusip"]))
+        )
         unmatched_rows.append(
             {
                 "unit_type": "manager_period_instrument",
@@ -241,6 +248,21 @@ def harmonize_13f_holdings_changes(panel: pd.DataFrame) -> HoldingsChangePanel:
             prior_provenance = cast(dict[str, Any], prior.iloc[0].to_dict())
             current_provenance = cast(dict[str, Any], current.iloc[0].to_dict())
             for symbol in symbols:
+                comparison_keys = {
+                    (str(manager), prior_period, str(symbol)),
+                    (str(manager), period, str(symbol)),
+                }
+                if comparison_keys & excluded_keys:
+                    unmatched_rows.append(
+                        {
+                            "unit_type": "manager_period_instrument_comparison",
+                            "manager": str(manager),
+                            "period": period,
+                            "symbol": str(symbol),
+                            "reason": "comparison_input_excluded",
+                        }
+                    )
+                    continue
                 previous_shares = (
                     float(prior_holdings.loc[symbol])
                     if symbol in prior_holdings.index
