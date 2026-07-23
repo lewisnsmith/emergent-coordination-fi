@@ -90,8 +90,7 @@ it does not mean a paid study, empirical result, independent review, or paper re
 
 ## Current verification evidence (2026-07-23)
 
-- Full-suite verification is rerun after every integrated implementation phase; see the final
-  reconciliation report for the terminal count.
+- Full-suite `pytest`: **182 passed**.
 - Ruff: **all checks passed**.
 - Pyright: **0 errors, 0 warnings**.
 - Fresh offline smoke run: **720 decisions, 1,274 fills, 720 portfolio rows; verification passed**.

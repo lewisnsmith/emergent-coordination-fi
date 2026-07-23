@@ -41,7 +41,8 @@ confirmed duplicate files, and recovery-safe changes.
 - Gate 4 remains open because H5 is disabled pending calibrated background agents, agent-facing
   cancellation, six-cell capital-share execution, restart/hash stress, benchmark calibration, and
   ODD/STRESS release gates.
-- Gate 6 awaits the terminal full-suite run and a future LaTeX-capable environment.
+- Gate 6 passes for 182 tests, Ruff, and Pyright; manuscript compilation still awaits a
+  LaTeX-capable environment.
 
 Therefore broad file consolidation, speculative script deletion, and future-work archiving remain
 deferred. Only evidence-safe cleanup already proven by tests may proceed.
