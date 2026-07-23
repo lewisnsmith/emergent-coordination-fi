@@ -30,6 +30,22 @@ Do not begin broad consolidation or dead-code removal until all applicable items
 If a gate remains open, cleanup is limited to accurate status text, generated-artifact hygiene,
 confirmed duplicate files, and recovery-safe changes.
 
+### Gate snapshot — 2026-07-23
+
+- Gates 1 and 3 pass for the offline H1/H3/H4 path.
+- Gate 5 passes for the current 197-assignment materialization: 149 assignments completed and
+  verified, 48 H5 assignments terminated as explicitly blocked, and the 144-run crossed analysis
+  reproduced byte-identically. All generated artifacts remain ignored and non-paper-eligible.
+- Gate 2 remains open because H2 is tested at the library level but lacks acquired 13F data and a
+  complete harmonized artifact/CLI path.
+- Gate 4 remains open because H5 is disabled pending calibrated background agents, agent-facing
+  cancellation, six-cell capital-share execution, restart/hash stress, benchmark calibration, and
+  ODD/STRESS release gates.
+- Gate 6 awaits the terminal full-suite run and a future LaTeX-capable environment.
+
+Therefore broad file consolidation, speculative script deletion, and future-work archiving remain
+deferred. Only evidence-safe cleanup already proven by tests may proceed.
+
 ## Subagent team structure
 
 Each team works on an isolated branch or worktree, owns at most five files per phase, and returns a

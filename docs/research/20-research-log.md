@@ -147,6 +147,31 @@ the original account.
 - **Open questions:** H2 harmonization, raw-run aggregation, H5 gates, complete mock
   materialization, licensed real data, exact endpoints, and human review remain open.
 
+## 2026-07-23 — Execute the complete feasible offline matrix
+
+- **Trigger:** Require a terminal rehearsal before any paid canary and prohibit unexecuted or mock
+  outputs from appearing as scientific results.
+- **Design correction:** Reallocate MPHIQ from two blocks with two nested seeds to four matched
+  replay blocks with one nested seed. This preserves 197 planned runs and 232,360 calls while
+  raising H4's independent-unit count from two to four.
+- **Execution evidence:** Plan hash
+  `539ac6c3591f37e4a410d06ed1f98a2575b2d6cc9270f540ffa646602eba26b6`;
+  materialization hash
+  `1f5bb982db6adef12561b2718c9dfb87bd40c23f23c8b51f96f5f181debbd29d`.
+  The ignored ledger records 149 completed and verified mock runs, 48 explicitly blocked H5
+  assignments, and zero failed or pending assignments.
+- **Reproducibility evidence:** The 144 confirmatory H1/H3/H4 runs aggregated across four
+  independent blocks with hash
+  `f66cac434c3c881f816a8f0df96f0995d1f4cbf60a14236dc3aa0e94f3d0fb71`.
+  A second aggregation was byte-identical; the crossed mock analysis verified and reproduced from
+  an empty directory.
+- **Evidence boundary:** Generated runs and analytical outputs remain ignored. The release is
+  marked `mock`, `paper_requested=false`, `paper_eligible=false`, and
+  `mock-rehearsal-only`; no numerical mock outcome is treated as a finding.
+- **Open questions:** H2 end-to-end harmonization, H5 simulator gates, three draft statistical
+  contract discrepancies, exact live endpoints/data, paid canary authorization, preregistration,
+  and independent human review remain open.
+
 ## Next entries required
 
 Do not collapse these into one retrospective success narrative. Add separate entries for:

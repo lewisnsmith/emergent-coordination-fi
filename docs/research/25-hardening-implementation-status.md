@@ -28,7 +28,7 @@ it does not mean a paid study, empirical result, independent review, or paper re
 - Unknown fields, placeholder identifiers, mutable aliases, overlapping independent windows,
   missing prices, unbalanced cells, count disagreements, and authorization overruns fail closed.
 - The current deterministic plan resolves to 197 runs, 397,528 agent-steps, and 232,360 calls with
-  plan hash `8df6027377f3a1226f62db70acfcc3c2d8824a43960ed6b9ff9e12b2b4e9f015`.
+  plan hash `539ac6c3591f37e4a410d06ed1f98a2575b2d6cc9270f540ffa646602eba26b6`.
 - `flock materialize-study` deterministically expands those totals into 197 lineage-preserving run
   assignments. It emits runner configs only when dataset, model, persona, prompt, runtime-budget,
   and treatment semantics resolve explicitly. `--allow-unresolved` exports auditable blockers
@@ -78,6 +78,9 @@ it does not mean a paid study, empirical result, independent review, or paper re
   verified treatment runs with matching lineage, hashes every contributing run, and proves that
   nested treatment runs cannot increase independent `n`.
 - Paper mode rejects incomplete, unverified, single-run, mock, or preregistration-missing evidence.
+- Mock rehearsal uses the same crossed analysis and verification path but requires an explicit
+  rehearsal contract and forces `paper_requested=false`, `paper_eligible=false`, mock-only claims,
+  and disabled paper-claim flags.
 - `flock reproduce` regenerates into an empty directory and requires byte-identical core hashes.
 - The manuscript contains methods, robustness, limitations, ethics, reproducibility/data
   availability, funding/conflict language, author responsibility, LLM-use disclosure, and a real
@@ -87,14 +90,22 @@ it does not mean a paid study, empirical result, independent review, or paper re
 
 ## Current verification evidence (2026-07-23)
 
-- Clean-room `pytest`: **166 passed**.
+- Full-suite verification is rerun after every integrated implementation phase; see the final
+  reconciliation report for the terminal count.
 - Ruff: **all checks passed**.
 - Pyright: **0 errors, 0 warnings**.
 - Fresh offline smoke run: **720 decisions, 1,274 fills, 720 portfolio rows; verification passed**.
-- Local ignored history contains synthetic mock pipeline and shared-exchange diagnostics only.
+- Complete ignored mock matrix: **149 completed and verified, 48 explicitly blocked H5, 0 failed,
+  0 pending**; materialization hash
+  `1f5bb982db6adef12561b2718c9dfb87bd40c23f23c8b51f96f5f181debbd29d`.
+- Raw aggregation: **144 verified confirmatory runs across 4 independent blocks**; two clean
+  aggregations were byte-identical with hash
+  `f66cac434c3c881f816a8f0df96f0995d1f4cbf60a14236dc3aa0e94f3d0fb71`.
+- Crossed mock analysis and clean reproduction both verify with 12 estimands and remain explicitly
+  non-paper-eligible. Numerical mock outcomes are ignored and are not reported as findings.
 - No paid frontier-model pilot, confirmatory run, or paper-level empirical result exists.
 - Repository validation: `scaffold_ok=true`, `execution_ready=false`, no scaffold errors.
-- Study materialization: **197 planned runs, 0 executable assignments**.
+- Study materialization: **197 planned mock assignments, 149 executable, 48 H5-blocked**.
 - No LaTeX engine is installed in the current environment, so manuscript compilation was not run.
 
 ## Open release blockers
@@ -107,14 +118,14 @@ it does not mean a paid study, empirical result, independent review, or paper re
    metadata-only live probes for every exact endpoint. Do not substitute a mutable alias.
 3. Acquire and hash the exact equity windows; acquire a legally usable prediction panel only if
    H2/H1 prediction-market harmonization remains in scope.
-4. Resolve the materialized assignments into experiment configs. MPHIQ per-agent treatments are
-   now executable, but live model registry mappings and datasets remain unresolved; H5 capital
-   weighting is still not represented by the current `ExperimentConfig`/runner contract.
-5. Add the deterministic raw-run-to-crossed-aggregate compiler. The paper bundle now verifies and
-   reproduces a complete provenance-linked 12-estimand family, but it intentionally does not trust
-   or manufacture the three required aggregate input tables from raw decisions yet.
-6. Run the full internally feasible compiled matrix with mocks and prove every planned cell reaches
-   one terminal state before enabling provider calls.
+4. Resolve the live materialized assignments against immutable provider revisions and licensed
+   datasets. Offline mock mappings are complete; H5 capital weighting and calibrated background
+   demand remain intentionally disabled.
+5. Finish H2 end to end: acquire lawful 13F inputs, emit harmonized quarterly activity artifacts,
+   build comparable simulated holdings changes, and enforce the activity-match gate.
+6. Reconcile the three draft statistical-contract discrepancies before freeze: primary
+   small-sample inference versus sign-flip sensitivity, the exact H1 contrasts, and unified Holm
+   versus H4 hierarchical FDR.
 
 ### P1 — must clear before confirmatory or H5 release
 
@@ -159,6 +170,7 @@ preregistration, data, failure, drift, throughput, and cost gates pass.
 ## Defensible current conclusion
 
 The repository now prevents several ways of manufacturing a paper result from invalid evidence and
-can reproducibly exercise the offline path. It is not yet a key-only confirmatory runner. The next
-scientifically meaningful milestone is a complete compiled mock matrix followed by a bounded paid
-canary—not a broad H1–H12 execution or a manuscript claim.
+reproducibly exercises the complete feasible offline path. It is not yet a key-only confirmatory
+runner. The next scientifically meaningful milestone is to finish H2 and the remaining H5 and
+statistical-contract gates, then request separate authorization for a bounded paid canary—not a
+broad H1–H12 execution or a manuscript claim.

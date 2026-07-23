@@ -32,15 +32,18 @@ future work, not claims of the proposed study. The working manuscript is
 
 ## Current readiness
 
-The software scaffold passes its offline test, lint, type, study-compilation, and fresh synthetic
-mock-smoke gates. Local ignored history also contains mock shared-exchange diagnostics. These runs
-validate code paths only: no paid frontier-model pilot or confirmatory study has run, the
+The software scaffold passes its offline test, lint, type, study-compilation, synthetic smoke, and
+complete first-paper mock-rehearsal gates. The ignored rehearsal reached terminal status for all
+197 assignments: 149 replay/MPHIQ runs completed and verified, while all 48 H5 runs remained
+explicitly blocked. Its 144 confirmatory H1/H3/H4 runs aggregated and reproduced byte-identically
+through a release marked `mock`, `paper_requested=false`, and `paper_eligible=false`. These runs
+validate code paths only: no paid frontier-model canary, pilot, or confirmatory study has run, the
 preregistration is not frozen or registered, and no paper-level empirical result exists.
 
 The proposed study is **not execution-ready**. It still requires real datasets and nonoverlapping
 windows, immutable model releases, matched cohort weights and activity, final prompts,
-power-derived top-level sample sizes, deterministic raw-run aggregation, and a frozen
-preregistration.
+power-derived top-level sample sizes and inference, complete H2 harmonization, the remaining H5
+simulator gates, reconciliation of the draft statistical contracts, and a frozen preregistration.
 
 Run the preflight rather than inferring readiness from config files:
 
