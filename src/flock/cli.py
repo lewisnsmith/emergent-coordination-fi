@@ -12,6 +12,7 @@ Commands:
     flock validate-study         Recompile and validate a frozen study plan.
     flock materialize-study      Export deterministic run assignments/configs.
     flock aggregate-study        Aggregate verified raw runs into crossed inputs.
+    flock execute-materialized   Execute a mock-only bundle with a terminal ledger.
 """
 
 from pathlib import Path
@@ -235,6 +236,28 @@ def aggregate_study_command(
         f"{result.source_runs} verified runs, {result.evidence_kind}, "
         f"hash {result.aggregation_hash})"
     )
+
+
+@app.command("execute-materialized")
+def execute_materialized_command(
+    bundle: Path = typer.Argument(..., help="Materialized assignment-bundle JSON"),
+    results_root: Path = typer.Option(
+        Path("results"), help="Root for mock run directories and the execution ledger"
+    ),
+    ledger: Path = typer.Option(None, help="Optional explicit execution-ledger path"),
+) -> None:
+    """Execute an offline mock bundle; real/API configurations are rejected."""
+    from flock.experiments.materialized_execution import execute_materialized
+
+    output, execution = execute_materialized(bundle, results_root, ledger)
+    summary = execution["summary"]
+    typer.echo(
+        f"execution ledger -> {output} "
+        f"({summary['completed']} completed, {summary['reused']} reused, "
+        f"{summary['blocked']} blocked, {summary['failed']} failed)"
+    )
+    if summary["failed"]:
+        raise typer.Exit(code=1)
 
 
 @app.command("estimate")

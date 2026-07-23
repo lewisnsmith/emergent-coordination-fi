@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from flock.agents.prompts import resolve_prompt
 from flock.core.config import (
@@ -112,14 +112,33 @@ class ExecutionResolution(StrictFrozenModel):
     """Explicit bridge from study identifiers to runner registry identifiers."""
 
     schema_version: Literal[1]
+    execution_mode: Literal["exact", "offline_mock"] = "exact"
     trajectory_datasets: dict[str, str]
     model_registry_keys: dict[str, str] = Field(default_factory=dict)
+    mock_model_registry_keys: dict[str, str] = Field(default_factory=dict)
     baseline_kinds: dict[
         str,
         Literal["momentum", "mean_reversion", "market_maker", "buy_hold", "random"],
     ] = Field(default_factory=dict)
     stage_defaults: dict[str, StageExecutionDefaults]
     mphiq_levels: dict[str, MPHIQExecutionLevels] = Field(default_factory=dict)
+    disabled_stages: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_execution_mode(self) -> ExecutionResolution:
+        if self.execution_mode == "exact" and self.mock_model_registry_keys:
+            raise ValueError("exact execution cannot declare mock_model_registry_keys")
+        if self.execution_mode == "offline_mock":
+            if self.model_registry_keys:
+                raise ValueError("offline_mock execution cannot declare exact model_registry_keys")
+            if not self.mock_model_registry_keys:
+                raise ValueError("offline_mock execution requires explicit mock substitutions")
+            targets = list(self.mock_model_registry_keys.values())
+            if len(targets) != len(set(targets)):
+                raise ValueError("offline_mock model substitutions must be one-to-one")
+        if any(not reason.strip() for reason in self.disabled_stages.values()):
+            raise ValueError("disabled stage reasons must be non-empty")
+        return self
 
 
 class MaterializedCell(StrictFrozenModel):
@@ -151,6 +170,8 @@ class RunAssignment(StrictFrozenModel):
     calls_by_pricing_key: dict[str, int]
     stage_budget_cap: BudgetCapSpec
     model_revisions: dict[str, str]
+    evidence_kind: Literal["mock", "real", "unresolved"] = "unresolved"
+    model_registry_substitutions: dict[str, str] = Field(default_factory=dict)
     execution_config: dict[str, Any] | None
     execution_blockers: tuple[str, ...]
 
@@ -242,6 +263,20 @@ def _validate_model(
     resolution: ExecutionResolution,
     models: dict[str, ModelSpec],
 ) -> tuple[str | None, str | None]:
+    if resolution.execution_mode == "offline_mock":
+        registry_key = resolution.mock_model_registry_keys.get(allocation.model_id)
+        if registry_key is None:
+            return None, f"missing mock substitution for {allocation.model_id}"
+        spec = models.get(registry_key)
+        if spec is None:
+            return None, f"model registry has no mock substitution key {registry_key!r}"
+        if spec.provider != "mock" or spec.deployment != "mock":
+            return (
+                None,
+                f"mock substitution {registry_key!r} must resolve to a mock provider/deployment",
+            )
+        return registry_key, None
+
     registry_key = resolution.model_registry_keys.get(allocation.model_id)
     if registry_key is None:
         return None, f"missing model_registry_keys mapping for {allocation.model_id}"
@@ -468,6 +503,7 @@ def _mphiq_groups(
     groups: list[AgentGroup] = []
     for agent_index in range(total):
         allocation = assigned["model_id"][agent_index]
+        resolved_model = models[registry_keys[allocation.model_id]]
         persona_id = assigned["profile_id"][agent_index]
         harness = assigned["harness_id"][agent_index]
         information_policy = assigned["information_policy"][agent_index]
@@ -475,8 +511,16 @@ def _mphiq_groups(
         treatment_payload = {
             "scheme_code": code,
             "agent_index": agent_index,
-            "model_id": allocation.model_id,
-            "model_revision": allocation.revision,
+            "model_id": (
+                resolved_model.model_id
+                if resolution.execution_mode == "offline_mock"
+                else allocation.model_id
+            ),
+            "model_revision": (
+                resolved_model.verified_on or "offline-mock"
+                if resolution.execution_mode == "offline_mock"
+                else allocation.revision
+            ),
             "model_registry_key": registry_keys[allocation.model_id],
             "profile_id": persona_id,
             "harness_id": harness.harness_id,
@@ -550,6 +594,8 @@ def _execution_config(
             "capital-share cells require capital-weighted agent/background allocation "
             "not represented by ExperimentConfig"
         )
+    if stage.stage_id in resolution.disabled_stages:
+        blockers.append(f"stage explicitly disabled: {resolution.disabled_stages[stage.stage_id]}")
 
     groups_by_cohort: list[CohortConfig] = []
     deployments: set[str] = set()
@@ -773,6 +819,42 @@ def materialize_study(
                                 for cohort in selected_cohorts
                                 for allocation in cohort.allocations
                             },
+                            evidence_kind=(
+                                "unresolved"
+                                if resolution is None
+                                else (
+                                    "mock"
+                                    if resolution.execution_mode == "offline_mock"
+                                    or (
+                                        any(
+                                            cohort.technology == "llm"
+                                            for cohort in selected_cohorts
+                                        )
+                                        and all(
+                                            allocation.provider == "mock"
+                                            for cohort in selected_cohorts
+                                            if cohort.technology == "llm"
+                                            for allocation in cohort.allocations
+                                        )
+                                    )
+                                    else "real"
+                                )
+                            ),
+                            model_registry_substitutions=(
+                                {
+                                    allocation.model_id: resolution.mock_model_registry_keys[
+                                        allocation.model_id
+                                    ]
+                                    for cohort in selected_cohorts
+                                    if cohort.technology == "llm"
+                                    for allocation in cohort.allocations
+                                    if allocation.model_id
+                                    in resolution.mock_model_registry_keys
+                                }
+                                if resolution is not None
+                                and resolution.execution_mode == "offline_mock"
+                                else {}
+                            ),
                             execution_config=config,
                             execution_blockers=blockers,
                         )
