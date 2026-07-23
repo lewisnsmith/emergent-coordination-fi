@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
@@ -54,13 +55,46 @@ def test_validate_cli_writes_machine_readable_report(tmp_path):
     assert payload["frontier_models"] >= 5
 
 
-def test_existing_smoke_run_passes_logical_verification():
-    repo = Path(__file__).resolve().parents[1]
-    candidates = sorted((repo / "results").glob("exp-000-smoke-*/manifest.json"))
-    assert candidates
-    result = verify_run(candidates[-1].parent)
-    # Legacy committed logs predate full symbols/prompt hashes and must not be
-    # silently certified under the new evidence contract.
+def test_legacy_run_fails_logical_verification(tmp_path):
+    run_dir = tmp_path / "legacy-run"
+    run_dir.mkdir()
+    manifest = {
+        "config": {
+            "initial_cash": 1_000.0,
+            "market": {"kind": "replay", "fee_bps": 0.0},
+        },
+        "dataset": {"name": "missing-legacy-dataset", "sha256": "legacy"},
+        "agents": {"baseline-0": {"kind": "baseline"}},
+        "n_agents": 1,
+        "n_steps": 1,
+        "total_cost_usd": 0.0,
+    }
+    (run_dir / "manifest.json").write_text(json.dumps(manifest))
+    (run_dir / "decisions.jsonl").write_text(
+        json.dumps(
+            {
+                "agent_id": "baseline-0",
+                "step": 0,
+                "orders_clipped": [],
+                "prompt_hash": None,
+                "raw_response_hash": None,
+                "grounding_ok": True,
+                "parse_ok": True,
+                "usage": {"cost_usd": 0.0},
+            }
+        )
+        + "\n"
+    )
+    pd.DataFrame(
+        columns=["agent_id", "step", "price", "quantity", "fee", "side"]
+    ).to_parquet(run_dir / "fills.parquet", index=False)
+    pd.DataFrame(
+        [{"agent_id": "baseline-0", "step": 0, "cash": 1_000.0}]
+    ).to_parquet(run_dir / "portfolio.parquet", index=False)
+
+    result = verify_run(run_dir)
+
+    # Logs created before the evidence contract must not be silently certified.
     assert not result.ok
     assert any(
         "missing symbol universe" in error or "dataset hash" in error
