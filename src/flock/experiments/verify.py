@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from flock.core.config import PersonaConfig, load_experiment, load_models
 from flock.core.research import load_research_program, validate_research_program
-from flock.data.registry import Registry, dataset_bundle_hash
+from flock.data.registry import DatasetEntry, Registry, dataset_bundle_hash
 from flock.experiments.design import validate_mphiq_catalog
 
 
@@ -447,21 +447,34 @@ def verify_repository(repo_root: Path = Path(".")) -> RepositoryReadiness:
                     errors.append(f"{path.name}: unknown persona {group.persona}")
 
     registry = Registry(repo_root / "datasets")
-    entries = registry.entries()
-    acquired = sorted({entry.name for entry in entries})
-    required = sorted({cfg.dataset for cfg in configs})
-    missing = sorted(set(required) - set(acquired))
-    blockers.extend(f"dataset not acquired: {name}" for name in missing)
-    for entry in entries:
-        path = registry.dataset_dir(entry.name)
+    latest_entries: dict[str, DatasetEntry] = {}
+    for entry in registry.entries():
+        current = latest_entries.get(entry.name)
+        if current is None or entry.version > current.version:
+            latest_entries[entry.name] = entry
+
+    acquired = []
+    for name, entry in sorted(latest_entries.items()):
+        path = registry.entry_dir(entry)
         if not path.exists():
-            errors.append(f"registered dataset payload is missing: {entry.name} -> {path}")
+            blockers.append(
+                f"dataset payload unavailable: {name} v{entry.version} -> {path}"
+            )
             continue
+        acquired.append(name)
         for error in registry.verify(entry):
             if entry.files is None:
-                warnings.append(f"{entry.name}: {error}")
+                warnings.append(f"{name}: {error}")
             else:
-                errors.append(f"{entry.name}: {error}")
+                errors.append(f"{name}: {error}")
+
+    required = sorted({cfg.dataset for cfg in configs})
+    missing = sorted(set(required) - set(acquired))
+    blockers.extend(
+        f"dataset not acquired: {name}"
+        for name in missing
+        if name not in latest_entries
+    )
 
     mphiq = _yaml(repo_root / "configs/designs/mphiq.yaml")
     mphiq_entries = mphiq["schemes"]["entries"]

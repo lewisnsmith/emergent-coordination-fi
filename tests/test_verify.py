@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 import pandas as pd
@@ -10,7 +11,14 @@ from flock.cli import app
 from flock.core.config import ExperimentConfig
 from flock.experiments.design import generate_mphiq_schemes
 from flock.experiments.doctor import run_doctor
-from flock.experiments.verify import verify_run
+from flock.experiments.verify import verify_repository, verify_run
+
+
+def _copy_scaffold_without_datasets(repo: Path, destination: Path) -> None:
+    shutil.copytree(repo / "configs", destination / "configs")
+    datasets = destination / "datasets"
+    datasets.mkdir()
+    shutil.copy2(repo / "datasets/manifests.json", datasets / "manifests.json")
 
 
 def test_design_cli_exports_all_cells(tmp_path):
@@ -42,17 +50,46 @@ def test_experiment_schema_rejects_unknown_fields_and_preserves_unit_lineage():
 
 def test_validate_cli_writes_machine_readable_report(tmp_path):
     repo = Path(__file__).resolve().parents[1]
+    clean_repo = tmp_path / "repo"
+    _copy_scaffold_without_datasets(repo, clean_repo)
     output = tmp_path / "readiness.json"
     result = CliRunner().invoke(
-        app, ["validate", "--root", str(repo), "--output", str(output)]
+        app, ["validate", "--root", str(clean_repo), "--output", str(output)]
     )
-    # Missing real datasets are execution blockers, not scaffold validation errors.
     assert result.exit_code == 0, result.output
     payload = json.loads(output.read_text())
     assert payload["scaffold_ok"] is True
     assert payload["execution_ready"] is False
+    assert payload["errors"] == []
+    assert payload["acquired_datasets"] == []
+    assert "synthetic-equities-v1" in payload["missing_datasets"]
+    payload_blockers = [
+        blocker
+        for blocker in payload["blockers"]
+        if blocker.startswith("dataset payload unavailable:")
+    ]
+    assert len(payload_blockers) == 1
+    assert "synthetic-equities-v1 v2" in payload_blockers[0]
     assert payload["profiles"] == 24
     assert payload["frontier_models"] >= 5
+
+
+def test_repository_validation_rejects_corrupt_present_dataset(tmp_path):
+    repo = Path(__file__).resolve().parents[1]
+    clean_repo = tmp_path / "repo"
+    _copy_scaffold_without_datasets(repo, clean_repo)
+    dataset = clean_repo / "datasets/synthetic-equities-v1-v2"
+    dataset.mkdir()
+    (dataset / "meta.json").write_text('{"corrupt": true}')
+
+    readiness = verify_repository(clean_repo)
+
+    assert readiness.scaffold_ok is False
+    assert readiness.acquired_datasets == ["synthetic-equities-v1"]
+    assert any(
+        error.startswith("synthetic-equities-v1: dataset file inventory")
+        for error in readiness.errors
+    )
 
 
 def test_legacy_run_fails_logical_verification(tmp_path):

@@ -70,16 +70,18 @@ class Registry:
     def entries(self) -> list[DatasetEntry]:
         return [DatasetEntry(**e) for e in self._load()]
 
-    def _entry_path(self, entry: DatasetEntry) -> Path:
+    def entry_dir(self, entry: DatasetEntry) -> Path:
+        """Resolve the payload directory for one exact registry version."""
         path = Path(entry.path)
         return path if path.is_absolute() else self.root.parent / path
 
     def get(self, name: str) -> DatasetEntry:
-        matches = [e for e in self.entries() if e.name == name]
+        entries = self.entries()
+        matches = [entry for entry in entries if entry.name == name]
         if not matches:
             raise KeyError(
                 f"dataset '{name}' not in registry; run `flock data build ...` (have: "
-                f"{[e.name for e in self.entries()] or 'none'})"
+                f"{sorted({entry.name for entry in entries}) or 'none'})"
             )
         return max(matches, key=lambda e: e.version)
 
@@ -111,7 +113,7 @@ class Registry:
         return entry
 
     def verify(self, entry: DatasetEntry) -> list[str]:
-        dataset_dir = self._entry_path(entry)
+        dataset_dir = self.entry_dir(entry)
         if not dataset_dir.exists():
             return [f"dataset payload is missing: {dataset_dir}"]
         if entry.files is None:
@@ -125,4 +127,4 @@ class Registry:
         return errors
 
     def dataset_dir(self, name: str) -> Path:
-        return self._entry_path(self.get(name))
+        return self.entry_dir(self.get(name))

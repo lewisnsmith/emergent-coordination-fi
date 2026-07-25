@@ -32,9 +32,13 @@ def test_dataset_roundtrip_and_registry(tmp_path, synthetic_data):
     reg = Registry(root=tmp_path / "ds")
     entry = reg.register("syn-test", "synthetic", ds_dir, {"seed": 7})
     assert reg.get("syn-test").sha256 == entry.sha256
-    entry2 = reg.register("syn-test", "synthetic", ds_dir, {"seed": 7})
+    ds_dir_v2 = tmp_path / "ds" / "syn-test-v2"
+    schemas.write_dataset(ds_dir_v2, bars, events, meta)
+    entry2 = reg.register("syn-test", "synthetic", ds_dir_v2, {"seed": 7})
     assert entry2.version == 2
     assert reg.get("syn-test").version == 2
+    assert reg.entry_dir(entry) == ds_dir
+    assert reg.dataset_dir("syn-test") == ds_dir_v2
     assert entry.files is not None
     assert set(entry.files) == {"bars.parquet", "events.parquet", "meta.json"}
 
