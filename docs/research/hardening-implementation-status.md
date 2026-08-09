@@ -1,4 +1,4 @@
-# 25 — API-Key-to-Paper Hardening: Implementation Status
+# API-Key-to-Paper Hardening: Implementation Status
 
 **Audit date:** 2026-07-23
 **Implementation branch:** `feat/paper-ready-reconciliation`
@@ -14,7 +14,7 @@ it does not mean a paid study, empirical result, independent review, or paper re
 |---|---|---|---|
 | Paper stress test | Agent/call-level inference was pseudoreplication; design and claims exceeded the independent evidence | Block-level inference, duplicate trajectory/dependence rejection, nested power, mock/paper separation, claim lock | Freeze the exact top-level model and margins after pilot nuisance estimates |
 | Prior-art overlap | Broad LLM convergence, reduced dispersion, herding, common errors, and simulated instability are occupied | Title and contribution narrowed to matched technology-by-ecology controls and component decomposition; real bibliography added | Refresh the evidence map at preregistration and submission |
-| Cost/authenticity | Existing totals mixed formulas and agent counts; full H1–H12 scope was not priced | Deterministic call matrix, dated catalog, canary/pilot authorization, high retry envelope, runtime dollar/token/request guard | Reprice exact live endpoints immediately before each authorized stage |
+| Cost/authenticity | Existing totals mixed formulas and agent counts; the full H1–H12 scope was not priced, and H13 remains an excluded sidecar | Deterministic call matrix, dated catalog, canary/pilot authorization, high retry envelope, runtime dollar/token/request guard | Reprice exact live endpoints immediately before each authorized stage |
 | End-to-end repository audit | Provider retries, cache billing, data hashes, ledger reservations, self-trades, replay gaps, resume behavior, and strict schemas had failure modes | Atomic attempts/cache, classified retry contract, complete bundle hashes, conservation checks, strict configs, terminal manifests, deterministic assignment materialization, and asynchronous binary-contract replay | Resolve and execute the complete compiled matrix; finish H5 mechanics |
 | Admissions/authenticity | The repository looked like an ambitious lab agenda rather than completed owned research | Authorship statement, dated research log, public mistake case study, review-response template, and walkthrough/release checklist | Execute one narrow corrected study and obtain three real independent reviews |
 
@@ -174,4 +174,4 @@ The repository now prevents several ways of manufacturing a paper result from in
 reproducibly exercises the complete feasible offline path. It is not yet a key-only confirmatory
 runner. The next scientifically meaningful milestone is to finish H2 and the remaining H5 and
 statistical-contract gates, then request separate authorization for a bounded paid canary—not a
-broad H1–H12 execution or a manuscript claim.
+broad H1–H13 execution or a manuscript claim.

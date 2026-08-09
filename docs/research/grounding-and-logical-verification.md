@@ -1,4 +1,4 @@
-# 13 — Grounding and Logical Verification
+# Grounding and Logical Verification
 
 This protocol defines what `flock` can verify about model outputs and what it cannot guarantee. The
 machine-readable policy is

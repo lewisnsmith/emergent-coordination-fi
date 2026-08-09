@@ -1,4 +1,4 @@
-# 23 — Release Checklist and Walkthrough
+# Release Checklist and Walkthrough
 
 **Status: BLOCKED; this is a release plan, not evidence of a completed study. Snapshot date:
 2026-07-17.** Checkboxes remain unchecked until their named artifacts exist and pass verification.
@@ -53,17 +53,17 @@ Do not infer completion from implemented scaffolding or passing mock tests.
 - [ ] Figure titles, captions, and legends distinguish mock, pilot, confirmatory, exploratory, and
   simulator-only evidence and show independent units where relevant.
 - [ ] Lewis has verified and signed
-  [19 — Authorship and Tool Use](19-authorship-and-tool-use.md), can explain the design and code
+  [Authorship and Tool Use](authorship-and-tool-use.md), can explain the design and code
   relied on for claims, and has not presented generated prose as understanding.
-- [ ] The dated [20 — Research Log](20-research-log.md) includes failures, amendments, null or
+- [ ] The dated [Research Log](research-log.md) includes failures, amendments, null or
   contradictory outcomes, and stop/go decisions without rewriting earlier entries.
-- [ ] The final [21 — Mistake Case Study](21-mistake-case-study.md) is generated from real hashed
+- [ ] The final [Mistake Case Study](mistake-case-study.md) is generated from real hashed
   pilot artifacts and clearly labels the invalid agent-level analysis as diagnostic.
 - [ ] Genuine independent statistics, market-microstructure, and reproducibility reviews are
-  recorded in [22 — Independent Review and Response](22-independent-review-response.md); no
+  recorded in [Independent Review and Response](independent-review-response.md); no
   unresolved P0/P1 finding remains.
 - [ ] README and portfolio descriptions say exactly what was executed and reproduced, not what the
-  broader H1–H12 agenda proposes.
+  broader H1–H13 agenda proposes.
 - [ ] The release is immutable, checksummed, versioned, licensed, archived, and linked to the exact
   source commit without rewriting prior history.
 

@@ -1,4 +1,4 @@
-# 09 — MPHIQ Factorial Design
+# MPHIQ Factorial Design
 
 This protocol operationalizes the five-factor sameness experiment defined in
 [`configs/designs/mphiq.yaml`](../../configs/designs/mphiq.yaml). It is subordinate to the
@@ -62,7 +62,7 @@ itself: the main effects come from all 16 Hamming-distance-one pairs for each bi
 | Does sameness spread existing convergence? | Change in capital-weighted synchronized-cluster size and affected-symbol coverage | Positive means broader convergence |
 
 Primary convergence endpoints are per-symbol Cohen's kappa, portfolio overlap, and strategy
-fingerprint similarity as defined in [03 — Metrics](03-metrics.md). Capital-weighted synchronized
+fingerprint similarity as defined in [Metrics](metrics.md). Capital-weighted synchronized
 cluster size is primary for breadth. Action distributions, active-trade agreement, turnover,
 constraint binding, and parse/safeguard failures are mandatory diagnostics.
 
@@ -131,7 +131,7 @@ block-level effect distribution.
 
 The five MPHIQ main effects form one confirmatory Holm family. The H4 information-versus-profile
 contrast is a separately named confirmatory contrast only if frozen in
-[06 — Preregistration](06-preregistration.md). Preregistered two-way interactions form a second
+[Preregistration](preregistration.md). Preregistered two-way interactions form a second
 Holm family; all higher-order interactions are exploratory and use Benjamini-Hochberg false
 discovery rate control. Endpoint hierarchy is kappa, portfolio overlap, then fingerprint similarity;
 secondary endpoints cannot rescue a failed primary claim.

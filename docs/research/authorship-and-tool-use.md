@@ -1,4 +1,4 @@
-# 19 — Authorship and Tool Use
+# Authorship and Tool Use
 
 **Status: DRAFT for Lewis to verify before any public release. Last updated: 2026-07-23.** This
 statement describes the current working process. It is not an authorship certification, and it
@@ -72,7 +72,7 @@ Lewis's final sign-off should attest that he:
 - manually checked every substantive claim against `claims.json` and its source artifact;
 - checked every citation against the cited source and did not treat an AI summary as a source;
 - obtained and answered genuine human review in statistics, market microstructure, and
-  reproducibility, using [22 — Independent Review and Response](22-independent-review-response.md);
+  reproducibility, using [Independent Review and Response](independent-review-response.md);
 - preserved unsuccessful, null, and contradictory outcomes under the frozen reporting rules; and
 - described the work proportionally: a completed study only after a real verified study exists,
   otherwise a scaffold, pilot, or proposed research program.
@@ -83,4 +83,4 @@ As of 2026-07-23, this document does **not** claim that a paid study has run, a 
 been frozen, a human expert has reviewed the project, a result has replicated, or a paper has been
 accepted. Passing mock tests demonstrates software behavior under synthetic fixtures, not an
 empirical finding about frontier models or markets. Current milestones and blockers are recorded
-in [20 — Research Log](20-research-log.md) and [23 — Release Checklist and Walkthrough](23-release-checklist-and-walkthrough.md).
+in [Research Log](research-log.md) and [Release Checklist and Walkthrough](release-checklist-and-walkthrough.md).

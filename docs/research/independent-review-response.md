@@ -1,4 +1,4 @@
-# 22 — Independent Review and Response
+# Independent Review and Response
 
 **Status: EMPTY REVIEW TEMPLATE; no independent review has yet been recorded here. Last updated:
 2026-07-17.** A completed table requires actual reviewer feedback. AI review, repository tests, and
@@ -97,4 +97,4 @@ This section remains blank until real reviews exist:
 - Public response-table hash: **not available**
 
 The release owner verifies these facts in
-[23 — Release Checklist and Walkthrough](23-release-checklist-and-walkthrough.md).
+[Release Checklist and Walkthrough](release-checklist-and-walkthrough.md).

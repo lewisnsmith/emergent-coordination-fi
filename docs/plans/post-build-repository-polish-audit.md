@@ -71,23 +71,33 @@ Keep these as sources of truth:
 - `README.md`: concise purpose, evidence status, quickstart, and principal gates.
 - `configs/research-program.yaml`: hypothesis and experiment scope.
 - `configs/studies/paper-core.yaml`: exact proposed-study design.
-- `docs/research/01`–`07`: question, design, metrics, datasets, roadmap, preregistration, literature.
-- `docs/research/18`: dated cost/execution view; budget YAML remains controlling.
-- `docs/research/19` and `20`: signed authorship/tool disclosure and append-only research history.
-- `docs/research/22`–`24`: real review responses, release checklist, and H5 ODD/STRESS gate.
-- `docs/research/25`: authoritative implementation status until replaced by generated status.
+- `docs/research/research-question.md`, `experimental-design.md`, `metrics.md`, `datasets.md`,
+  `follow-up-questions.md`, `preregistration.md`, and `related-work.md`: the core research record.
+- `docs/research/cost-and-execution-runbook.md`: dated cost/execution view; budget YAML remains
+  controlling.
+- `docs/research/authorship-and-tool-use.md` and `research-log.md`: signed authorship/tool
+  disclosure and append-only research history.
+- `docs/research/independent-review-response.md`, `release-checklist-and-walkthrough.md`, and
+  `simulator-odd-stress.md`: real review responses, release checklist, and H5 ODD/STRESS gate.
+- `docs/research/hardening-implementation-status.md`: authoritative implementation status until
+  replaced by generated status.
 - `paper/main.tex` and `paper/references.bib`: working manuscript and sole bibliography.
 
 After the cleanup gate passes:
 
-- Merge `09` and `10` into `02`; merge `12` into `03`.
-- Merge first-study material from `13` and `17` into `04`.
-- Merge the neutral, dated substance of `21` into the append-only research log.
-- Move `11`, `14`–`16`, `26`, and future-product material from `17` into a clearly nonauthoritative
-  future-work archive.
-- Extract any unique data dictionary from `08`, then delete `08`, which is explicitly
-  noncanonical and overlaps the corrected design.
-- Absorb `25` into `23` only after an automatically generated status artifact replaces it.
+- Merge `mphiq-factorial-design.md` and `profile-design.md` into `experimental-design.md`; merge
+  `statistical-analysis-plan.md` into `metrics.md`.
+- Merge first-study material from `grounding-and-logical-verification.md` and
+  `data-products-and-verification.md` into `datasets.md`.
+- Merge the neutral, dated substance of `mistake-case-study.md` into the append-only research log.
+- Move `prompt-pressure-protocol.md`, `market-dynamics-trust-and-adoption.md`,
+  `mechanistic-interpretability.md`, `simulation-to-real-attribution.md`,
+  `low-cost-human-trading-behavior-simulation.md`, and future-product material from
+  `data-products-and-verification.md` into a clearly nonauthoritative future-work archive.
+- Extract any unique data dictionary from `research-questions-and-methodology.md`, then delete that
+  file, which is explicitly noncanonical and overlaps the corrected design.
+- Absorb `hardening-implementation-status.md` into `release-checklist-and-walkthrough.md` only after
+  an automatically generated status artifact replaces it.
 
 ## Repository reduction procedure
 

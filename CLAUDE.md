@@ -1,8 +1,8 @@
 # flock — repo guide for Claude sessions
 
 Experiment zone measuring strategy convergence and emergent coordination in LLM trading agents.
-Before changing experiment logic, read `docs/research/01-research-question.md` and
-`02-experimental-design.md`; the code serves that design.
+Before changing experiment logic, read `docs/research/research-question.md` and
+`docs/research/experimental-design.md`; the code serves that design.
 
 ## Stack
 
@@ -47,7 +47,7 @@ uv run pytest && uv run ruff check .      # required before claiming done
 
 - **Determinism is a feature, not a nicety.** Every random draw takes a seed derived from the
   run seed. Never add unseeded randomness or wall-clock-dependent behavior to the pipeline.
-- **Pre-registration discipline.** After `docs/research/06-preregistration.md` is frozen
+- **Pre-registration discipline.** After `docs/research/preregistration.md` is frozen
   (tag `prereg-v1`), metric/exclusion-rule changes require an amendment entry there.
 - **Offline-first.** `flock run` + `flock analyze` must work with zero API keys and zero
   network. Network happens only in `flock data build` and real-provider calls.

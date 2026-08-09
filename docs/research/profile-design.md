@@ -1,4 +1,4 @@
-# 10 — Investor Profile Design
+# Investor Profile Design
 
 This protocol governs the investor profiles indexed in
 [`configs/personas/manifest.yaml`](../../configs/personas/manifest.yaml). It separates financial
@@ -118,7 +118,7 @@ equivalence. Any claimed benefit must also pass safety noninferiority.
 ## Multiple testing
 
 The P main effect and the H4 information-minus-profile contrast belong to the confirmatory MPHIQ
-families described in [09 — MPHIQ Factorial Design](09-mphiq-factorial-design.md). The nine
+families described in [MPHIQ Factorial Design](mphiq-factorial-design.md). The nine
 matched-set primary contrasts form one Holm family per endpoint tier. Identity-equivalence tests
 are reported as a distinct TOST family. Constraint-specific diagnostics within a set are secondary;
 use Holm when confirmatory and Benjamini-Hochberg control when exploratory.

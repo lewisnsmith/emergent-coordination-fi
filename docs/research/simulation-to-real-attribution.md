@@ -1,4 +1,4 @@
-# 16 — Simulation-to-Real Detection and Attribution
+# Simulation-to-Real Detection and Attribution
 
 This protocol defines the path from a causal effect inside the configurable simulation to a
 carefully bounded statement about real markets. The contracts are `exp-018` through `exp-021` in

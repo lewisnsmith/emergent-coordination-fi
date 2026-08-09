@@ -1,4 +1,4 @@
-# 04 — Datasets
+# Datasets
 
 The project uses **inputs** (market data and reference panels) to produce **outputs** (the
 candidate agent-decision research artifacts). Input payloads are local and gitignored;
@@ -72,7 +72,7 @@ parameterization, decision, rationale, outcome)` tuples for research beyond the 
 Study outputs add `assignments.parquet`, `contrasts.parquet`, `verification.json`,
 `safety_failures.parquet`, and `claims.json`. Real-market data products keep four labels
 separate: simulation truth, AI-like signature, verified AI exposure, and causally verified AI
-event. See [17 — Data products](17-data-products-and-verification.md).
+event. See [Data products](data-products-and-verification.md).
 
 ## Provenance & licensing notes
 

@@ -1,4 +1,4 @@
-# 17 — Data Products and Verification
+# Data Products and Verification
 
 H11 asks whether verified simulation, detection, exposure, and causal-attribution results can become
 reproducible datasets without overstating what each row proves. The governing study is `exp-022` in

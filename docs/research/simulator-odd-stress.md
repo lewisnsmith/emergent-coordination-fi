@@ -1,4 +1,4 @@
-# 24 — H5 Simulator ODD/STRESS Report and Release Gate
+# H5 Simulator ODD/STRESS Report and Release Gate
 
 **Status: INCOMPLETE; H5 confirmatory execution and “continuous double auction” claims are
 blocked.** This document describes the simulator that exists in the tagged code, distinguishes

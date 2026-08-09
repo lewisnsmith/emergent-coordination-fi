@@ -1,4 +1,4 @@
-# 03 — Metrics
+# Metrics
 
 All metrics are computed within-cohort and reported alongside the null-cohort value and a
 marginal-preserving chance floor. Implementations live in `src/flock/analysis/`.
@@ -67,6 +67,43 @@ shortfall probability, liquidity preservation, drawdown, turnover, hard-constrai
 unsupported evidence, fabricated facts, unsupported certainty, and abstention. “Better” requires
 practical quality improvement plus safety/suitability noninferiority. “Equivalent” requires TOST;
 a nonsignificant difference is inconclusive.
+
+## H13 local fidelity and quantization propagation
+
+H13 reports three references separately: executable-oracle correctness, same-checkpoint
+full-precision loss, and local-to-frontier behavioral similarity. Its headline families are:
+
+- **Behavioral fidelity:** exact program and terminal-answer accuracy, item-level action agreement,
+  Cohen's κ, total-variation distance where output distributions are available, signed-quantity
+  error, portfolio distance, strategy-fingerprint distance, normalized regret, calibration,
+  abstention, and hard-constraint or unsupported-claim rates.
+- **Convergence transport:** difference between within-local and within-frontier cohort
+  convergence, cross-model paired agreement on the same observations, and each class's difference
+  from the matched classical benchmark. Aggregate similarity and identical error choices are
+  distinct outcomes.
+- **Customization fidelity:** distance and rank agreement between paired client-fact intervention
+  effect vectors for risk capacity, horizon, liquidity, dependents, tax constraints, mandate
+  limits, and information access, reported with suitability and constraint outcomes.
+
+For a chain of dependency depth *d*, let *T* be the first invalid operation or value. Report the
+gold-prefix next-step error by depth, the free-running first-error hazard
+`P(T = k | T ≥ k)`, survival `S(d) = P(T > d)`, terminal numerical drift, decision-threshold
+flip rate, recovery probability after an injected error, and a preregistered standardized terminal-
+to-injected-error amplification measure. Cross context length with dependency depth so retrieval
+failure is not called propagation.
+
+Replay reports time to first action and persistent portfolio divergence, divergence growth rate,
+and the state-mediated amplification contrast between endogenous-state and shadow-state runs.
+Reset horizons `{1, 5, 20, all}` form a propagation-length dose response. Mechanistic outputs add
+same-tokenizer logit divergence, top-token flips and margin collapse, layerwise activation drift,
+SAE feature preservation, and target recovery under two-direction activation patches. These are
+invalid for closed APIs or cross-tokenizer comparisons.
+
+The independent unit is a held-out template family, company/document cluster, or market block.
+Generated questions, numerical instantiations, chain steps, tokens, model calls, layers, patches,
+agents, and reset horizons are nested. The local-frontier bridge uses equivalence tests; the
+same-checkpoint precision study uses paired precision-by-depth-by-family models. Behavioral,
+propagation, customization, and mechanistic confirmation are separate multiplicity families.
 
 ## Herding / coordination (`coordination.py`, Phase 2 + real-world panels)
 

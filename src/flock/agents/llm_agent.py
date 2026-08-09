@@ -1,6 +1,6 @@
 """LLM trading agent: prompt assembly, response parsing, retry discipline.
 
-Parse rule (pre-registered, see docs/research/06-preregistration.md): a
+Parse rule (pre-registered, see docs/research/preregistration.md): a
 malformed response is retried once with a format reminder; if still malformed
 the step is scored as hold with parse_ok=False.
 """

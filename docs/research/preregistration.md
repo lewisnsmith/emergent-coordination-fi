@@ -1,4 +1,4 @@
-# 06 — Pre-registration
+# Pre-registration
 
 **Status: DRAFT; not frozen, not registered, and not eligible to freeze yet.** The offline smoke
 run validates plumbing only. Real inputs, top-level units, the matched technology-by-ecology
@@ -18,7 +18,7 @@ exploratory and require untouched confirmation.
   of the first-paper confirmatory p-value family. It is omitted if harmonization fails.
 - **H5** is a separate confirmatory family randomized at the independent shared-market-replica
   level. Causal language is limited to the validated simulator.
-- **H2b and H6–H12** are future-program protocols. They cannot be promoted into the first-paper
+- **H2b and H6–H13** are future-program protocols. They cannot be promoted into the first-paper
   family by an amendment after first-paper outcomes are inspected.
 
 ## Primary H1 outcome
@@ -112,6 +112,45 @@ claim or replication gate.
 - Provider failure after the configured retry ceiling aborts the run atomically. Partial runs
   are not analyzed.
 - No post-hoc agent, step, symbol, market, participant, or outcome deletion is allowed.
+
+## Future H13 preregistration contract
+
+H13 requires a separate frozen preregistration before any confirmatory local-to-frontier bridge or
+precision study. Its discovery screen may debug scoring and estimate nuisance variance, but its
+model, precision, task, margin, stopping, and mechanism choices cannot be selected on confirmatory
+outcomes. Lock and hash:
+
+- **Three references:** executable financial oracle, same-checkpoint BF16/FP16 reference, and
+  sampled frontier behavioral bridge, with a rule preventing one from being substituted for
+  another in claims.
+- **Model factors:** independently trained family, exact checkpoint/revision and parameter count,
+  tokenizer/chat template, native versus post-training precision, quantizer and version, bit width,
+  group size, calibration corpus/hash, clipping, inference engine/kernels, hookable-runtime parity,
+  license, and hardware.
+- **Task factors:** financial domains and template families, executable program schema, context
+  length, dependency depths, number generation, company/document clusters, contamination checks,
+  replay regimes, shadow/endogenous/reset-horizon modes, and complete discovery/confirmation/
+  held-out-family separation.
+- **Decoding and scoring:** exact prompt bytes, structured ledger rather than requested private
+  chain-of-thought, gold-prefix/free-run/single-error-injection procedures, seeds, temperature,
+  output limits, calculator tolerances, trace alignment, first-error classification, and terminal
+  decision thresholds.
+- **Inference:** independent-unit definition, primary behavioral-equivalence and precision×depth
+  estimands, continuous step metrics, provisional margins, 8–12 discovery clusters, simulated
+  confirmatory count near 24–32, blinded re-estimation rule and hard cap near 48, futility and spend
+  boundaries, missingness, and four separate multiplicity families for behavior, propagation,
+  customization, and mechanisms.
+- **Mechanistic funnel:** behavioral gate, concordant/divergent sampling rule, discovery layers and
+  features, frozen confirmation sites and targets, two-direction patches, ablation/steering, sham
+  and norm-matched controls, SAE reconstruction checks by precision, held-out family transfer, and
+  raw-activation retention/deletion policy.
+
+Provisional H13 equivalence margins are ±0.05 in κ, ±0.03 in executable-program or terminal-
+answer accuracy, ±0.025 in normalized regret, and at most +0.01 adverse hard-constraint failure.
+They are planning values only and must be justified without confirmatory outcomes. A failed TOST
+is inconclusive, not proof that local models differ. A native MXFP4-only checkpoint may enter the
+behavioral bridge but cannot identify quantization loss without a higher-precision release of the
+same checkpoint.
 
 ## Freeze gates
 

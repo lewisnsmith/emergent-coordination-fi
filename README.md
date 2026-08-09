@@ -10,25 +10,32 @@ lineage, profiles, harnesses, information, and wording affect convergence. It do
 coordination or collusion from agents independently responding to the same information.
 
 See [`docs/research/`](docs/research/) and the machine-readable
-[`configs/research-program.yaml`](configs/research-program.yaml) for the full H1–H12 program:
+[`configs/research-program.yaml`](configs/research-program.yaml) for the full H1–H13 program:
 
-- [01 – Research question](docs/research/01-research-question.md)
-- [02 – Experimental design](docs/research/02-experimental-design.md)
-- [03 – Metrics](docs/research/03-metrics.md)
-- [04 – Datasets](docs/research/04-datasets.md)
-- [05 – Follow-up questions](docs/research/05-follow-up-questions.md)
-- [06 – Pre-registration](docs/research/06-preregistration.md)
-- [07 – Related work](docs/research/07-related-work.md)
-- [09–12 – MPHIQ, profiles, prompt pressure, and statistics](docs/research/09-mphiq-factorial-design.md)
-- [13–17 – safeguards, markets/trust, interpretability, attribution, outputs](docs/research/13-grounding-and-logical-verification.md)
-- [18 – cost and execution runbook](docs/research/18-cost-and-execution-runbook.md)
-- [19–23 – authorship, research log, mistake case study, review, and release](docs/research/19-authorship-and-tool-use.md)
-- [24 – H5 ODD/STRESS report and simulator gate](docs/research/24-simulator-odd-stress.md)
+- [Research question](docs/research/research-question.md)
+- [Experimental design](docs/research/experimental-design.md)
+- [Metrics](docs/research/metrics.md)
+- [Datasets](docs/research/datasets.md)
+- [Follow-up questions](docs/research/follow-up-questions.md)
+- [Pre-registration](docs/research/preregistration.md)
+- [Related work](docs/research/related-work.md)
+- [MPHIQ, profiles, prompt pressure, and statistics](docs/research/mphiq-factorial-design.md)
+- [safeguards, markets/trust, interpretability, attribution, outputs](docs/research/grounding-and-logical-verification.md)
+- [cost and execution runbook](docs/research/cost-and-execution-runbook.md)
+- [local-model fidelity and quantization plan](docs/research/low-cost-human-trading-behavior-simulation.md)
+- [authorship, research log, mistake case study, review, and release](docs/research/authorship-and-tool-use.md)
+- [H5 ODD/STRESS report and simulator gate](docs/research/simulator-odd-stress.md)
 
 The proposed first study is H1/H3/H4. H2 is a conditional descriptive external anchor, and H5 is
-a separate causal experiment whose claims are bounded to the validated simulator. H6–H12 are
+a separate causal experiment whose claims are bounded to the validated simulator. H6–H13 are
 future work, not claims of the proposed study. The working manuscript is
 [`paper/main.tex`](paper/main.tex); it is a skeleton with no confirmatory results.
+
+H13 is the local-model fidelity lane: it tests whether lower-weight open models preserve sampled
+frontier behavior and convergence, then uses same-checkpoint BF16/W8/W4 comparisons to measure how
+quantization errors propagate through executable financial chains and portfolio state. Its
+local-first pilot caps the frontier bridge near 3,800 API calls and gates activation work on a
+measured behavioral question; it is scaffolded, separately preregistered future work.
 
 ## Current readiness
 

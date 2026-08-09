@@ -1,6 +1,6 @@
-# 05 — Secondary and exploratory questions
+# Secondary and exploratory questions
 
-The expanded H1–H12 program is no longer a loose backlog. Its canonical experiment mapping is
+The expanded H1–H13 program is no longer a loose backlog. Its canonical experiment mapping is
 [`configs/research-program.yaml`](../../configs/research-program.yaml). The items below are
 secondary moderators or extensions; they must not silently enter the confirmatory family.
 
@@ -10,9 +10,10 @@ planned; only exp-000, exp-001, exp-002, and exp-010 currently have configs.
 1. **Within-family vs cross-family convergence.** Does Claude agree with Claude more than with
    GPT/Gemini? Is there a "foundation-model fingerprint" detectable from trades alone?
    → provider-blocked MPHIQ/model-pair study (`exp-005` in the canonical catalog).
-2. **Capability scaling.** Does convergence rise with model tier (small → frontier) or with
-   reasoning effort? A "smarter agents find the same optimum" story vs "shared prior" story.
-   → harness/capability robustness under `exp-009`; only dated frontier-eligible models.
+2. **Capability scaling and local fidelity.** Does convergence rise with model tier, and are
+   lower-weight open models behaviorally equivalent to sampled frontier endpoints within frozen
+   margins? Keep this descriptive cross-model bridge (`exp-025`, H13) separate from reasoning-
+   effort robustness among dated frontier models (`exp-009`).
 3. **Temperature & sampling.** How much decorrelation does temperature buy, and at what
    performance and safety cost? (`exp-009`)
 4. **Persona/demographic sensitivity.** Which instruction dimensions (risk tolerance, horizon,
@@ -42,6 +43,14 @@ planned; only exp-000, exp-001, exp-002, and exp-010 currently have configs.
     randomized execution, or human review reduce breadth without unacceptable performance or
     safety loss?
 15. **Mechanism convergence.** Do agents reach similar trades through the same causally active
-    features/circuits, or do distinct mechanisms converge behaviorally?
+    features/circuits, or do distinct mechanisms converge behaviorally? H13/`exp-026` requires
+    representation alignment, transferred intervention, and behavioral recovery before a
+    cross-family mechanism claim.
 16. **Adversarial robustness.** Which injection, authority, FOMO, forced-certainty, anchoring,
     and conflicting-mandate prompts defeat grounding or constraint compliance?
+17. **Quantization propagation.** For the same checkpoint, where does BF16/W8/W4 divergence first
+    appear as financial dependency depth increases, and how much additional portfolio divergence
+    arises under endogenous versus shadow-state replay? (`exp-026`, H13)
+18. **Customization fidelity.** Does quantization attenuate causal response to risk capacity,
+    horizon, liquidity, dependents, taxes, mandate constraints, or information access? Compare
+    profile-response vectors before any LoRA or fine-tuning treatment. (`exp-025`/`exp-026`)

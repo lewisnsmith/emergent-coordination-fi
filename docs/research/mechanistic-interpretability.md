@@ -1,8 +1,10 @@
-# 15 — Mechanistic Interpretability
+# Mechanistic Interpretability
 
 H8 asks what supplied information causally changes a model's investment decision and, for local
 open-weight models, which internal computations mediate that change. H12 additionally asks why
-pressure framing changes quality, safety, risk, abstention, or convergence.
+pressure framing changes quality, safety, risk, abstention, or convergence. H13 asks whether
+quantization changes those computations and whether a mechanism motif transfers across precision,
+scale, and independently trained model families.
 
 The repository intentionally implements two different evidence lanes:
 
@@ -13,7 +15,7 @@ The repository intentionally implements two different evidence lanes:
 
 Hashed tensor artifacts are written by
 [`interpretability/artifacts.py`](../../src/flock/interpretability/artifacts.py). The study
-contracts are `exp-016`, `exp-017`, and `exp-024` in
+contracts are `exp-016`, `exp-017`, `exp-024`, and `exp-026` in
 [`configs/research-program.yaml`](../../configs/research-program.yaml).
 
 ## Evidence boundary
@@ -23,6 +25,7 @@ contracts are `exp-016`, `exp-017`, and `exp-024` in
 | Generated rationale | What the model emitted as an explanation | Which facts or activations actually caused the output |
 | API black-box intervention | Causal effect of changing a supplied input on this model/API behavior | Claims about hidden weights, layers, features, or thought process |
 | Local activation intervention | Causal role of an internal activation in a hookable checkpoint on tested examples | Transfer to a closed API or other checkpoint without replication |
+| Same-checkpoint precision contrast | Causal behavioral effect of the frozen quantization procedure on that checkpoint | Effect of model scale, training data, architecture, or a frontier/local difference |
 | Correlation/probe/attention map | Predictive association useful for discovery | Mechanism without an intervention |
 
 Rationale is not mechanistic evidence. Chain-of-thought must not be requested or treated as a
@@ -38,6 +41,7 @@ contract.
 | Does pressure change evidence use? | Difference-in-differences: feature effect under pressure minus neutral | Market/prompt/model block containing both conditions |
 | Which internal sites mediate a change? | Recovery or loss of target behavior under patch/ablation | Observation-checkpoint-intervention-seed block |
 | Is output convergence also mechanism convergence? | Cross-agent similarity of confirmed causal feature effects | Held-out block after feature confirmation |
+| Where does quantization-induced reasoning divergence begin? | Precision-by-depth change in step-error hazard plus behavioral recovery under BF16↔quantized patches | Held-out financial-template/checkpoint block |
 
 Outputs include action probability or target score, signed/absolute quantity, position-size change,
 abstention, normalized regret, constraint compliance, and confidence calibration. A causal input
@@ -85,8 +89,10 @@ Prohibited claim example:
 
 ## Lane B: local open-weight mechanisms
 
-Internal claims require a licensed, locally runnable, frontier-eligible checkpoint with a frozen
-weights hash, tokenizer revision, quantization, inference stack, and hookable forward pass. An
+Internal claims require a licensed, locally runnable checkpoint with a frozen weights hash,
+tokenizer revision, precision/quantizer metadata, inference stack, and hookable forward pass. H8's
+frontier-mechanism claim still requires a frontier-eligible checkpoint; H13 may use smaller
+checkpoints, but labels the resulting mechanism by exact family, size, and precision. An
 OpenAI-compatible HTTP endpoint is insufficient by itself because it does not expose or patch
 activations.
 
@@ -117,6 +123,35 @@ A mechanism is “causally supported” only if directional patching and ablatio
 held-out examples, exceed the frozen SESOI, pass intervention-family correction, survive sham
 controls, and reproduce from the saved checkpoint/artifact hashes. Association-only findings are
 labeled candidate mechanisms.
+
+## H13 precision mechanisms and transfer
+
+Mechanistic work follows the behavioral screen; it does not begin with an unconstrained dump of
+every layer and token. Select both matched-concordant cases and cases whose first error location was
+established without using the mechanistic confirmation split. For each same-checkpoint BF16/W8/W4
+pair:
+
+1. run gold-prefix scoring to locate the first operation or value whose probability margin changes;
+2. measure same-tokenizer logit, residual-stream, MLP-gate, and available SAE-feature drift by
+   normalized layer depth and step position;
+3. patch BF16 activations into the quantized run and quantized activations into BF16 at the frozen
+   sites, targeting the next operation, terminal financial answer, and threshold-crossing trade;
+4. ablate or steer the candidate feature/subspace and compare with sham, random-layer,
+   position-matched, and norm-matched-noise controls; and
+5. confirm on untouched task generators, profiles, regimes, and an independently trained family.
+
+Gemma 2 is a cheap discovery candidate because Gemma Scope supplies pretrained sparse
+autoencoders across useful sizes. Those autoencoders must first pass reconstruction and delta-loss
+checks on each quantized activation distribution; applying a BF16 SAE to W4 activations is not
+automatically valid. If fused quantized serving kernels cannot be hooked, a hookable reference
+implementation must demonstrate target-logit and output parity with the deployed runtime before
+its activations can explain deployment behavior.
+
+Broader transfer requires three gates: aligned representations, a frozen intervention that moves
+the homologous target, and behavioral recovery on held-out examples. Replication in two families
+supports a repeated motif in those families; a general claim about open models should preferably
+use at least three independently trained families and a family-level synthesis. No local result
+directly establishes a mechanism in a closed frontier API.
 
 ## H12 pressure mechanisms
 
@@ -167,10 +202,19 @@ toward the declared multiplicity family.
 `exp-024` writes `h12_mediation.parquet` and `h12_mechanisms.json`, linked to the frozen H12
 behavioral effect rather than rationale text.
 
+`exp-026` writes:
+
+- `h13_step_transitions.parquet`: gold-prefix/free-run first-error and recovery rows;
+- `h13_chain_survival.parquet`: block-level precision×depth effects and intervals;
+- `h13_trajectory_divergence.parquet`: shadow/endogenous/reset-horizon propagation;
+- `h13_mechanism_transport.json`: candidate/supported/rejected mechanism motifs by family; and
+- checkpoint, quantizer, calibration, runtime, prompt, activation, and intervention hashes linked
+  to every reported effect.
+
 ## How users verify and see results
 
-There is not yet an interpretability CLI or complete `exp-016`/`exp-017` runner; both experiments
-remain scaffolded. The implemented utility contract is tested with:
+There is not yet an interpretability CLI or complete `exp-016`/`exp-017`/`exp-026` runner; all
+three experiments remain scaffolded. The implemented utility contract is tested with:
 
 ```bash
 uv run pytest tests/test_interpretability.py

@@ -1,8 +1,8 @@
-# 12 — Statistical Analysis Plan
+# Statistical Analysis Plan
 
 This document is the operational statistical contract for the expanded research program. It
-extends [03 — Metrics](03-metrics.md) and must be reconciled with and frozen through
-[06 — Preregistration](06-preregistration.md) before confirmatory provider calls. If the documents
+extends [Metrics](metrics.md) and must be reconciled with and frozen through
+[Preregistration](preregistration.md) before confirmatory provider calls. If the documents
 conflict after freeze, the tagged preregistration and its dated amendments control.
 
 ## Core principles
@@ -23,7 +23,7 @@ Every executable experiment must have one frozen registry row with these fields:
 
 | Field | Required content |
 |---|---|
-| `question_id` | H1–H12 or named secondary question |
+| `question_id` | H1–H13 or named secondary question |
 | `population` | Exact markets, windows, models, profiles, and prompts covered |
 | `treatment` / `control` | Fully rendered and hashed conditions |
 | `estimand` | Mathematical contrast and aggregation weights |
@@ -51,6 +51,7 @@ An analysis without this row is exploratory regardless of the language used in i
 | Human trust/delegation | Consented participant | Vignettes, repeated choices, response items |
 | Adoption forecast | Independent forecast origin/source series | Horizons and scenarios from that origin |
 | Local mechanistic study | Held-out observation-by-checkpoint intervention block | Layers, heads/features, tokens, patches |
+| H13 financial-chain study | Held-out template family, company/document cluster, or market block paired across model/precision conditions | Generated items, numerical variants, chain steps, tokens, calls, reset horizons |
 | Real-market causal study | Unit assigned/exposed under the identification design | Trades and timestamps within that unit |
 
 Nonoverlapping market windows are preferred. Overlapping windows share a dependence cluster and do
@@ -91,10 +92,20 @@ substitute for adequate replication; use randomization inference and small-sampl
 | H10 real AI causation | Assignment/exposure effect under a credible counterfactual | Design-specific exposure unit |
 | H11 actionable dataset | Predefined data-quality, calibration, and utility metrics | Independently held-out dataset unit |
 | H12 pressure | Factorial pressure effect on quality, safety, behavior, and convergence | Pressure block |
+| H13 local fidelity | Local-versus-frontier equivalence and same-checkpoint precision-by-depth propagation | Held-out template/document/market block |
 
 Real-market pattern resemblance estimates detection, not cause. H10 causal language requires
 verified AI exposure plus randomized deployment, a defensible natural experiment, or another
 specified counterfactual. Without that, results must be labeled “AI-like,” never “AI-caused.”
+
+H13 contains two nonexchangeable analyses. The cross-model bridge estimates descriptive
+equivalence or difference between deliberately sampled local and frontier endpoints; model class
+is not randomized. The quantization analysis uses paired variants of one immutable checkpoint to
+estimate precision effects, with a deterministic executable oracle for correctness. The primary
+propagation model estimates precision×dependency-depth×family effects on conditional step-error
+hazard and chain survival, then a paired endogenous-minus-shadow-state contrast for replay
+amplification. Generalization beyond sampled models requires an untouched family-level test, not a
+significant pooled model coefficient.
 
 ## Randomization inference
 
@@ -128,6 +139,8 @@ domain expertise, and power simulation:
 | Goal-attainment or shortfall probability | 0.05 absolute | ±0.025 | 0.025 adverse |
 | Trade/abstention probability | 0.05 absolute | ±0.03 | — |
 | Hard-constraint/fabrication/unsupported-claim rate | — | ±0.005 | +0.01 adverse |
+| Executable program or terminal-answer accuracy | 0.05 absolute | ±0.03 | +0.03 adverse |
+| First-step error hazard or chain survival | 0.05 absolute | ±0.03 | +0.03 adverse |
 | Spread, depth, volatility, or price impact | 0.20 baseline SD | ±0.10 SD | 0.10 SD adverse when a safety endpoint |
 | Human delegated-capital share | 0.10 absolute | ±0.05 | — |
 
@@ -158,11 +171,14 @@ Before unblinding, create named families with one row per planned contrast:
 - MPHIQ main effects: one five-contrast Holm family.
 - MPHIQ interactions: separate preregistered Holm family; higher-order discovery uses BH-FDR.
 - H12 pressure: six-contrast Holm family defined in
-  [11 — Prompt and Pressure Protocol](11-prompt-pressure-protocol.md).
+  [Prompt and Pressure Protocol](prompt-pressure-protocol.md).
 - Profile matched sets: one nine-contrast Holm family per endpoint tier.
 - Safety: conjunctive noninferiority; every required endpoint must pass.
 - Mechanistic features: discovery and confirmation must use separate data; discovery uses FDR and
   held-out confirmation uses Holm over the frozen feature set.
+- H13 behavioral fidelity, chain propagation, customization, and mechanistic transfer are four
+  separate frozen families. Model sizes, precisions, depths, contexts, error positions, replay
+  reset horizons, outcomes, and feature sites all count toward their declared family.
 - Detector feature selection: nested inside training folds; the locked test set is evaluated once.
 
 Always report the family name, number of hypotheses, raw p-value, adjusted p-value, adjusted alpha
@@ -180,6 +196,13 @@ Use a blinded stop/go rule based on data completeness, variance, cost, and safet
 Re-estimation of sample size may use blinded pooled variance. If effect estimates are examined,
 adaptation requires a preregistered group-sequential rule and alpha accounting. Confirmatory data
 must use windows, seeds, and model revisions held out from design development where feasible.
+
+For H13, use 8–12 discovery clusters only for engineering and nuisance estimates, simulate power
+for roughly 24–32 paired confirmatory clusters, and allow a blinded interval-width re-estimation to
+a hard cap near 48 only if frozen in advance. A 25–50-item-per-depth local screen is a nested
+precision diagnostic, not 25–50 independent replications. Stop a cell for futility only when the
+attainable interval cannot resolve its frozen difference/equivalence claim; failure to establish
+equivalence remains inconclusive.
 
 ## Missingness and failures
 

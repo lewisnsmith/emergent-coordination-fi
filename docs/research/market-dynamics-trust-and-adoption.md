@@ -1,4 +1,4 @@
-# 14 — Market Dynamics, Trust, and Adoption
+# Market Dynamics, Trust, and Adoption
 
 This protocol separates three related but different questions:
 

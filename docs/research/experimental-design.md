@@ -1,4 +1,4 @@
-# 02 — Experimental Design
+# Experimental Design
 
 ## Topology and paper boundary
 
@@ -20,7 +20,7 @@ First paper (Replay):                  Separate H5 (Shared exchange):
   is not part of the first-paper H1/H3/H4 family.
 
 H2 is included only as a descriptive external anchor if its harmonization gate passes. H2b and
-H6–H12 remain the future program.
+H6–H13 remain the future program.
 
 ## Experimental axes
 
@@ -98,7 +98,36 @@ news/events, its own portfolio, and cash. It must return structured JSON with or
 rationale, evidence references, calibrated confidence, and uncertainties. Strict runs reject
 unsupported evidence references and record grounding failures separately from parse failures.
 Malformed responses are retried once, then recorded as `hold` with a parse-failure flag
-(exclusion rules in 06-preregistration).
+(exclusion rules in the [preregistration](preregistration.md)).
+
+## H13 local-model fidelity and precision design
+
+H13 keeps model family, parameter scale, and numerical precision as separate factors. A small
+4-bit model versus a frontier API is a descriptive deployment comparison; it cannot identify a
+quantization effect. Quantization is identified only within the same immutable checkpoint,
+tokenizer, prompt, decoding policy, inference stack, and randomization block, with BF16 or FP16 as
+the reference and a primary same-quantizer ladder such as GPTQ W8A16, W4A16, and W3A16 stress.
+Activation and KV-cache quantization are separate later factors.
+
+The task ladder crosses financial domain and complexity with executable dependency depths of
+approximately 2, 4, 8, and 16 steps. Models emit a structured operator-and-argument program or
+auditable calculation ledger that a deterministic calculator can execute. This is an observable
+task artifact, not a claim that generated chain-of-thought faithfully reveals internal reasoning.
+Three paired modes separate error incidence from propagation:
+
+- **Gold-prefix scoring:** supply the correct state through step *k−1* and score step *k* to
+  estimate local error hazard before prior generated mistakes contaminate the chain.
+- **Free-running chains:** feed each generated intermediate result into the next step to measure
+  first-error depth, survival, recovery, and terminal numerical or decision drift.
+- **Trading replay:** compare shadow-state replay, where every precision sees the same reference
+  portfolio, with endogenous-state replay and reset horizons, where early trade differences can
+  alter later observations and positions.
+
+`exp-025` is the local-to-frontier behavioral bridge. Its references are the executable oracle for
+correctness and cached frontier outputs for descriptive similarity. `exp-026` is the
+same-checkpoint quantization and mechanism study. The highest independent unit is a held-out
+financial template family, company/document cluster, or market block; generated items, reasoning
+steps, tokens, layers, rollouts, and repeated calls are nested.
 
 ## First-paper experiments and future program
 
@@ -111,7 +140,8 @@ The authoritative catalog is [`configs/research-program.yaml`](../../configs/res
   sampling, direction, and capital-weighting harmonization succeeds.
 - **Separate simulator-only H5:** `exp-010`–`012` cover exchange calibration, randomized
   AI-capital-share response, and microstructure.
-- **Future program:** `exp-004` and `exp-013`–`024` cover H2b and H6–H12.
+- **Future program:** `exp-004` and `exp-013`–`026` cover H2b and H6–H13. H13 uses
+  `exp-025` for behavioral fidelity and `exp-026` for precision-dependent propagation.
 
 `executable`, `scaffolded`, and `blocked_external` are intentionally distinct. A protocol is not
 called execution-ready merely because its YAML exists. `flock validate` reports both scaffold
@@ -123,7 +153,7 @@ MPHIQ uses bits `M P H I Q`, where `1 = same` and `0 = balanced different`. All 
 enumerated in [`configs/designs/mphiq.yaml`](../../configs/designs/mphiq.yaml). Prompt pressure is
 a future H12 24-cell `3 stakes × 2 urgency × 2 emotion × 2 forced-action` design. Prompt
 paraphrases are nested robustness observations, not independent market evidence. See
-[09](09-mphiq-factorial-design.md) and [11](11-prompt-pressure-protocol.md).
+[MPHIQ Factorial Design](mphiq-factorial-design.md) and [Prompt and Pressure Protocol](prompt-pressure-protocol.md).
 
 ## Model and experiment reporting gates
 
@@ -154,3 +184,8 @@ that a replay/simulation result is ready for publication.
   and restrict H5 causal language to the validated simulator.
 - *Fabrication:* free-text claims can invent evidence. Response: immutable evidence IDs, strict
   grounding, injection sentinels, fail-closed quality gates, and no rationale-as-mechanism claim.
+- *Scale/precision confounding and false proxy claims:* a smaller model can differ because of
+  training, architecture, data, or post-training rather than quantization, and aggregate score
+  similarity can hide item-level churn. Response: separate cross-model behavioral bridges from
+  same-checkpoint precision contrasts; report continuous step metrics, error-type agreement, and
+  held-out family transfer before making any broader claim.

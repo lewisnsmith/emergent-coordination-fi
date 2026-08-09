@@ -1,4 +1,4 @@
-# 18 — Cost and Execution Runbook
+# Cost and Execution Runbook
 
 **Pricing verified:** 2026-07-13. All amounts are USD before tax.
 
@@ -12,25 +12,92 @@ Machine-readable inputs are in:
 - `configs/budgets/pricing.yaml` — verified standard-execution prices.
 - `configs/budgets/run-matrix.yaml` — low/pilot, base, and high workloads.
 
+## Scope boundary
+
+The run matrix budgets the broader research program, not just the first paper. Every component is
+therefore assigned to one of three authorization scopes:
+
+- `first_paper` — H1/H3/H4 MPHIQ and semantic-equivalence work.
+- `separate_h5` — the simulator-only AI-capital-share experiment, which is not part of the first
+  paper's confirmatory family.
+- `future_program` — H6 trust/delegation, H12 prompt pressure, and H13 local-model fidelity work.
+  H8/H13 mechanistic GPU work is budgeted separately rather than treated as ordinary decision
+  calls.
+
+**Retention rule:** authorization scope and cost never remove a hypothesis from the canonical
+program. High-cost work may be staged, deferred, supported through credits, or partly satisfied by
+qualified external evidence, but the underlying hypothesis and claim boundary remain recorded.
+Removal or substantive merger requires a scientific rationale unrelated to cost and a visible
+preregistration amendment. The machine-readable rule and high-cost registry live in
+`configs/research-program.yaml`.
+
+| Scenario | First paper | Separate H5 | Future program | Full-program total |
+|---|---:|---:|---:|---:|
+| Pilot | 74,880 | 11,520 | 48,960 | 135,360 |
+| Base cumulative | 4,068,480 | 126,720 | 1,978,560 | 6,173,760 |
+| High cumulative | 11,134,080 | 241,920 | 3,908,160 | 15,284,160 |
+
+Authorizing only the first-paper pilot defers 60,480 decisions, or 44.7% of the full pilot.
+At the base ceiling it defers 2,105,280 cumulative decisions, or 34.1%. These are call-count
+reductions, not final dollar estimates: endpoint mix, retries, fixed compute overhead, and the
+deferral of H8 mechanistic GPU work must be recalculated before purchasing credits or compute.
+
+The full-program totals below remain useful as ceilings, but they are not one indivisible study.
+External datasets or prior experiments may later reduce bridge or exploratory work; no such saving
+is counted here until the artifacts pass provenance and comparability review and the analysis plan
+records how they will be used.
+
+### H13 local-first sidecar
+
+H13 was added after the existing full-program call ceilings were calculated, so its sidecar below
+is **not included** in the scenario totals above or in the historical dollar estimates below. Keep
+it separate until exact checkpoints, hardware throughput, frontier endpoints, context lengths, and
+output caps are benchmarked.
+
+| H13 pilot component | Formula | Workload/cap |
+|---|---|---:|
+| Local free-running precision screen | 2 families × 2 sizes × 4 precisions × 4 depths × 50 items | 3,200 local chains |
+| Local gold-prefix scoring | 2 families × 2 sizes × 4 precisions × 50 items × (2+4+8+16 steps) | 24,000 scored prefixes |
+| Frontier financial-chain bridge | 384 held-out chains × 2 endpoints | 768 API calls |
+| Frontier repeat sample | about 10% of chains × 2 extra repeats × 2 endpoints | 154 API calls |
+| Frontier short replay | 12 blocks × 30 steps × 4 agents × 2 endpoints | 2,880 API calls |
+| **Frontier bridge cap** |  | **3,802 API calls** |
+| Mechanistic discovery | coarse-to-fine layers/sites after behavioral gate | 24 H100-hours |
+| Mechanistic confirmation | frozen sites on held-out blocks/family | 80 H100-hours, separately authorized |
+
+The 3,802-call bridge is about 96.6% below the existing 112,800-API-decision full-program pilot
+assumption. It is not powered merely because it has thousands of calls: its evidence comes from
+held-out template/document/market clusters. Use 25–50 items per depth cell for local screening,
+8–12 discovery clusters for nuisance estimates, and power roughly 24–32 paired confirmatory
+clusters with a preregistered blinded cap near 48.
+
+Do not assign a dollar figure yet. First benchmark local token throughput and measure actual
+frontier input, visible output, reasoning tokens, retries, and latency on a small authorized canary.
+Then multiply the fixed call cap by the selected endpoints' measured usage and add the same spend
+abort and contingency rules used elsewhere in this runbook.
+
 ## Recommendation
 
 Do not buy the whole confirmatory budget up front.
 
-1. Fund the pilot with a **$2,300 envelope**: $1,100 API, $1,000 GPU/VM,
+1. Authorize the 74,880-call first-paper pilot first and recalculate its dollar envelope from the
+   selected endpoints. Stage H5, H6, H8, H12, and H13 separately without removing their
+   hypotheses.
+2. Keep **$2,300** as the ceiling only for the full-program pilot: $1,100 API, $1,000 GPU/VM,
    and $200 CPU/storage.
-2. Measure actual provider-specific tokens, parse retries, throughput, and
+3. Measure actual provider-specific tokens, parse retries, throughput, and
    exclusion rates. Recalculate every later stage from those observations.
-3. If the pre-registered stop/go gates pass, treat **$121,000** as the base
+4. If the pre-registered stop/go gates pass, treat **$121,000** as the full-program base
    ceiling: $100,000 API, $20,000 GPU/VM, and $1,000 auxiliary.
-4. Treat **$580,000** as a sensitivity ceiling, not as the default plan. It is
+5. Treat **$580,000** as a full-program sensitivity ceiling, not as the default plan. It is
    needed only if pilot power analysis requires twenty seeds and the expanded
    robustness battery.
 
-Only the pilot amount is a current purchase recommendation. Base and high are
-contingent stop/go ceilings: do not prebuy those credits before pilot power,
-usage, failure-rate, and throughput measurements are complete.
+Only the scoped first-paper pilot is a current authorization recommendation. The $2,300 pilot and
+the base and high figures are full-program ceilings: do not prebuy those credits before scope,
+pilot power, usage, failure-rate, and throughput measurements are complete.
 
-The recommended base API split for work performed on or after 2026-09-01 is:
+The full-program base API split for work performed on or after 2026-09-01 is:
 
 | Provider | Credits/budget |
 |---|---:|
@@ -234,6 +301,12 @@ to BF16/full-precision mechanisms. Confirmatory activation-patching and
 causal-tracing results should therefore use the precision stated in the
 pre-registration and record it in every artifact manifest.
 
+The H13 24/80-hour funnel supersedes the assumption that an 80–160-hour mechanistic pilot should
+start before a precision-related behavioral question is established. The older table remains the
+ceiling for the broader H8 program. H13 first streams logit and activation summaries from the local
+screen, retains raw tensors only for shortlisted layers/tokens, and releases the 80-hour
+confirmation authorization only after frozen behavioral and reconstruction gates pass.
+
 ## CPU and storage
 
 Ordinary result records are estimated at 3–8 KB per decision before caches and
@@ -261,6 +334,11 @@ Before expanding beyond the pilot, verify all of the following:
 - Parse-repair rates remain within the pre-registered exclusion threshold.
 - The local H100 benchmark reports effective throughput at the actual context,
   output cap, reasoning effort, precision, and concurrency.
+- H13 same-checkpoint pairs reconcile tokenizer, prompt, quantizer, calibration, runtime, and
+  hookable/deployed logits; native low-precision-only weights are excluded from causal precision
+  claims.
+- The H13 frontier bridge stops at its call and dollar caps; local cells expand only where the
+  attainable interval can resolve the frozen equivalence or difference margin.
 - Exact model snapshots are available for confirmatory runs. A moving alias or
   preview model is not sufficient for reproducibility.
 - Pilot variance and intraclass correlation justify ten or twenty independent

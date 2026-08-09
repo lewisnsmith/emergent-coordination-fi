@@ -1,4 +1,4 @@
-# 11 — Prompt and Pressure Protocol
+# Prompt and Pressure Protocol
 
 This protocol separates harmless wording robustness from substantive prompt treatments. The
 versioned stimuli are in [`configs/prompts/catalog.yaml`](../../configs/prompts/catalog.yaml) and

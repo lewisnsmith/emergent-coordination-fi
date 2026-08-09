@@ -1,4 +1,4 @@
-# 21 — Mistake Case Study: When Many Agents Are Still One Experiment
+# Mistake Case Study: When Many Agents Are Still One Experiment
 
 **Status: DESIGN CASE STUDY; no empirical effect sizes or p-values are reported here. Last
 updated: 2026-07-17.** This case study records a consequential mistake found while hardening Flock
@@ -87,5 +87,5 @@ The important contribution is not that the first design had no flaws. It is that
 error was made legible, corrected before confirmatory calls, encoded as an automated release gate,
 and retained in the public history. The defensible story is therefore one of error detection and
 scientific revision, not retrospective perfection. The dated reconstruction is in
-[20 — Research Log](20-research-log.md), and human reviewers should challenge the correction using
-[22 — Independent Review and Response](22-independent-review-response.md).
+[Research Log](research-log.md), and human reviewers should challenge the correction using
+[Independent Review and Response](independent-review-response.md).

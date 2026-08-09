@@ -1,6 +1,6 @@
-# 20 — Research Log
+# Research Log
 
-**Status: ACTIVE. Last updated: 2026-07-23.** This file begins as a dated reconstruction from the
+**Status: ACTIVE. Last updated: 2026-08-06.** This file begins as a dated reconstruction from the
 repository and the 2026-07-17 hardening review. It must not be represented as a contemporaneous
 record of earlier work. Future entries should be written when decisions are made, before outcomes
 are known when possible, and should link to immutable evidence.
@@ -39,7 +39,7 @@ the original account.
 - **Outcome visibility:** This was a design/software audit. No real confirmatory result was used to
   choose the correction.
 - **Evidence:** Safeguard commit `049b663`; current independent-unit contract in
-  [06 — Preregistration](06-preregistration.md) and [12 — Statistical Analysis Plan](12-statistical-analysis-plan.md).
+  [Preregistration](preregistration.md) and [Statistical Analysis Plan](statistical-analysis-plan.md).
 - **Open question:** The final small-sample estimator, SESOIs, multiplicity family, and top-level
   sample size still require outcome-blind simulation and qualified statistics review.
 
@@ -59,8 +59,8 @@ the original account.
   after seeing LLM results.
 - **Outcome visibility:** No real confirmatory result was used to choose the redesign.
 - **Evidence:** Research-contract commit `8f4c7d8`; design in
-  [01 — Research Question](01-research-question.md) and
-  [02 — Experimental Design](02-experimental-design.md).
+  [Research Question](research-question.md) and
+  [Experimental Design](experimental-design.md).
 - **Open question:** Exact eligible model and classical families, activity matching tolerances,
   population weights, and a genuinely held-out family remain to be frozen.
 
@@ -77,7 +77,7 @@ the original account.
   treating simulator effects as real-market causal effects; maximizing the number of partially
   completed hypotheses.
 - **Outcome visibility:** No confirmatory frontier-model outcomes were available.
-- **Evidence:** Commit `8f4c7d8`; [07 — Related Work](07-related-work.md).
+- **Evidence:** Commit `8f4c7d8`; [Related Work](related-work.md).
 - **Open question:** The final paper claim must be restated after exact dated endpoints and data
   availability are known, without broadening beyond the sampled domain.
 
@@ -172,6 +172,41 @@ the original account.
   contract discrepancies, exact live endpoints/data, paid canary authorization, preregistration,
   and independent human review remain open.
 
+## 2026-08-06 — Add local fidelity and quantization propagation as H13
+
+- **Trigger:** Lewis identified the scientific and practical narrative behind using lower-weight
+  local models: test whether their convergence and behavior match sampled frontier models, use
+  open weights for mechanistic intervention, measure how quantization errors propagate through
+  long financial chains, and learn where cheaper models remain sufficiently informative and
+  customizable.
+- **Evidence inspected:** Primary scaling, quantized-reasoning, long-context, financial-reasoning,
+  sparse-autoencoder, and cross-architecture mechanism studies recorded in
+  [Related Work](related-work.md) and [`literature-search-log.yaml`](literature-search-log.yaml).
+  Existing work supports the question but already occupies generic claims that quantization can
+  preserve or harm reasoning and that early errors can cascade.
+- **Decision:** Add H13 as future work with two linked but nonexchangeable studies. `exp-025`
+  compares deliberately sampled local and frontier endpoints descriptively; `exp-026` uses
+  same-checkpoint precision pairs to identify quantization effects and test their propagation and
+  mechanisms. Keep the first-paper H1/H3/H4 estimand unchanged.
+- **Identification rule:** Use an executable financial oracle for correctness, same-checkpoint
+  BF16/FP16 for quantization loss, and cached frontier outputs for behavioral similarity. Separate
+  model family, parameter scale, weight precision, activation precision, and KV-cache precision.
+  Generated structured calculation ledgers are auditable task artifacts, not faithful hidden
+  chain-of-thought or mechanistic evidence.
+- **Cost decision:** Start with a local precision screen, cap the frontier bridge near 3,802 API
+  calls, cap mechanistic discovery at 24 H100-hours, and authorize an approximately 80-hour
+  confirmation only after a behavioral gate. These sidecar costs are not silently added to the
+  older full-program totals.
+- **Alternatives rejected:** Treating the native MXFP4 local endpoint as evidence of a causal
+  quantization effect; substituting small models for H1 frontier models without equivalence tests;
+  pooling scale and precision into MPHIQ's model bit; starting a broad activation sweep before a
+  behavioral effect; or claiming generality from one checkpoint family.
+- **Outcome visibility:** No paid, frontier, H13, or mechanistic result was available. The decision
+  was made from the stated research goal, current design constraints, and prior work.
+- **Open questions:** Exact licensed checkpoint families and sizes, quantizer ladder, held-out
+  domains/families, final equivalence margins, local throughput, frontier endpoint pair, and
+  whether profile-state customization precedes any LoRA/fine-tuning treatment remain unfrozen.
+
 ## Next entries required
 
 Do not collapse these into one retrospective success narrative. Add separate entries for:
@@ -185,4 +220,4 @@ Do not collapse these into one retrospective success narrative. Add separate ent
 7. clean-room reproduction outcome and final claim/limitation sign-off.
 
 The conceptual consequence of the first two redesigns is documented in
-[21 — Mistake Case Study](21-mistake-case-study.md).
+[Mistake Case Study](mistake-case-study.md).

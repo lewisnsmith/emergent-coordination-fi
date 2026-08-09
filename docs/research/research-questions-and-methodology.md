@@ -1,9 +1,9 @@
-# 08 — Research Questions and Methodology Guide
+# Research Questions and Methodology Guide
 
 > **Working guide, not the canonical specification.** The research program has expanded beyond
 > the original H1–H5 material below. Use
-> [`configs/research-program.yaml`](../../configs/research-program.yaml) for H1–H12/H2b experiment
-> IDs and claim boundaries, and [09–18](09-mphiq-factorial-design.md) for the operational MPHIQ,
+> [`configs/research-program.yaml`](../../configs/research-program.yaml) for H1–H13/H2b experiment
+> IDs and claim boundaries, and [research design documents](mphiq-factorial-design.md) for the operational MPHIQ,
 > profile, prompt-pressure, statistical, safety, market/trust, interpretability, attribution,
 > data-product, and cost protocols. If this guide conflicts with those sources, they control.
 
@@ -943,11 +943,19 @@ Why it matters:
 Question:
 
 - Does convergence increase with model capability, model size, or reasoning effort?
+- Under frozen equivalence margins, which lower-weight open models preserve sampled frontier
+  behavior and convergence on held-out financial tasks?
+- Within one checkpoint, does BF16/W8/W4 precision change first-error hazard as executable
+  financial dependency depth grows, and does portfolio feedback amplify the difference?
 
 Two competing interpretations:
 
 1. Smarter agents find the same optimal strategy.
 2. More capable/aligned agents share more priors and therefore converge.
+
+H13 separates this descriptive local-to-frontier bridge from the causal same-checkpoint
+quantization contrast. An executable oracle defines correctness; frontier agreement is not truth,
+and a structured calculation ledger is not a faithful hidden chain-of-thought.
 
 ---
 
@@ -1525,6 +1533,10 @@ The project is really about:
 - systemic herding risk.
 - foundation-model fingerprints in financial behavior.
 - interventions that restore diversity.
+- whether lower-weight open models preserve those findings well enough to support causal
+  interpretability and targeted customization.
+- where quantization errors enter verifiable financial chains and whether state feedback turns
+  them into different portfolios or market paths.
 
 ---
 
