@@ -14,6 +14,36 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
+type CostAction = Literal[
+    "mark_high_cost",
+    "defer_execution",
+    "seek_credits",
+    "reuse_external_evidence",
+    "reduce_redundant_collection",
+]
+
+
+class HighCostComponent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    hypotheses: list[str]
+    experiments: list[str]
+    cost_driver: str
+
+
+class CostPolicy(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    hypothesis_retention: Literal["required"]
+    rule: Literal[
+        "cost may change staging or evidence strategy but may never delete a hypothesis"
+    ]
+    allowed_actions: list[CostAction]
+    removal_gate: Literal[
+        "removal requires a scientific rationale unrelated to cost and a preregistration amendment"
+    ]
+    high_cost_components: dict[str, HighCostComponent]
+
 
 class HypothesisSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -56,6 +86,7 @@ class ResearchProgram(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     version: str
+    cost_policy: CostPolicy
     hypotheses: dict[str, HypothesisSpec]
     experiments: dict[str, ExperimentSpec]
 
@@ -84,6 +115,18 @@ def validate_research_program(
     errors: list[str] = []
     warnings: list[str] = []
     known_hypotheses = set(program.hypotheses)
+    known_experiments = set(program.experiments)
+    for component_id, component in program.cost_policy.high_cost_components.items():
+        unknown_hypotheses = sorted(set(component.hypotheses) - known_hypotheses)
+        if unknown_hypotheses:
+            errors.append(
+                f"cost component {component_id}: unknown hypotheses {unknown_hypotheses}"
+            )
+        unknown_experiments = sorted(set(component.experiments) - known_experiments)
+        if unknown_experiments:
+            errors.append(
+                f"cost component {component_id}: unknown experiments {unknown_experiments}"
+            )
     for experiment_id, experiment in program.experiments.items():
         unknown = sorted(set(experiment.hypotheses) - known_hypotheses)
         if unknown:

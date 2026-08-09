@@ -1,5 +1,40 @@
 version: "1"
 
+cost_policy:
+  hypothesis_retention: required
+  rule: "cost may change staging or evidence strategy but may never delete a hypothesis"
+  allowed_actions: [mark_high_cost, defer_execution, seek_credits, reuse_external_evidence, reduce_redundant_collection]
+  removal_gate: "removal requires a scientific rationale unrelated to cost and a preregistration amendment"
+  high_cost_components:
+    frontier_replay_factorials:
+      hypotheses: [H1, H3, H4]
+      experiments: [exp-001, exp-002, exp-005, exp-006, exp-007, exp-008, exp-009]
+      cost_driver: "millions of sequential frontier-model decisions"
+    shared_exchange_and_signatures:
+      hypotheses: [H5, H9]
+      experiments: [exp-011, exp-012, exp-018]
+      cost_driver: "frontier calls across independent market replicas plus simulator validation"
+    human_study:
+      hypotheses: [H6]
+      experiments: [exp-013]
+      cost_driver: "ethics review recruitment compensation and study operations"
+    mechanistic_interventions:
+      hypotheses: [H8]
+      experiments: [exp-017]
+      cost_driver: "multi-gpu activation capture and causal interventions"
+    real_market_attribution_and_release:
+      hypotheses: [H9, H10, H11]
+      experiments: [exp-019, exp-020, exp-021, exp-022]
+      cost_driver: "licensed data exposure verification causal design and release engineering"
+    prompt_pressure:
+      hypotheses: [H12]
+      experiments: [exp-023, exp-024]
+      cost_driver: "large factorial and held-out frontier-model validation"
+    local_fidelity_and_quantization:
+      hypotheses: [H13]
+      experiments: [exp-025, exp-026]
+      cost_driver: "paired precision ladders across open-weight families plus targeted frontier bridges and activation interventions"
+
 hypotheses:
   H1:
     question: Do frontier LLM investment agents converge more than heterogeneous classical investment algorithms under matched conditions?
@@ -53,6 +88,10 @@ hypotheses:
     question: Do high-stakes, urgent, emotional, or forced-action instructions make investment decisions better, worse, equivalent, or merely different, and why?
     claim: Stakes, urgency, emotion, and forced action have separable effects on quality, suitability, safety, risk, abstention, and convergence.
     claim_boundary: Treatments are fictional language frames; equivalence requires TOST, safety requires noninferiority, and models are not claimed to experience emotion or stakes.
+  H13:
+    question: When do lower-weight local models preserve frontier-model convergence and behavior, and how do quantization errors propagate through long financial reasoning chains?
+    claim: Model scale, checkpoint family, precision, reasoning depth, and state feedback have measurable effects on behavioral equivalence, conditional step-error hazard, and downstream trading-path divergence.
+    claim_boundary: A financial oracle defines correctness, same-checkpoint full precision identifies quantization loss, and frontier outputs supply a descriptive behavioral bridge; none is interchangeable and transfer beyond sampled families requires held-out replication.
 
 experiments:
   exp-000:
@@ -455,3 +494,35 @@ experiments:
     executable_configs: []
     outputs: [h12_secondary_effects.parquet, h12_mediation.parquet, h12_mechanisms.json]
     verification: [held-out split and prompt hash audit, mediation temporal-order and control audit]
+  exp-025:
+    name: Local-to-frontier behavioral fidelity bridge
+    hypotheses: [H13]
+    mode: validation
+    question: Which lower-weight open models are equivalent to sampled frontier endpoints on financial reasoning, trading behavior, and within-cohort convergence?
+    status: scaffolded
+    estimand: Capability-conditioned equivalence and deviation in verified answers, error types, actions, quantities, convergence, and cost per valid decision.
+    independent_unit: Held-out financial template family or non-overlapping replay window paired across model conditions.
+    inputs: [executable financial-chain tasks, held-out replay windows, immutable local checkpoints, cached frontier responses]
+    treatments: [checkpoint family, parameter scale, deployment class]
+    controls: [deterministic financial oracle, frozen prompt and harness, matched information, capability-conditioned analysis]
+    inference: [hierarchical equivalence tests, paired bootstrap by top-level block, family and scale heterogeneity, held-out-family validation]
+    dependencies: [financial-chain task builder, immutable local model registry, local batch runner, frontier bridge authorization]
+    executable_configs: []
+    outputs: [h13_behavioral_fidelity.parquet, h13_convergence_transport.parquet, h13_cost_frontier.json]
+    verification: [oracle execution and item-hash audit, model and prompt pairing audit, equivalence-margin and held-out split audit]
+  exp-026:
+    name: Quantized financial-chain error propagation
+    hypotheses: [H8, H13]
+    mode: local_mechanistic_interpretability
+    question: Where do same-checkpoint quantization errors first appear, and when do they compound into different financial decisions and trajectories?
+    status: scaffolded
+    estimand: Precision-by-depth change in conditional step-error hazard, chain survival, activation drift, decision divergence, and closed-loop trajectory divergence.
+    independent_unit: Held-out financial template family or market block by checkpoint; generated items, steps, tokens, and rollouts are nested.
+    inputs: [executable financial-chain tasks, same-checkpoint full and quantized weights, hookable local runner, frozen quantizer metadata]
+    treatments: [BF16 or FP16, GPTQ W8A16, GPTQ W4A16, GPTQ W3A16 stress, reasoning depth, gold-prefix versus free-running, shadow-state versus endogenous-state replay]
+    controls: [identical weights lineage tokenizer prompt and seed, executable gold prefixes, sham quantization, random-layer patch, negative-control tasks]
+    inference: [paired step-survival model, precision by depth by family interaction, hierarchical bootstrap, TOST and noninferiority, intervention-family correction]
+    dependencies: [exp-025, precision-paired checkpoint registry, step-aligned scorer, activation capture and patch runner]
+    executable_configs: []
+    outputs: [h13_step_transitions.parquet, h13_chain_survival.parquet, h13_trajectory_divergence.parquet, h13_mechanism_transport.json]
+    verification: [checkpoint quantizer and calibration hash audit, gold-prefix and free-run separation, first-error reconciliation, held-out causal replication]
