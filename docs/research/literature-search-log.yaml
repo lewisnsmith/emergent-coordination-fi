@@ -1,12 +1,13 @@
 version: 1
-search_date: "2026-07-23"
+search_date: "2026-08-06"
 timezone: "America/Los_Angeles"
-review_scope: "LLM trading convergence, market simulation, algorithmic monoculture, H2 herding measurement, and H5 market-design comparators"
+review_scope: "LLM trading convergence, market simulation, algorithmic monoculture, H2/H5 comparators, local-to-frontier scaling, quantized reasoning, financial-chain propagation, and open mechanistic interpretability"
 protocol:
   databases:
     - arXiv
     - ACL Anthology
     - NeurIPS Proceedings
+    - PMLR and OpenReview proceedings
     - Oxford Academic
     - NBER
     - SSRN
@@ -22,16 +23,25 @@ protocol:
     - '"fund manager herding" LSV measurement bias'
     - '"measuring mutual fund herding" structural approach'
     - '"Agentic Trading" survey'
+    - '"observational scaling laws" language model performance small models frontier'
+    - 'quantization reasoning model chain of thought error propagation'
+    - 'quantized language model long context task performance'
+    - 'financial reasoning executable chain benchmark FinChain FinQA DocFinQA'
+    - 'open sparse autoencoder cross-model mechanistic universality'
   inclusion:
     - direct LLM trading or investment-recommendation experiments
     - measurement papers defining or auditing LSV/Sias-style herding
     - algorithmic monoculture or outcome-homogenization studies
     - market-design or learning papers that constrain H5 claims
     - systematic reviews with explicit search/evidence protocols
+    - primary studies that separate model scale, precision, reasoning depth, or quantization method
+    - financial benchmarks with executable programs, step labels, or long-document controls
+    - open mechanistic resources and cross-family transfer studies that constrain H8/H13 claims
   exclusion:
     - performance-only trading agents without a convergence, ecology, measurement, or market-design implication
     - commentary without a stable primary record
     - real-market AI-causation claims lacking verified exposure and a counterfactual
+    - quantization claims based only on perplexity when no reasoning, behavior, or mechanism implication is available
   refresh_points:
     - before_preregistration
     - before_submission
@@ -139,3 +149,72 @@ records:
     primary_url: "https://aclanthology.org/2025.findings-emnlp.945/"
     last_verified: "2026-07-23"
     decision: "Performance-oriented multi-agent system without a central convergence/ecology estimand."
+  - id: ruan2024observational
+    status: include
+    role: local_frontier_scaling
+    primary_url: "https://arxiv.org/abs/2405.10938"
+    version_note: "NeurIPS 2024 spotlight."
+    last_verified: "2026-08-06"
+    decision: "Supports capability-conditioned scaling curves but not item-level behavioral or mechanistic equivalence."
+  - id: schaeffer2023emergent
+    status: include
+    role: continuous_scaling_measurement
+    primary_url: "https://proceedings.neurips.cc/paper_files/paper/2023/hash/adc98a266f45005c403b8311ca7e8bd7-Abstract-Conference.html"
+    last_verified: "2026-08-06"
+    decision: "Requires continuous step and error metrics rather than terminal accuracy alone."
+  - id: liu2025quantization
+    status: include
+    role: quantized_reasoning_benchmark
+    primary_url: "https://arxiv.org/abs/2504.04823"
+    version_note: "COLM 2025."
+    last_verified: "2026-08-06"
+    decision: "Motivates the BF16/W8/W4/sub-4-bit ladder and scale-by-task interactions."
+  - id: li2025quantization
+    status: include
+    role: step_error_propagation
+    primary_url: "https://arxiv.org/abs/2505.11574"
+    last_verified: "2026-08-06"
+    decision: "Closest replication target for early low-bit reasoning errors cascading to final answers."
+  - id: kumar2024precision
+    status: include
+    role: precision_scaling
+    primary_url: "https://arxiv.org/abs/2411.04330"
+    last_verified: "2026-08-06"
+    decision: "Rules out assuming a constant quantization penalty across scale and training maturity."
+  - id: mekala2025long
+    status: include
+    role: long_context_quantization
+    primary_url: "https://aclanthology.org/2025.emnlp-main.479/"
+    last_verified: "2026-08-06"
+    decision: "Requires context length and reasoning depth to be crossed rather than conflated."
+  - id: xie2026finchain
+    status: include
+    role: executable_financial_reasoning
+    primary_url: "https://aclanthology.org/2026.acl-long.662/"
+    last_verified: "2026-08-06"
+    decision: "Primary cheap template source for controlled dependency depth and executable step labels."
+  - id: chen2021finqa
+    status: include
+    role: real_document_financial_reasoning
+    primary_url: "https://aclanthology.org/2021.emnlp-main.300/"
+    last_verified: "2026-08-06"
+    decision: "Provides expert financial-report questions and gold programs for ecological validation."
+  - id: reddy2024docfinqa
+    status: include
+    role: long_context_financial_reasoning
+    primary_url: "https://aclanthology.org/2024.acl-short.42/"
+    last_verified: "2026-08-06"
+    decision: "Provides a long-document bridge and a control for context length separate from reasoning depth."
+  - id: lieberum2024gemma
+    status: include
+    role: open_mechanistic_resource
+    primary_url: "https://arxiv.org/abs/2408.05147"
+    last_verified: "2026-08-06"
+    decision: "Makes Gemma 2 a low-cost discovery family; SAE features still require causal validation under each precision."
+  - id: wang2025universality
+    status: include
+    role: mechanism_transfer_boundary
+    primary_url: "https://arxiv.org/abs/2410.06672"
+    version_note: "ICLR 2025."
+    last_verified: "2026-08-06"
+    decision: "Motivates cross-family transfer tests while prohibiting universality claims from representation correlation alone."
