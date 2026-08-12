@@ -28,9 +28,6 @@ data = [
     "yfinance>=0.2.40",
 ]
 
-[project.scripts]
-flock = "flock.cli:app"
-
 [dependency-groups]
 dev = [
     "pyright>=1.1.411",
@@ -56,10 +53,6 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
-
-[tool.ruff.lint.per-file-ignores]
-# typer's Argument/Option-in-default is the documented idiom
-"src/flock/cli.py" = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
