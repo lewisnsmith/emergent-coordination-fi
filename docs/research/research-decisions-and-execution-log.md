@@ -428,3 +428,88 @@ scientific revision, not retrospective perfection. The dated reconstruction is i
 
 - **Outcome visibility:** This was information architecture and conflict reconciliation. No
   scientific outcome, paid call, market result, or trading result was generated or inspected.
+
+### Dated repository-polish governance retained from 2026-07-23
+
+The superseded polish plan used five bounded review teams and required a structured report before
+integration:
+
+| Review team | Historical scope and required report |
+|---|---|
+| Repository curator | Direct/type/string/dynamic/re-export/CLI/config/test/CI/link inventory and a `keep`, `merge`, `archive`, or `delete` disposition with replacement, recovery point, and verification |
+| Literature/provenance | Exact source, query, date, inclusion decision, citation key, correction status, and last verification |
+| H2/statistics | Holdings-change harmonization, LSV/Sias, activity matching, clustering, sensitivities, tests, and forbidden interpretations |
+| H5/markets | Exchange mechanics, calibration, invariants, ODD/STRESS, a pass/fail gate per mechanism, and whether H5 must remain disabled |
+| Execution/reproducibility | Assignment terminal states, hashes, failures, byte identity, and external-action blockers |
+
+Those reviewers could inspect, test, and propose changes. They could not push, spend money,
+register a study, broaden a claim, delete ignored runs, or count as independent human reviewers.
+The former cleanup gate required mock execution for H1/H3/H4; tested H2 holdings changes, LSV,
+Sias, activity matching, and provenance; deterministic raw-run aggregation that rejected invalid
+inputs; either complete H5 mechanics/reporting or a disabled simulator-only state; a terminal and
+byte-identical mock matrix; tests, Ruff, and Pyright; and manuscript compilation when LaTeX became
+available. The 2026-07-23 snapshot recorded gates 1, 2, 3, and the feasible portion of 5 as passing
+at the software/mock level, H5 remaining disabled, and LaTeX unavailable. The 2026-08-12 user
+instruction superseded the plan's prohibition on broad consolidation, not those scientific gates.
+
+The former information architecture named the README, research-program and paper-core YAML,
+topic-specific research documents, paper source, and bibliography as separate authorities. Its
+planned reductions anticipated merging MPHIQ/profile/statistics, data/grounding, the correction
+case, and future protocols, but deferred them. The lifecycle manuals now replace that architecture;
+this paragraph preserves the earlier state instead of leaving it apparently current.
+
+For each reduction candidate, the historical procedure required separate searches for direct
+calls, types, strings, dynamic imports, re-exports, CLI registration, configs, tests, CI, and docs;
+a `keep`/`merge`/`archive`/`delete` disposition; a named canonical replacement and Git recovery
+commit; no more than five files per phase; focused and full verification; and before/after file,
+line, word, and dependency counts. Generated runs, caches, provider responses, reports, figures,
+tables, macros, PDFs, and licensed payloads remained ignored. A public versioned archive would
+hold verified raw evidence while Git retained its URI, hashes, manifest, and reproduction
+contract.
+
+The historical status vocabulary was a six-level evidence ladder:
+
+1. `planned`: documented, not implemented;
+2. `implemented`: code path exists;
+3. `tested`: automated verification passes;
+4. `executed`: a named assignment produced terminal artifacts;
+5. `independently_verified`: a human reviewer or separate clean-room rerun checked it; and
+6. `paper_eligible`: frozen preregistration and release gates permit manuscript support.
+
+Mock runs could reach `executed` for software validation but never `paper_eligible` evidence about
+frontier behavior. The historical completion report also required ordered commits and purposes;
+all changes/deletions, replacements, and recovery points; before/after file, line, word, and
+dependency counts; test, Ruff, Pyright, link, citation, BibTeX, manuscript, schema, replay,
+exchange, H2, aggregation, H5, mock-matrix, reproduction, secret, and tracked-artifact results;
+exact mock/paid/preregistration/review/paper status; and all unresolved or approval-gated actions.
+
+### Dated hardening relationships and blocker queue retained from 2026-07-23
+
+The hardening review linked five findings to implemented responses and remaining gates:
+
+| Lens | Finding and response | Remaining gate at that date |
+|---|---|---|
+| Paper stress test | Pseudoreplication and overbroad claims led to block-level inference, duplicate-dependence rejection, nested power, mock/paper separation, and a claim lock | Freeze the top-level model and margins after outcome-blind nuisance work |
+| Prior-art overlap | Occupied convergence/herding territory led to the matched technology-by-ecology contribution and real bibliography | Refresh the evidence map at preregistration and submission |
+| Cost/authenticity | Mixed call formulas and incomplete pricing led to a deterministic matrix, dated catalog, staged caps, and runtime request/token/dollar guards | Reprice exact endpoints before each separately authorized stage |
+| End-to-end audit | Retry, cache, hash, ledger, self-trade, replay, resume, and schema failure modes led to atomic attempts/cache, classified retries, full-bundle hashes, conservation checks, strict configs, terminal manifests, and materialization | Resolve the full matrix and finish H5 mechanics |
+| Admissions/authenticity | The repository looked broader than its evidence led to disclosure, dated history, a correction case, review protocol, and walkthrough | Execute one narrow corrected study and obtain real independent reviews |
+
+The exact pre-paid-call queue was: hydrate or relocate the iCloud `dataless` artifact without
+deleting it; install provider/data extras and run bounded metadata-only probes for immutable exact
+endpoints; acquire and hash equity windows and only a lawful prediction panel; resolve live
+assignments against immutable model revisions and licensed data; acquire lawful 13F data plus
+comparable realized simulated holdings and run `flock harmonize-h2`, whose outputs include hashed
+quarterly activity, coverage, exclusions, canonical LSV cells, Sias components, and
+activity-matching provenance; and reconcile primary small-sample inference versus sign-flip
+sensitivity, exact H1 contrasts, and unified Holm versus H4 hierarchical FDR.
+
+The exact pre-confirmatory/H5 queue was: freeze independent-unit counts, SESOIs, margins,
+missingness, multiplicity, and blinded variance re-estimation; freeze and register the commit and
+rendered inputs; add power artifacts, an action raster, provider heatmap, and full specification
+curve; rebuild any prediction data under strict timestamp/rules/payout schemas and state that
+direct NO-share trading remains unsupported; keep H5 disabled until persistent orders,
+cancel/expiry events, seeded fundamental/noise/liquidity demand, reconstructable books,
+calibration, and ODD/STRESS pass; install LaTeX CI; and obtain statistics, microstructure, and
+reproducibility reviews with dated responses. These facts are historical; the current blocker
+register in the release manual controls present status.
