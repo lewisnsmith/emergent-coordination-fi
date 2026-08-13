@@ -84,10 +84,18 @@ Representative LLM decision record:
 After licensing and release verification, the artifacts can provide `(observation, agent
 parameterization, decision, rationale, outcome)` tuples for research beyond the proposed study.
 
-Study outputs add `assignments.parquet`, `contrasts.parquet`, `verification.json`,
-`safety_failures.parquet`, and `claims.json`. Real-market data products keep four labels
-separate: simulation truth, AI-like signature, verified AI exposure, and causally verified AI
-event. See [Causal-tier release schemas](#causal-tier-release-schemas).
+Planned source-level study products include assignment, contrast, verification, and safety-failure
+tables. They are not the implemented final bundle schema. The current final bundle uses
+`independent_units.parquet`, `block_effects.parquet`, `effects.parquet`,
+`missingness_failures.parquet`, `sensitivity_results.parquet`, `multiplicity.json`,
+`equivalence_noninferiority.json`, `estimand_registry.json`, `statistical_verification.json`,
+`claims.json`, `figures/independent-unit-topology.png`, and `figures/h1-block-effects.png`.
+Protocol-specific source artifacts must enter that bundle through a documented transform; no
+generic `assignments.parquet`, `contrasts.parquet`, `verification.json`, or
+`safety_failures.parquet` is currently emitted by the bundle builder. Real-market data products
+keep four labels separate: simulation truth, AI-like signature, verified AI exposure, and causally
+verified AI event. See
+[Causal-tier release schemas](#causal-tier-release-schemas).
 
 ### Provenance & licensing notes
 
@@ -418,7 +426,9 @@ It remains available in the lower appropriate tier with the failure reason.
 
 `claims.json` maps every report statement to hypothesis, estimand, causal tier, data rows, code/data
 hashes, effect/interval, adjusted inference, figure/table, limitations, and verification status. A
-claim with no complete mapping is omitted from the public report.
+future schema amendment must add the coequal `public_dataset`, `owned_alpha`, or `validated_risk`
+outcome track before those products execute; no runtime schema change is made by this documentation
+consolidation. A claim with no complete mapping is omitted from the public report.
 
 ### Splits, leakage, and held-out utility
 
@@ -880,9 +890,11 @@ Before believing any result, check:
 
 ## Release gates and handoff
 
-**Status: BLOCKED; this is a release plan, not evidence of a completed study. Snapshot date:
-2026-07-17.** Checkboxes remain unchecked until their named artifacts exist and pass verification.
-Do not infer completion from implemented scaffolding or passing mock tests.
+**Status: BLOCKED; evergreen release-instance checklist, reviewed 2026-08-12.** Checkboxes apply to
+a future named real release and remain unchecked until that release's artifacts exist and pass.
+Implemented safeguards and internal deterministic mock reproduction are recorded above, but they
+do not check off real-data, paid, independent-review, clean-room, preregistration, or paper gates.
+The superseded 2026-07-17 snapshot is preserved in the dated research log.
 
 ### Scientific release gate
 
@@ -1005,7 +1017,8 @@ The current blockers are:
 - no paid pilot or confirmatory run has executed;
 - no immutable preregistration or OSF record exists;
 - no genuine independent statistics, market-microstructure, or reproducibility review exists;
-- no independent public clean-room reproduction exists; and
+- no independent public clean-room reproduction exists;
+- H11 has no implemented causal-tier dataset exporter or full release-verification runner; and
 - a LaTeX toolchain must be available in release CI before manuscript eligibility.
 
 The current personal-budget lane can proceed locally through evidence audit, workstation
@@ -1019,7 +1032,7 @@ UV_NO_EDITABLE=1 uv run flock validate --output readiness.json
 UV_NO_EDITABLE=1 uv run flock doctor
 UV_NO_EDITABLE=1 uv run flock verify-run results/<run-id> > results/<run-id>/run-verification.json
 UV_NO_EDITABLE=1 uv run flock analyze <run-id>
-UV_NO_EDITABLE=1 uv run flock analyze-study results/study-source.json --output results/study-h1.json
+UV_NO_EDITABLE=1 uv run flock analyze-study results/study-source.json --output results/study-bundle
 ```
 
 `scaffold_ok=true` is not `execution_ready=true`. A run-level `ok=true` covers only the

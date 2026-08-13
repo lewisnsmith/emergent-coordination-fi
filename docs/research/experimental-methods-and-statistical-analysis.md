@@ -179,28 +179,10 @@ that a replay/simulation result is ready for publication.
 
 ### Threats to validity (and responses)
 
-- *Data contamination:* models may "remember" historical prices. Response: synthetic regimes and
-  post-cutoff windows as robustness sets; report both.
-- *Prompt-induced convergence:* a shared prompt template could itself cause agreement. Response:
-  paraphrase battery; persona axis; report template sensitivity.
-- *Baseline strawman or diversity confound:* a homogeneous LLM cohort compared with a deliberately
-  diverse classical cohort can manufacture H1. Response: the crossed 2×2 benchmark, matched
-  family diversity and behavior opportunities, and frozen family-weighted estimands.
-- *Metric gaming:* single metrics can mislead. Response: pre-registered metric hierarchy with
-  Holm–Bonferroni across the family.
-- *Pseudoreplication and common shocks:* seeds, calls, steps, agent pairs, and paraphrases are
-  dependent, while overlapping windows inherit shared shocks. Response: trajectory/window-level
-  aggregation, explicit overlap/common-shock clusters, and top-level-unit power analysis.
-- *Causal inflation:* replay agreement can be mislabeled coordination, and simulated H5 effects
-  can be mislabeled real-market causation. Response: use common-response language for H1/H3/H4
-  and restrict H5 causal language to the validated simulator.
-- *Fabrication:* free-text claims can invent evidence. Response: immutable evidence IDs, strict
-  grounding, injection sentinels, fail-closed quality gates, and no rationale-as-mechanism claim.
-- *Scale/precision confounding and false proxy claims:* a smaller model can differ because of
-  training, architecture, data, or post-training rather than quantization, and aggregate score
-  similarity can hide item-level churn. Response: separate cross-model behavioral bridges from
-  same-checkpoint precision contrasts; report continuous step metrics, error-type agreement, and
-  held-out family transfer before making any broader claim.
+The consolidated [threats-to-validity register](#threats-to-validity) later in this manual owns
+the full problem/mitigation pairs. It includes contamination, prompt effects, weak or confounded
+baselines, metric gaming, pseudoreplication/common shocks, causal inflation, fabricated evidence,
+and scale/precision proxy errors.
 
 ## MPHIQ factorial design
 
@@ -370,6 +352,22 @@ A run is not analyzable unless:
 
 The verification report must identify the exact failing block and must fail closed rather than
 silently dropping an incomplete scheme.
+
+### Configured and implemented MPHIQ blockers
+
+The current `paper-core.yaml` contains one 31-edge Gray-code spanning chain. It covers each of the
+32 schemes but contributes only 1 M, 2 P, 4 H, 8 I, and 16 Q edges, not the 16 equally weighted
+Hamming-one edges per factor required by the estimand above. The current validator checks only that
+all five factors appear, and the analysis averages whatever edges are supplied. The executable
+contract must therefore be changed to all 80 cube edges with an exact-completeness gate, or the
+estimand must be amended outcome-blind to a defensible weighted design, before MPHIQ confirmation.
+
+The current first-paper analysis also reports the two ecology-specific technology contrasts rather
+than the preregistered ecology-averaged `Δtech`, uses paired sign flips as the primary p-value, and
+records those sign flips as confirmatory. Until the top-level H1 model is selected and implemented,
+those p-values are sensitivity-only and paper eligibility is blocked. The configured H4
+hierarchical-FDR wording must likewise be reconciled with the Holm main-effect family and
+exploratory BH-FDR interaction rule in this manual.
 
 ## Investor-profile factor and matched sets
 
@@ -731,7 +729,9 @@ the words “typical,” “likely,” “representative,” or “population ef
 Required outputs are:
 
 - `prompt_catalog_snapshot.yaml` and `prompt_pressure_catalog_snapshot.yaml`;
-- `prompt_pressure_assignments.parquet` and rendered-component hashes;
+- `h12_core_assignments.parquet` and rendered-component hashes. The pressure-treatment config's
+  source-level `prompt_pressure_assignments.parquet` name must be transformed or amended to this
+  catalog name before a runner is implemented; they are not two separate evidence artifacts;
 - `h12_block_effects.parquet` and `h12_core_effects.parquet`;
 - `h12_equivalence.json` and `h12_multiplicity.json`;
 - `h12_safety_failures.parquet` and `h12_mediation.parquet`;
@@ -982,6 +982,20 @@ H5 remains disabled until all items are checked in a frozen commit:
 - [ ] `claims.json` labels all H5 claims `simulator_bounded` and links them to this report.
 
 Until then, exchange runs are engineering diagnostics and cannot populate the manuscript.
+
+### Configured and implemented H5 blockers
+
+The materializer currently gives seed-specific replicas distinct `market_replica_id` values but
+sets their inferential `independent_block` to the shared trajectory ID. That collapses multiple
+independently initialized replicas. Before H5 is enabled, each seed-specific market replica must be
+the paired block spanning all six share conditions, with any higher regime/common-shock grouping
+represented separately.
+
+`paper-core.yaml` also places H5 in shared first-paper inference and figure outputs and requests
+only share outcomes. H5 instead needs its separate multiplicity family plus the curve, thresholds,
+microstructure, cascades, H5 inference, and ODD/STRESS verification artifacts specified here. This
+documentation-only consolidation does not alter runtime contracts, so all of these remain explicit
+release blockers.
 
 ## Human trust and AI-adoption forecasting
 
@@ -1244,6 +1258,9 @@ toward the declared multiplicity family.
 
 ### Exact outputs
 
+These are protocol requirements, not a claim that the scaffolded runners emit them today. The
+absence of a complete runner and verifier is an execution blocker.
+
 `exp-016` writes:
 
 - `input_interventions.parquet`: block, feature, control/treatment hashes and scores;
@@ -1260,6 +1277,19 @@ toward the declared multiplicity family.
 
 `exp-024` writes `h12_mediation.parquet` and `h12_mechanisms.json`, linked to the frozen H12
 behavioral effect rather than rationale text.
+
+`exp-025` writes:
+
+- `h13_behavioral_fidelity.parquet`: item-, block-, family-, scale-, and endpoint-paired
+  correctness, error, action, quantity, and equivalence rows;
+- `h13_convergence_transport.parquet`: held-out within-cohort convergence transport and margin
+  decisions; and
+- `h13_cost_frontier.json`: requests, tokens, latency, local compute, valid-decision rate, and
+  cost-frontier estimates.
+
+Its verifier must reconcile scoring-key execution and item hashes, checkpoint/model and prompt
+pairing, independent held-out splits, capability conditioning, equivalence margins, and every
+included failure. No complete `exp-025` runner or verifier exists yet.
 
 `exp-026` writes:
 
@@ -1886,10 +1916,9 @@ estimands and avoid ranking them as though identical.
 
 ### Required statistical outputs
 
-Every confirmatory study writes:
+The final analysis bundle's currently implemented core contract is:
 
 - `estimand_registry.json`: frozen question and analysis rows.
-- `randomization_plan.json` and `realized_assignments.parquet`.
 - `independent_units.parquet`: one row per actual replication unit and terminal status.
 - `block_effects.parquet`: unit-level contrasts used for inference.
 - `effects.parquet`: estimates, intervals, SESOIs, and equivalence/noninferiority margins.
@@ -1898,6 +1927,15 @@ Every confirmatory study writes:
 - `missingness_failures.parquet` and `sensitivity_results.parquet`.
 - `statistical_verification.json`: automated audit verdicts.
 - `claims.json`: each claim linked to its estimand, data hashes, table, and figure.
+- `figures/independent-unit-topology.png` and `figures/h1-block-effects.png`: the two core
+  claim-linked figures.
+
+`randomization_plan.json` and `realized_assignments.parquet` are required upstream design/source
+artifacts, not members of the currently implemented final bundle. MPHIQ-, H5-, H12-, and H13-
+specific filenames elsewhere in this manual are planned protocol products that must either feed
+the core bundle through a documented transform or be added to a future versioned schema. The
+current implementation does not emit every planned protocol artifact, and paper eligibility stays
+blocked until config, runner, verifier, and manual agree.
 
 Reports must show independent `n`, nested observation counts separately, unit-level effect plots,
 raw action/failure distributions, adjusted and unadjusted results, and robustness across model,
@@ -1960,7 +1998,7 @@ claim
 ---
 ## Project components
 
-#### Data layer
+### Data layer
 
 Location:
 
@@ -1981,7 +2019,7 @@ Important outputs:
 
 ---
 
-#### Agent layer
+### Agent layer
 
 Location:
 
@@ -2006,7 +2044,7 @@ Agent types:
 
 ---
 
-#### Market layer
+### Market layer
 
 Location:
 
@@ -2031,7 +2069,7 @@ Modes:
 
 ---
 
-#### Experiment layer
+### Experiment layer
 
 Location:
 
@@ -2055,7 +2093,7 @@ Important result files:
 
 ---
 
-#### Analysis layer
+### Analysis layer
 
 Location:
 
@@ -2078,7 +2116,7 @@ Important report files:
 ---
 ## Experiment inspection workflow
 
-#### Read the config
+### Read the config
 
 Start with:
 
@@ -2102,7 +2140,7 @@ Questions:
 
 ---
 
-#### Inspect the dataset
+### Inspect the dataset
 
 Questions:
 
@@ -2124,7 +2162,7 @@ Suggested visualizations:
 
 ---
 
-#### Reconstruct one decision
+### Reconstruct one decision
 
 Pick one:
 
@@ -2152,7 +2190,7 @@ If one row is understandable, the whole pipeline becomes understandable.
 
 ---
 
-#### Check action distributions
+### Check action distributions
 
 Before looking at convergence metrics, ask:
 
@@ -2168,7 +2206,7 @@ This is important because raw agreement can be misleading if everyone mostly hol
 
 ---
 
-#### Interpret convergence metrics
+### Interpret convergence metrics
 
 Look at:
 
@@ -2192,7 +2230,7 @@ Ask:
 
 ---
 
-#### Interpret statistics
+### Interpret statistics
 
 For primary claims, ask:
 
@@ -2207,7 +2245,7 @@ For primary claims, ask:
 ---
 ## Visualization contract
 
-#### Dataset visualizations
+### Dataset visualizations
 
 1. Price chart by symbol.
 2. Return chart by symbol.
@@ -2219,7 +2257,7 @@ For primary claims, ask:
 
 ---
 
-#### Decision visualizations
+### Decision visualizations
 
 1. Agent action raster
 
@@ -2264,7 +2302,7 @@ Purpose:
 
 ---
 
-#### Portfolio visualizations
+### Portfolio visualizations
 
 1. Equity curves by agent/cohort.
 2. Equity fan chart by cohort.
@@ -2276,7 +2314,7 @@ Purpose:
 
 ---
 
-#### Strategy visualizations
+### Strategy visualizations
 
 1. Fingerprint coefficient bar charts.
 2. PCA or UMAP of strategy fingerprints.
@@ -2287,7 +2325,7 @@ Purpose:
 
 ---
 
-#### Statistical visualizations
+### Statistical visualizations
 
 1. Bootstrap confidence interval forest plot.
 2. Permutation null distribution with observed statistic marked.
@@ -2298,7 +2336,7 @@ Purpose:
 
 ---
 
-#### Shared-exchange visualizations
+### Shared-exchange visualizations
 
 1. Order book depth over time.
 2. Midprice with cohort net flow overlay.
@@ -2311,7 +2349,9 @@ Purpose:
 ---
 ## Threats to validity
 
-#### Hold-heavy behavior
+This is the canonical threat register for the manual.
+
+### Hold-heavy behavior
 
 Problem:
 
@@ -2327,7 +2367,7 @@ Mitigation:
 
 ---
 
-#### Prompt-induced convergence
+### Prompt-induced convergence
 
 Problem:
 
@@ -2343,7 +2383,7 @@ Mitigation:
 
 ---
 
-#### Weak baselines
+### Weak baselines
 
 Problem:
 
@@ -2356,9 +2396,21 @@ Mitigation:
 - Include ensemble strategies.
 - Include volatility targeting and risk controls.
 
+### Ecology confounding
+
+Problem:
+
+- Comparing a homogeneous LLM cohort with a deliberately diverse classical cohort confounds
+  technology with supplied ecology.
+
+Mitigation:
+
+- Use the crossed technology-by-ecology benchmark, matched family diversity and behavioral
+  opportunities, frozen family weights, and within-ecology contrasts.
+
 ---
 
-#### Historical data contamination
+### Historical data contamination
 
 Problem:
 
@@ -2374,7 +2426,7 @@ Mitigation:
 
 ---
 
-#### Leakage
+### Leakage
 
 Problem:
 
@@ -2390,7 +2442,7 @@ Mitigation:
 
 ---
 
-#### Multi-symbol action simplification
+### Multi-symbol action simplification
 
 Problem:
 
@@ -2408,7 +2460,7 @@ Mitigation:
 
 ---
 
-#### Constraints create convergence
+### Constraints create convergence
 
 Problem:
 
@@ -2423,7 +2475,7 @@ Mitigation:
 
 ---
 
-#### Rationale unreliability
+### Rationale unreliability
 
 Problem:
 
@@ -2435,9 +2487,34 @@ Mitigation:
 - Compare rationales with actual signal loadings.
 - Audit hallucinations.
 
+### Causal and evidence inflation
+
+Problem:
+
+- Replay agreement can be mislabeled coordination, simulator effects can be carried into real
+  markets, and fluent claims can cite evidence that was never supplied.
+
+Mitigation:
+
+- Use common-response language for H1/H3/H4, keep H5 claims conditional on simulator validation,
+  require external identification for real-market causality, use immutable evidence IDs and
+  injection sentinels, and never treat rationales as mechanisms.
+
+### Scale and precision confounding
+
+Problem:
+
+- Cross-model differences combine training, architecture, scale, data, and post-training, while
+  aggregate similarity can hide item-level error churn.
+
+Mitigation:
+
+- Separate descriptive local-to-frontier bridges from same-checkpoint precision contrasts and
+  report continuous step metrics, error-type agreement, and held-out family transfer.
+
 ---
 
-#### External-anchor mismatch
+### External-anchor mismatch
 
 Problem:
 
@@ -2451,7 +2528,7 @@ Mitigation:
 
 ---
 
-#### Provider nondeterminism
+### Provider nondeterminism
 
 Problem:
 

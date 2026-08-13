@@ -75,7 +75,9 @@ for both H1 contrasts remain explicitly unfrozen until the draft preregistration
 ### H1
 
 - **Question:** Under matched homogeneous and heterogeneous cohort ecologies, do frontier LLM investment agents converge differently from classical investment algorithms?
-- **Proposed claim:** Frontier LLM cohorts have greater chance-corrected per-symbol decision and portfolio convergence than matched classical cohorts.
+- **Proposed claim:** The ecology-averaged technology contrast and technology-by-ecology
+  interaction differ from their frozen nulls under the matched benchmark. Their directions and
+  exact decision rules remain unfrozen.
 - **Claim boundary:** Applies to sampled models, markets, windows, prompts, and constraints; it does not establish universal model behavior or superior investment performance.
 - **Program role:** first-paper confirmatory family.
 - **Cost status:** frontier replay factorials.

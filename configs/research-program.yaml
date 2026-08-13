@@ -38,7 +38,7 @@ cost_policy:
 hypotheses:
   H1:
     question: Under matched homogeneous and heterogeneous cohort ecologies, do frontier LLM investment agents converge differently from classical investment algorithms?
-    claim: Frontier LLM cohorts have greater chance-corrected per-symbol decision and portfolio convergence than matched classical cohorts.
+    claim: The ecology-averaged technology contrast and technology-by-ecology interaction differ from their frozen nulls under the matched benchmark; their directions and exact decision rules remain unfrozen.
     claim_boundary: Applies to sampled models, markets, windows, prompts, and constraints; it does not establish universal model behavior or superior investment performance.
   H2:
     question: Is AI-agent convergence unusual relative to convergence among real investors measured on comparable outcomes?
@@ -277,7 +277,7 @@ experiments:
     question: At what AI-managed capital share do market dynamics change materially?
     status: scaffolded
     estimand: Paired dose-response in impact, volatility, liquidity, cascades, and convergence breadth.
-    independent_unit: Independently randomized market replica by share, window, and seed.
+    independent_unit: Independently initialized market-replica block spanning all randomized share conditions; any regime or common-shock cluster is higher-level.
     inputs: [AI-share grid, frontier agents, background liquidity agents]
     treatments: [AI-managed capital share]
     controls: [zero-AI market, fixed total capital, common random numbers]

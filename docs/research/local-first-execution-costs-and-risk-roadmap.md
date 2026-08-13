@@ -141,6 +141,13 @@ document lineage crosses a prohibited split.
 
 ### Run the local precision and fidelity screen
 
+Quantized local policies might be adequate for routine proposals because many simulated actions
+have a small action space, typed state, and limited context. That is a hypothesis, not an
+assumption. A 4-bit model may work on constrained action selection yet fail on long memory,
+numerical reasoning, rare events, or subtle social inference; a larger unquantized model can still
+fail because its persona, state representation, or feedback model is poor. Quantization is only
+one error source, and H13 must measure the boundary directly.
+
 Run two open families at two feasible size tiers across BF16 or FP16, W8, W4, and W3 stress where
 the hardware permits. Use the same tokenizer, prompt, decoding, quantizer family, calibration
 corpus, seed, runtime, and hardware within each causal precision contrast.
@@ -362,7 +369,8 @@ calls, and keep a fully offline mock/local mode for reproducibility.
 **Cost levers.** The biggest savings are usually fewer model calls (event-driven decisions,
 batched agents, cached repeated states, and longer deterministic intervals), shorter typed
 contexts, local quantization, and selective escalation—not merely pushing bit width lower.
-### Staged experiment sequence
+
+### Provisional H13 caps and paired modes
 
 | Stage | Minimal work | Stop/go gate |
 |---|---|---|
@@ -378,12 +386,15 @@ injection at early, middle, and late positions to estimate amplification. In tra
 compare a common shadow portfolio with endogenous portfolios and reset horizons of 1, 5, 20, and
 all steps. The difference estimates state-mediated amplification inside replay.
 
-A useful first API bridge is roughly 384 chains × 2 frontier endpoints, two extra repeats on 10%
-of items, and 12 short replay blocks × 30 steps × 4 agents × 2 endpoints: about 3,800 API
-calls. That is about 97% below the existing 112,800-decision full-program API pilot assumption.
+A provisional maximum API bridge is roughly 384 chains × 2 frontier endpoints, two extra repeats
+on 10% of items, and 12 short replay blocks × 30 steps × 4 agents × 2 endpoints: about 3,800
+API calls. That is about 97% below the existing 112,800-decision full-program API pilot
+assumption.
+
 Run the broad precision ladder locally, generate each frontier reference once, and expand only
-after an interval-width gate. Begin mechanistic discovery with a 24 H100-hour cap and authorize an
-approximately 80-hour confirmation cap only after the behavioral gate passes.
+after an interval-width gate. Begin mechanistic discovery only under its separate 24 H100-hour
+authorization; passing the behavioral gate makes an approximately 80-hour confirmation eligible
+for separate authorization and never authorizes compute by itself.
 
 ## High-cost and externally blocked registry
 
@@ -426,7 +437,9 @@ The following items remain proposals rather than canonical study decisions:
 - Buying a used RTX 3090 24 GB rather than another GPU or no GPU.
 - Selecting the exact two open checkpoint families and two size tiers.
 - Selecting the exact OpenAI and Anthropic frontier endpoints.
-- Using the provisional 2, 4, 8, and 16 dependency-depth ladder and the current sample caps.
+- Using the provisional 2, 4, 8, and 16 dependency-depth ladder and the current sample allocation.
+  The 3,802-call bridge is a provisional maximum planning stop cap unless an outcome-blind,
+  separately approved amendment lowers or replaces it before any paid request.
 - Selecting equivalence, noninferiority, safety, and material-difference margins.
 - Selecting the real-market feature panel, universe, frequency, and paper-trading venue.
 - Selecting the prospective paper-trading duration and any later criteria for a separate
@@ -749,8 +762,8 @@ pre-registration and record it in every artifact manifest.
 The H13 24/80-hour funnel supersedes the assumption that an 80–160-hour mechanistic pilot should
 start before a precision-related behavioral question is established. The older table remains the
 ceiling for the broader H8 program. H13 first streams logit and activation summaries from the local
-screen, retains raw tensors only for shortlisted layers/tokens, and releases the 80-hour
-confirmation authorization only after frozen behavioral and reconstruction gates pass.
+screen, retains raw tensors only for shortlisted layers/tokens, and makes the 80-hour confirmation
+eligible for separate authorization only after frozen behavioral and reconstruction gates pass.
 
 ### CPU and storage
 
