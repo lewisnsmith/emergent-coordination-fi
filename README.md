@@ -9,28 +9,29 @@ homogenization* in LLM trading agents. The proposed study uses a matched
 lineage, profiles, harnesses, information, and wording affect convergence. It does not infer
 coordination or collusion from agents independently responding to the same information.
 
-See [`docs/research/`](docs/research/) and the machine-readable
-[`configs/research-program.yaml`](configs/research-program.yaml) for the full H1–H13 program:
+The research record has four lifecycle manuals:
 
-- [Research question](docs/research/research-question.md)
-- [Experimental design](docs/research/experimental-design.md)
-- [Metrics](docs/research/metrics.md)
-- [Datasets](docs/research/datasets.md)
-- [Follow-up questions](docs/research/follow-up-questions.md)
-- [Pre-registration](docs/research/preregistration.md)
-- [Related work](docs/research/related-work.md)
-- [MPHIQ, profiles, prompt pressure, and statistics](docs/research/mphiq-factorial-design.md)
-- [safeguards, markets/trust, interpretability, attribution, outputs](docs/research/grounding-and-logical-verification.md)
-- [cost and execution runbook](docs/research/cost-and-execution-runbook.md)
-- [local-model fidelity and quantization plan](docs/research/low-cost-human-trading-behavior-simulation.md)
-- [budget-constrained local-first research plan](docs/plans/budget-constrained-local-first-research.md)
-- [authorship, research log, mistake case study, review, and release](docs/research/authorship-and-tool-use.md)
-- [H5 ODD/STRESS report and simulator gate](docs/research/simulator-odd-stress.md)
+- [scope, outcomes, hypotheses, evidence, and prior work](docs/research/research-scope-outcomes-and-evidence.md)
+- [experimental methods, metrics, and statistical analysis](docs/research/experimental-methods-and-statistical-analysis.md)
+- [data provenance, artifacts, verification, and release](docs/research/data-provenance-artifacts-and-release.md)
+- [local-first execution, costs, and risk roadmap](docs/research/local-first-execution-costs-and-risk-roadmap.md)
+
+Its formal records are the [preregistration](docs/research/preregistration.md),
+[research decisions and execution log](docs/research/research-decisions-and-execution-log.md),
+[authorship and AI-use record](docs/research/authorship-ai-use-and-accountability.md),
+[independent review protocol](docs/research/independent-review-protocol-and-responses.md), and
+[literature search and screening log](docs/research/literature-search-and-screening-log.yaml).
+The machine-readable [`configs/research-program.yaml`](configs/research-program.yaml) remains the
+H1–H13 experiment catalog.
 
 The proposed first study is H1/H3/H4. H2 is a conditional descriptive external anchor, and H5 is
 a separate causal experiment whose claims are bounded to the validated simulator. H6–H13 are
 future work, not claims of the proposed study. The working manuscript is
 [`paper/main.tex`](paper/main.tex); it is a skeleton with no confirmatory results.
+
+The project targets three separate outputs: reusable public research datasets, an owned
+out-of-sample alpha evaluation, and evidence-backed findings about AI-agent trading risks. None
+inherits evidentiary status from another.
 
 H13 is the local-model fidelity lane: it tests whether lower-weight open models preserve sampled
 frontier behavior and convergence, then uses same-checkpoint BF16/W8/W4 comparisons to measure how
@@ -38,8 +39,8 @@ quantization errors propagate through executable financial chains and portfolio 
 local-first pilot caps the frontier bridge near 3,800 API calls and gates activation work on a
 measured behavioral question; it is scaffolded, separately preregistered future work.
 
-The [budget-constrained local-first research plan](docs/plans/budget-constrained-local-first-research.md)
-proposes running that affordable H13/H8 lane before broad paid frontier work. The canonical
+The [local-first roadmap](docs/research/local-first-execution-costs-and-risk-roadmap.md) proposes
+running that affordable H13/H8 lane before broad paid frontier work. The canonical
 first-paper configuration remains H1/H3/H4 until the study and budget contracts are reconciled.
 
 ## Current readiness
@@ -108,7 +109,7 @@ First paper (Replay):                  Separate H5 (Shared exchange):
   data ──▶ Agent C ──▶ trades_C          Agent C ─┘        ▲              │
   (no interaction; estimates                              └── feedback ──┘
    common-response convergence)        (tests market effects inside the
-                                        validated simulator only)
+                                        simulator after validation gates)
 ```
 
 The first-paper benchmark crosses technology with ecology: homogeneous LLM, heterogeneous LLM,
@@ -131,7 +132,7 @@ sampling can be harmonized; otherwise they remain separate descriptive context.
 | `configs/research-program.yaml` | All hypotheses, experiments, dependencies, outputs, verification |
 | `configs/designs/`, `prompts/`, `personas/` | MPHIQ, pressure, wording, and profile treatments |
 | `configs/budgets/` | Dated official prices and staged call/credit assumptions |
-| `docs/research/` | Research question, design, metrics, pre-registration |
+| `docs/research/` | Four lifecycle manuals and the formal research records |
 | `paper/` | Claim-locked LaTeX manuscript and bibliography; no single-run paper export |
 
 ## Reproducibility
@@ -179,7 +180,9 @@ paper and release package must also satisfy the
 and the current [ACM artifact review and badging criteria](https://www.acm.org/publications/policies/artifact-review-and-badging-current).
 These are release gates: claims remain draft until the model description, experiment report,
 provenance, master reproduction path, artifact inventory, and independent rerun evidence are
-present and audited.
+present and audited. See the
+[release manual](docs/research/data-provenance-artifacts-and-release.md#release-gates-and-handoff)
+for the complete checklist and walkthrough.
 
 ## Development
 
