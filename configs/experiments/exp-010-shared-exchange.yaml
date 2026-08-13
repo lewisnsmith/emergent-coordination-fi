@@ -1,5 +1,6 @@
 # H5: emergent coordination with price impact. Same cohorts as exp-000 but
-# trading against each other in one continuous double auction. Offline (mocks).
+# trading in a step-synchronous price-time-priority call process with an
+# intra-step limit-order book. Offline (mocks); H5 validation remains gated.
 name: exp-010-shared-exchange
 model_policy: mock_only
 runtime_budget:

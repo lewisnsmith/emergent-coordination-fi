@@ -91,7 +91,7 @@ hypotheses:
   H13:
     question: When do lower-weight local models preserve frontier-model convergence and behavior, and how do quantization errors propagate through long financial reasoning chains?
     claim: Model scale, checkpoint family, precision, reasoning depth, and state feedback have measurable effects on behavioral equivalence, conditional step-error hazard, and downstream trading-path divergence.
-    claim_boundary: A financial oracle defines correctness, same-checkpoint full precision identifies quantization loss, and frontier outputs supply a descriptive behavioral bridge; none is interchangeable and transfer beyond sampled families requires held-out replication.
+    claim_boundary: A financial scoring key defines correctness, same-checkpoint full precision identifies quantization loss, and frontier outputs supply a descriptive behavioral bridge; none is interchangeable and transfer beyond sampled families requires held-out replication.
 
 experiments:
   exp-000:
@@ -504,12 +504,12 @@ experiments:
     independent_unit: Held-out financial template family or non-overlapping replay window paired across model conditions.
     inputs: [executable financial-chain tasks, held-out replay windows, immutable local checkpoints, cached frontier responses]
     treatments: [checkpoint family, parameter scale, deployment class]
-    controls: [deterministic financial oracle, frozen prompt and harness, matched information, capability-conditioned analysis]
+    controls: [deterministic financial scoring key, frozen prompt and harness, matched information, capability-conditioned analysis]
     inference: [hierarchical equivalence tests, paired bootstrap by top-level block, family and scale heterogeneity, held-out-family validation]
     dependencies: [financial-chain task builder, immutable local model registry, local batch runner, frontier bridge authorization]
     executable_configs: []
     outputs: [h13_behavioral_fidelity.parquet, h13_convergence_transport.parquet, h13_cost_frontier.json]
-    verification: [oracle execution and item-hash audit, model and prompt pairing audit, equivalence-margin and held-out split audit]
+    verification: [scoring-key execution and item-hash audit, model and prompt pairing audit, equivalence-margin and held-out split audit]
   exp-026:
     name: Quantized financial-chain error propagation
     hypotheses: [H8, H13]

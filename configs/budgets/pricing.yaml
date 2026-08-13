@@ -3,7 +3,7 @@
 # batch_discount is deliberately 0.0. The current experiment runner is
 # sequential and portfolio-path dependent, so the executable budget assumes
 # standard synchronous inference. Provider Batch/Flex discounts are described
-# in docs/research/cost-and-execution-runbook.md but must not be assumed
+# in docs/research/local-first-execution-costs-and-risk-roadmap.md but must not be assumed
 # until the runner explicitly supports them.
 version: "2026-07-17"
 
