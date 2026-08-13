@@ -278,64 +278,12 @@ The public H11 product may be useful and actionable without being a profitable s
 boundary applies to the public dataset product; it does not prohibit a separately labeled,
 strictly out-of-sample owned-alpha evaluation.
 
-## Secondary and exploratory questions
+## Secondary and exploratory research registry
 
-The expanded H1–H13 program is no longer a loose backlog. Its canonical experiment mapping is
-[`configs/research-program.yaml`](../../configs/research-program.yaml). The items below are
-secondary moderators or extensions; they must not silently enter the confirmatory family.
-
-Secondary questions, ordered by proximity to the primary result. Experiment IDs below are
-planned; only exp-000, exp-001, exp-002, and exp-010 currently have configs.
-
-1. **Within-family vs cross-family convergence.** Does Claude agree with Claude more than with
-   GPT/Gemini? Is there a "foundation-model fingerprint" detectable from trades alone?
-   → provider-blocked MPHIQ/model-pair study (`exp-005` in the canonical catalog).
-2. **Capability scaling and local fidelity.** Does convergence rise with model tier, and are
-   lower-weight open models behaviorally equivalent to sampled frontier endpoints within frozen
-   margins? Keep this descriptive cross-model bridge (`exp-025`, H13) separate from reasoning-
-   effort robustness among dated frontier models (`exp-009`).
-3. **Temperature & sampling.** How much decorrelation does temperature buy, and at what
-   performance and safety cost? (`exp-009`)
-4. **Persona/demographic sensitivity.** Which instruction dimensions (risk tolerance, horizon,
-   demographic framing, mandate) actually change *strategy* rather than *style*? How much
-   dispersion can prompt engineering restore? (`exp-006`/`exp-008`)
-5. **Information-set differentiation.** Does giving agents different news subsets decorrelate
-   them more than personas do (H4)? What is the marginal substitution rate between information
-   heterogeneity and prompt heterogeneity? (`exp-007`/`exp-008`)
-6. **Memory & context.** Do agents with trade memory converge more over time (self-reinforcing
-   strategies) or less (path dependence)? (exp-008)
-7. **Regime dependence.** Is convergence stronger in crises (flight to the same safety) than in
-   calm regimes? Compare synthetic regime blocks and historical windows. (exp-009)
-8. **Shared-market amplification (H5).** Cascade frequency/depth vs cohort LLM-share: sweep the
-   fraction of market capital held by LLM agents from 0% to 100%; find the threshold where
-   price dynamics change. (exp-011)
-9. **Tacit coordination / collusion.** In the shared market with market-maker LLM agents, do
-   spreads widen supra-competitively without communication (Calvano-style)? (exp-012)
-10. **Contamination.** Do agents behave differently on pre-cutoff vs post-cutoff vs synthetic
-    data in ways consistent with memorization? (robustness battery attached to exp-001)
-11. **Advisor mode.** If LLMs advise heterogeneous executors (humans with noise/latency) rather
-    than trade directly, how much convergence survives the execution layer?
-12. **Cross-market consistency.** Are the *same* models the convergence drivers in equities and
-    prediction markets, or is convergence market-structure dependent?
-13. **Detection.** Can a locked simulation-derived signature transport to held-out public tape?
-    This is H9/`exp-018`–`019`; it cannot establish AI causation without H10/`exp-020` evidence.
-14. **Decorrelation interventions.** Can information diversification, model-provider diversity,
-    randomized execution, or human review reduce breadth without unacceptable performance or
-    safety loss?
-15. **Mechanism convergence.** Do agents reach similar trades through the same causally active
-    features/circuits, or do distinct mechanisms converge behaviorally? H13/`exp-026` requires
-    representation alignment, transferred intervention, and behavioral recovery before a
-    cross-family mechanism claim.
-16. **Adversarial robustness.** Which injection, authority, FOMO, forced-certainty, anchoring,
-    and conflicting-mandate prompts defeat grounding or constraint compliance?
-17. **Quantization propagation.** For the same checkpoint, where does BF16/W8/W4 divergence first
-    appear as financial dependency depth increases, and how much additional portfolio divergence
-    arises under endogenous versus shadow-state replay? (`exp-026`, H13)
-18. **Customization fidelity.** Does quantization attenuate causal response to risk capacity,
-    horizon, liquidity, dependents, taxes, mandate constraints, or information access? Compare
-    profile-response vectors before any LoRA or fine-tuning treatment. (`exp-025`/`exp-026`)
-
-## Research directions and backlog
+The items below are secondary moderators or extensions and must not silently enter the
+confirmatory family. Their canonical experiment mapping is
+[`configs/research-program.yaml`](../../configs/research-program.yaml); only exp-000, exp-001,
+exp-002, and exp-010 currently have executable configs.
 
 ### Core convergence result
 
@@ -374,6 +322,8 @@ Why it matters:
 
 - Could imply foundation-model-specific trading fingerprints.
 
+Catalog relationship: provider-blocked model-pair and MPHIQ work under `exp-005`/`exp-008`.
+
 ---
 
 ### Model capability scaling
@@ -395,6 +345,9 @@ H13 separates this descriptive local-to-frontier bridge from the causal same-che
 quantization contrast. A financial scoring key defines correctness; frontier agreement is not truth,
 and a structured calculation ledger is not a faithful hidden chain-of-thought.
 
+Catalog relationship: `exp-025` for capability-conditioned local-to-frontier fidelity,
+`exp-026` for quantization propagation, and `exp-009` for frontier reasoning-effort robustness.
+
 ---
 
 ### Temperature and sampling diversity
@@ -407,6 +360,8 @@ Follow-up:
 
 - Does it reduce performance?
 - Does it diversify actions or only rationales?
+
+Catalog relationship: `exp-009`.
 
 ---
 
@@ -428,6 +383,11 @@ Important distinction:
 
 - Language diversity is not strategy diversity.
 
+Customization extension: test whether quantization attenuates causal response to risk capacity,
+horizon, liquidity, dependents, taxes, mandate constraints, or information access. Compare
+profile-response vectors before any LoRA or fine-tuning treatment (`exp-006`, `exp-008`,
+`exp-025`, and `exp-026`).
+
 ---
 
 ### Information-set differentiation
@@ -439,6 +399,9 @@ Question:
 Why it matters:
 
 - If yes, market diversity may require information diversity, not just model/persona diversity.
+
+Catalog relationship: `exp-007`/`exp-008`; estimate the substitution rate between information
+and prompt heterogeneity.
 
 ---
 
@@ -452,6 +415,8 @@ Possible outcomes:
 
 1. Memory increases convergence because agents learn the same lessons.
 2. Memory decreases convergence because different portfolio histories create path dependence.
+
+Catalog relationship: `exp-008`.
 
 ---
 
@@ -474,6 +439,8 @@ Regimes to compare:
 - high volatility.
 - post-cutoff real windows.
 
+Catalog relationship: `exp-009`.
+
 ---
 
 ### Contamination robustness
@@ -489,6 +456,8 @@ Robustness tools:
 - post-training-cutoff windows.
 - obscure assets/contracts.
 - transformed return series.
+
+Catalog relationship: contamination battery attached to `exp-001`.
 
 ---
 
@@ -511,6 +480,9 @@ Metrics:
 - spread widening.
 - price impact.
 
+Catalog relationship: `exp-011`, with the configured six-share grid and the adaptive finer grid
+left unfrozen.
+
 ---
 
 ### Tacit collusion and market-maker behavior
@@ -526,6 +498,8 @@ Why it matters:
 Important caution:
 
 - Use careful language. Do not claim illegal collusion unless there is explicit evidence and a legal framework.
+
+Catalog relationship: `exp-012`.
 
 ---
 
@@ -548,6 +522,9 @@ Why it matters:
 
 - Could inform market surveillance and regulation.
 
+Catalog relationship: H9 `exp-018`/`exp-019` for discovery and transport. Detection cannot
+establish AI causation without H10 `exp-020`/`exp-021` exposure and counterfactual evidence.
+
 ---
 
 ### Decorrelation interventions
@@ -568,6 +545,9 @@ Possible interventions:
 - ensemble methods.
 - delayed or partitioned information.
 
+Every intervention must preserve acceptable performance and safety and use an untouched
+evaluation block.
+
 ---
 
 ### Rationale faithfulness
@@ -582,6 +562,45 @@ Tests:
 - Compare stated signal use to regression-implied signal use.
 - Look for hallucinated reasons.
 - Use counterfactual observations.
+
+### Advisor mode and execution compliance
+
+Question:
+
+- If LLMs advise heterogeneous executors with partial compliance, noise, sizing differences, or
+  latency rather than trading directly, how much convergence survives?
+
+Catalog relationship: H2b/H6 `exp-014`; simulated executors do not answer human trust.
+
+### Cross-market consistency
+
+Question:
+
+- Are the same models the convergence drivers in equities and prediction markets, or is the
+  result market-structure dependent?
+
+Use nonoverlapping held-out domains and do not pool incompatible outcomes merely to claim
+transport.
+
+### Mechanism convergence
+
+Question:
+
+- Do agents reach similar trades through the same causally active features or circuits, or do
+  distinct mechanisms converge behaviorally?
+
+H13 `exp-026` requires representational alignment, transferred intervention, and behavioral
+recovery before a cross-family mechanism claim.
+
+### Adversarial prompt robustness
+
+Question:
+
+- Which injection, authority, FOMO, forced-certainty, anchoring, and conflicting-mandate prompts
+  defeat grounding or constraint compliance?
+
+Catalog relationship: H12/H8 `exp-023`/`exp-024`/`exp-016`, with held-out prompt families and
+explicit safety noninferiority.
 
 ---
 

@@ -488,21 +488,12 @@ profile, model, transformation, and analysis hashes. `checksums.sha256` covers e
 
 ### How users verify and see the data
 
-Current run-level workflow:
-
-```bash
-uv run flock data list
-uv run flock validate --output readiness.json
-uv run flock verify-run results/<run-id> > results/<run-id>/run-verification.json
-uv run flock analyze <run-id>
-```
+Use the canonical [current verification commands](#current-verification-commands). The run-level
+subset lists data, validates readiness, verifies a named run, and produces its analysis.
 
 Users inspect `results/<run-id>/report.md` and its PNG figures, then trace tables to the native run
-artifacts and `manifest.json`. Study-level H1 users can run:
-
-```bash
-uv run flock analyze-study results/study-source.json --output results/study-h1.json
-```
+artifacts and `manifest.json`. The same canonical block shows the current one-source-manifest
+study-analysis command.
 
 For a future release, users should first read `dataset_card.md`, verify
 `release_verification.json` says `pass`, recompute `checksums.sha256`, inspect `lineage.json` and
@@ -640,23 +631,11 @@ Run verification currently checks decision/portfolio completeness, duplicate row
 clipped-order validity, prompt/response hashes for LLMs, strict grounding verdicts, usage-cost
 reconciliation, fill fees, cash ledger reconciliation, and the 20% parse-failure warning.
 
-Use:
-
-```bash
-uv run flock validate --output readiness.json
-uv run flock design --output resolved-design.json
-uv run flock run configs/experiments/exp-000-smoke.yaml
-uv run flock verify-run results/<run-id> > results/<run-id>/run-verification.json
-uv run flock analyze <run-id>
-```
+Use the canonical [current verification commands](#current-verification-commands) for repository,
+design, run, and study checks.
 
 `validate` returning `scaffold_ok=true` does not mean `execution_ready=true`. `verify-run` returning
-`ok=true` certifies only its implemented checks. Statistical study verification is separate; H1
-block aggregation is currently available through:
-
-```bash
-uv run flock analyze-study results/study-source.json --output results/study-h1.json
-```
+`ok=true` certifies only its implemented checks. Statistical study verification is separate.
 
 ### Outputs and how to inspect them
 
@@ -1028,8 +1007,11 @@ discovery. Those steps do not clear the configured first-paper or H5 release blo
 ## Current verification commands
 
 ```bash
+UV_NO_EDITABLE=1 uv run flock data list
 UV_NO_EDITABLE=1 uv run flock validate --output readiness.json
 UV_NO_EDITABLE=1 uv run flock doctor
+UV_NO_EDITABLE=1 uv run flock design --output resolved-design.json
+UV_NO_EDITABLE=1 uv run flock run configs/experiments/exp-000-smoke.yaml
 UV_NO_EDITABLE=1 uv run flock verify-run results/<run-id> > results/<run-id>/run-verification.json
 UV_NO_EDITABLE=1 uv run flock analyze <run-id>
 UV_NO_EDITABLE=1 uv run flock analyze-study results/study-source.json --output results/study-bundle
