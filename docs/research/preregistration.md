@@ -1,4 +1,4 @@
-# Pre-registration
+# Preregistration
 
 **Status: DRAFT; not frozen, not registered, and not eligible to freeze yet.** The offline smoke
 run validates plumbing only. Real inputs, top-level units, the matched technology-by-ecology
@@ -20,6 +20,9 @@ exploratory and require untouched confirmation.
   level. Causal language is limited to the validated simulator.
 - **H2b and H6–H13** are future-program protocols. They cannot be promoted into the first-paper
   family by an amendment after first-paper outcomes are inspected.
+
+The local-first H13/H8 execution priority is a budget staging decision. It does not change this
+configured first-paper structure.
 
 ## Primary H1 outcome
 
@@ -46,17 +49,12 @@ model with a small-sample or wild-cluster procedure. A sign-flip test may appear
 sensitivity analysis under an explicit symmetry assumption. H5 may use design-based
 randomization inference only according to its actual blocked AI-share assignment mechanism.
 
-H1 succeeds only if all are true:
-
-1. the Holm-adjusted first-paper-family test is below 0.05;
-2. the 95% interval is entirely above zero;
-3. the relevant technology contrast reaches the frozen SESOI or is reported as statistically
-   detectable but practically small;
-4. parse, grounding, leakage, balance, and ledger quality gates pass;
-5. the frozen family weights, activity and marginal-action balance, and dependency reconciliation
-   pass; and
-6. the held-out market-type replication has the same sign and no preregistered material
-   contradiction, if that replication's data gate passed before freeze.
+The direction and exact decision rule for **both** `Δtech` and `Δint` remain unfrozen. Before this
+draft can freeze, an outcome-blind amendment must specify each contrast's direction, null,
+interval rule, SESOI relationship, place in the ordered H1/H3/H4 family, and held-out replication
+rule. Consolidation does not choose those scientific decisions. Regardless of the final rule,
+parse, grounding, leakage, balance, ledger, family-weight, activity, marginal-action, dependency,
+and applicable held-out replication gates must pass.
 
 Portfolio overlap and strategy-fingerprint dispersion are ordered secondary outcomes. Rationale
 similarity is exploratory and never mechanistic evidence.
@@ -120,7 +118,7 @@ precision study. Its discovery screen may debug scoring and estimate nuisance va
 model, precision, task, margin, stopping, and mechanism choices cannot be selected on confirmatory
 outcomes. Lock and hash:
 
-- **Three references:** executable financial oracle, same-checkpoint BF16/FP16 reference, and
+- **Three references:** deterministic financial scoring key, same-checkpoint BF16/FP16 reference, and
   sampled frontier behavioral bridge, with a rule preventing one from being substituted for
   another in claims.
 - **Model factors:** independently trained family, exact checkpoint/revision and parameter count,
