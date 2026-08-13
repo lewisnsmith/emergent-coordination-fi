@@ -23,6 +23,7 @@ See [`docs/research/`](docs/research/) and the machine-readable
 - [safeguards, markets/trust, interpretability, attribution, outputs](docs/research/grounding-and-logical-verification.md)
 - [cost and execution runbook](docs/research/cost-and-execution-runbook.md)
 - [local-model fidelity and quantization plan](docs/research/low-cost-human-trading-behavior-simulation.md)
+- [budget-constrained local-first research plan](docs/plans/budget-constrained-local-first-research.md)
 - [authorship, research log, mistake case study, review, and release](docs/research/authorship-and-tool-use.md)
 - [H5 ODD/STRESS report and simulator gate](docs/research/simulator-odd-stress.md)
 
@@ -36,6 +37,10 @@ frontier behavior and convergence, then uses same-checkpoint BF16/W8/W4 comparis
 quantization errors propagate through executable financial chains and portfolio state. Its
 local-first pilot caps the frontier bridge near 3,800 API calls and gates activation work on a
 measured behavioral question; it is scaffolded, separately preregistered future work.
+
+The [budget-constrained local-first research plan](docs/plans/budget-constrained-local-first-research.md)
+proposes running that affordable H13/H8 lane before broad paid frontier work. The canonical
+first-paper configuration remains H1/H3/H4 until the study and budget contracts are reconciled.
 
 ## Current readiness
 
