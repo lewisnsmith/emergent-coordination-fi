@@ -37,7 +37,7 @@ cost_policy:
 
 hypotheses:
   H1:
-    question: Do frontier LLM investment agents converge more than heterogeneous classical investment algorithms under matched conditions?
+    question: Under matched homogeneous and heterogeneous cohort ecologies, do frontier LLM investment agents converge differently from classical investment algorithms?
     claim: Frontier LLM cohorts have greater chance-corrected per-symbol decision and portfolio convergence than matched classical cohorts.
     claim_boundary: Applies to sampled models, markets, windows, prompts, and constraints; it does not establish universal model behavior or superior investment performance.
   H2:
@@ -114,14 +114,14 @@ experiments:
     name: Frontier convergence in equity replay
     hypotheses: [H1]
     mode: simulation
-    question: Do frontier agents converge more than classical baselines on US equity windows?
+    question: Under the crossed technology-by-ecology benchmark, do frontier agents converge differently from classical baselines on US equity windows?
     status: scaffolded
     estimand: Paired run-level difference in chance-corrected per-symbol action agreement.
-    independent_unit: Non-overlapping equity window by seed.
+    independent_unit: Non-overlapping equity window or independently generated trajectory; response seeds are nested.
     inputs: [versioned equity windows, verified frontier API and local models]
     treatments: [LLM cohort]
     controls: [classical cohort, random null, identical information, common random numbers]
-    inference: [blocked randomization test, hierarchical cluster bootstrap, Holm correction]
+    inference: [unfrozen cluster-aware top-level-unit test, hierarchical cluster bootstrap, sign-flip sensitivity only, Holm correction]
     dependencies: [acquired equity windows, verified model IDs, study-level analysis]
     executable_configs: [configs/experiments/exp-001-replay-equities.yaml]
     outputs: [h1_equities_effects.parquet, h1_equities_inference.json, h1_equities_verification.json]
@@ -130,14 +130,14 @@ experiments:
     name: Frontier convergence in prediction-market replay
     hypotheses: [H1]
     mode: simulation
-    question: Do frontier agents converge more than classical baselines on resolved binary markets without outcome leakage?
+    question: Under the crossed technology-by-ecology benchmark, do frontier agents converge differently from classical baselines on resolved binary markets without outcome leakage?
     status: scaffolded
     estimand: Paired run-level per-contract agreement difference.
-    independent_unit: Non-overlapping contract panel by seed.
+    independent_unit: Non-overlapping contract panel or independently generated trajectory; response seeds are nested.
     inputs: [prediction-market history, resolution-safe observations, verified frontier models]
     treatments: [LLM cohort]
     controls: [classical cohort, random null, hidden resolution outcome]
-    inference: [blocked randomization test, hierarchical cluster bootstrap, Holm correction]
+    inference: [unfrozen cluster-aware top-level-unit test, hierarchical cluster bootstrap, sign-flip sensitivity only, Holm correction]
     dependencies: [acquired prediction-market dataset, leakage validator, study-level analysis]
     executable_configs: [configs/experiments/exp-002-replay-prediction.yaml]
     outputs: [h1_prediction_effects.parquet, h1_prediction_inference.json]
@@ -165,7 +165,7 @@ experiments:
     question: Does shared-AI delegation spread ordinary convergence across more investors and capital?
     status: scaffolded
     estimand: Capital-weighted convergence breadth as a function of delegation share with pairwise convergence fixed.
-    independent_unit: Market-window by seed by delegation-share cell.
+    independent_unit: Independent market replica by delegation-share cell; seeds are nested unless they generate the replica.
     inputs: [real convergence distribution, delegation share grid, executor noise models]
     treatments: [AI delegation share]
     controls: [zero-AI counterfactual, fixed pairwise convergence, fixed total capital]
@@ -181,7 +181,7 @@ experiments:
     question: Is convergence stronger within a model or provider family than across providers?
     status: scaffolded
     estimand: Balanced contrast among same-model, same-provider-different-model, and cross-provider pairs.
-    independent_unit: Market-window by seed by model-pair block.
+    independent_unit: Non-overlapping market window or independent trajectory by model-pair block; response seeds are nested.
     inputs: [verified frontier model panel, provider lineage map]
     treatments: [pair type]
     controls: [identical prompt, information, profile, and harness]
@@ -197,7 +197,7 @@ experiments:
     question: How much do substantively diverse investor profiles change decisions and convergence?
     status: scaffolded
     estimand: Profile-heterogeneity effect on per-symbol agreement and suitability.
-    independent_unit: Market-window by seed by balanced profile block.
+    independent_unit: Non-overlapping market window or independent trajectory by balanced profile block; response seeds are nested.
     inputs: [structured profile registry, frontier model panel]
     treatments: [financially relevant profile factors, identity-only matched counterfactuals]
     controls: [neutral profile, reciprocal matched profiles]
@@ -213,7 +213,7 @@ experiments:
     question: Does different evidence reduce convergence more than different profiles?
     status: scaffolded
     estimand: Profile-by-information difference-in-differences.
-    independent_unit: Market-window by seed by factorial block.
+    independent_unit: Non-overlapping market window or independent trajectory by factorial block; response seeds are nested.
     inputs: [profile registry, deterministic equal-budget information partitions]
     treatments: [profile sameness, information sameness]
     controls: [same-profile same-information cell, equal information token budget]
@@ -229,7 +229,7 @@ experiments:
     question: Which combinations of model, profile, harness, information, and prompt sameness drive convergence?
     status: scaffolded
     estimand: Main and interaction effects across all 32 binary MPHIQ schemes.
-    independent_unit: Market-window by seed by MPHIQ scheme.
+    independent_unit: Non-overlapping market window or independent trajectory by MPHIQ scheme; response seeds are nested.
     inputs: [configs/designs/mphiq.yaml, model panel, profile registry, prompt catalog]
     treatments: [M, P, H, I, Q sameness bits]
     controls: [balanced zero bits, byte-identical one bits, fixed cohort size and capital]
@@ -245,7 +245,7 @@ experiments:
     question: Are headline effects stable across likely harnesses, memory, regimes, and semantic paraphrases?
     status: scaffolded
     estimand: Heterogeneity and equivalence of locked headline effects across held-out robustness factors.
-    independent_unit: Held-out market-window by seed by robustness block.
+    independent_unit: Held-out non-overlapping market window or independent trajectory by robustness block; response seeds are nested.
     inputs: [harness catalog, market regimes, five semantic paraphrases]
     treatments: [temperature, reasoning effort, memory, regime, prompt variant]
     controls: [locked primary specification, held-out windows]
@@ -325,7 +325,7 @@ experiments:
     question: How much AI-induced convergence survives noisy, delayed, partial human execution?
     status: scaffolded
     estimand: Convergence breadth transmitted through execution-compliance levels.
-    independent_unit: Market-window by seed by compliance-share block.
+    independent_unit: Independent market replica by compliance-share block; seeds are nested unless they generate the replica.
     inputs: [AI recommendations, executor noise models, compliance grid]
     treatments: [advice compliance, latency, sizing noise]
     controls: [direct AI execution, no AI advice, fixed total capital]
@@ -373,7 +373,7 @@ experiments:
     question: Which internal activations mediate evidence weighting, risk, pressure, and action selection?
     status: scaffolded
     estimand: Causal decision change under activation patching, ablation, and steering.
-    independent_unit: Observation by local checkpoint by intervention seed.
+    independent_unit: Held-out observation block by local checkpoint; intervention seeds are nested.
     inputs: [hookable local frontier checkpoint, activation hooks, feature dictionary]
     treatments: [activation patching, causal tracing, ablation, steering]
     controls: [sham patch, random-layer control, negative-control tokens, held-out observations]
@@ -469,7 +469,7 @@ experiments:
     question: How do stakes, urgency, emotion, and forced action change decision quality, safety, and convergence?
     status: scaffolded
     estimand: Main and interaction effects in the preregistered 3 by 2 by 2 by 2 design.
-    independent_unit: Market-window by seed by model by randomized treatment block.
+    independent_unit: Non-overlapping market window or independent trajectory by model and randomized treatment block; response seeds are nested.
     inputs: [configs/prompts/pressure-treatments.yaml, synthetic ground-truth markets, frontier models]
     treatments: [stakes, urgency, emotion, forced action]
     controls: [invariant fictional safety header, evidence invariance, neutral cell, corrective prompts]

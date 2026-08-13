@@ -25,8 +25,8 @@ The machine-readable [`configs/research-program.yaml`](configs/research-program.
 H1–H13 experiment catalog.
 
 The proposed first study is H1/H3/H4. H2 is a conditional descriptive external anchor, and H5 is
-a separate causal experiment whose claims are bounded to the validated simulator. H6–H13 are
-future work, not claims of the proposed study. The working manuscript is
+a separate experiment whose causal claims, if its validation gates pass, are bounded to the
+simulator. H6–H13 are future work, not claims of the proposed study. The working manuscript is
 [`paper/main.tex`](paper/main.tex); it is a skeleton with no confirmatory results.
 
 The project targets three separate outputs: reusable public research datasets, an owned

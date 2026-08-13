@@ -372,6 +372,24 @@ scientific revision, not retrospective perfection. The dated reconstruction is i
 - **Historical integrity:** The original 2026-08-06 wording remains above as recorded. This later
   entry corrects active terminology rather than rewriting history.
 
+## 2026-08-12 — Withdraw the draft H1 success rule before freeze
+
+- **Trigger:** Consolidation found that the draft paired an unfrozen H1 direction with a
+  directional success rule, which could silently choose the scientific result during an
+  information-architecture change.
+- **Superseded draft rule:** The earlier draft required a Holm-adjusted `p < 0.05`, a 95% interval
+  above zero, a frozen SESOI or an explicit practically-small result, all QA and
+  dependency/balance gates, and same-sign held-out replication. It applied that directional rule
+  before either H1 contrast's direction, null, or exact decision rule had been frozen.
+- **Decision:** Keep both H1 directions and exact decision rules unfrozen. Before freeze, an
+  outcome-blind amendment must specify the direction, null, interval and SESOI relationship,
+  ordered-family role, and held-out rule for each contrast. QA, dependency, balance, and
+  applicable replication gates remain mandatory regardless of that choice.
+- **Recovery:** The superseded wording remains recoverable from baseline commit `697f94a` and the
+  preregistration correction commit `58c51c0`.
+- **Outcome visibility:** No confirmatory, paid, market, or trading outcome informed this
+  correction.
+
 ## 2026-08-12 — Consolidate the research record
 
 - **Trigger:** Replace overlapping topic files with lifecycle manuals without losing hypotheses,

@@ -21,6 +21,12 @@ Shared artifacts may support multiple tracks, but each track keeps its own estim
 and verdicts. A dataset release does not prove alpha, alpha does not prove AI causation, and a
 simulated failure does not by itself establish real-market risk.
 
+Each track ends with exactly one registered verdict: `supported`, `inconclusive`, `rejected`, or
+`blocked`. The verdict applies only to that track's frozen question and evidence tier. Before the
+owned-alpha or validated-risk tracks execute, an outcome-blind amendment must name their exact
+estimands, artifact schemas, splits, stop rules, and verdict criteria. That missing registration is
+a current blocker, not permission to infer a result from the public dataset track.
+
 ## Primary question
 
 **Which shared components make LLM trading agents converge, and how does that convergence compare
@@ -68,7 +74,7 @@ for both H1 contrasts remain explicitly unfrozen until the draft preregistration
 
 ### H1
 
-- **Question:** Do frontier LLM investment agents converge more than heterogeneous classical investment algorithms under matched conditions?
+- **Question:** Under matched homogeneous and heterogeneous cohort ecologies, do frontier LLM investment agents converge differently from classical investment algorithms?
 - **Proposed claim:** Frontier LLM cohorts have greater chance-corrected per-symbol decision and portfolio convergence than matched classical cohorts.
 - **Claim boundary:** Applies to sampled models, markets, windows, prompts, and constraints; it does not establish universal model behavior or superior investment performance.
 - **Program role:** first-paper confirmatory family.
