@@ -1,8 +1,9 @@
 # flock — repo guide for Claude sessions
 
 Experiment zone measuring strategy convergence and emergent coordination in LLM trading agents.
-Before changing experiment logic, read `docs/research/research-question.md` and
-`docs/research/experimental-design.md`; the code serves that design.
+Before changing experiment logic, read
+`docs/research/research-scope-outcomes-and-evidence.md` and
+`docs/research/experimental-methods-and-statistical-analysis.md`; the code serves that design.
 
 ## Stack
 
@@ -21,7 +22,7 @@ uv run flock design --output results/design.json
 uv run flock estimate --scenario pilot
 uv run flock verify-run results/<run-id>
 uv run flock analyze latest [--paper]
-uv run pytest && uv run ruff check .      # required before claiming done
+uv run pytest && uv run ruff check . && uv run pyright  # required before claiming done
 ```
 
 ## Architecture (one line each)
@@ -58,6 +59,21 @@ uv run pytest && uv run ruff check .      # required before claiming done
   are not independent evidence. Confirmatory inference starts from independent blocks/markets.
 - **No causal inflation.** Rationale is not a mechanism; an AI-like signature is not AI exposure;
   exposure without a credible counterfactual is not real-market causation.
+- **No cost-based hypothesis deletion.** Cost can stage, defer, cap, fund, or substitute qualified
+  evidence, but it cannot remove H1–H13 or H2b.
+- **Canonical documentation.** Current scope belongs in the scope manual, methods in the methods
+  manual, readiness in the data/release manual, and costs/staging in the local-first roadmap.
+  Preserve dated decisions by appending to `research-decisions-and-execution-log.md`.
+- **Recovery before reduction.** Before deleting or merging documentation, create a Git recovery
+  point and map every substantive source section to a destination and disposition. Zero unmapped
+  sections are allowed.
+- **Rename safety.** Before renaming a path or symbol, search direct references, type references,
+  string literals, dynamic imports, re-exports, tests, configs, CI, and documentation separately.
+- **Bounded phases.** Touch no more than five files in a consolidation phase, verify the phase, and
+  commit it by logical purpose before continuing.
+- **Descriptive document names.** Never use numeric ordering in document filenames, titles, link
+  labels, navigation, or indexes. Preserve meaningful dates, quantities, hypotheses, experiment
+  IDs, standards, and scientific numbering.
 - `src/flock/logging_/` has the underscore to avoid shadowing stdlib `logging`.
 - **iCloud quirk — `UV_NO_EDITABLE=1` is load-bearing.** Hidden `.pth` files make editable
   installs fail intermittently, so `.claude/settings.json` selects non-editable installs and
