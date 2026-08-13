@@ -1,4 +1,6 @@
-"""Herding and cascade metrics (docs/research/metrics.md): LSV, Sias, cascades.
+"""Herding and cascade metrics: LSV, Sias, and cascades.
+
+See docs/research/experimental-methods-and-statistical-analysis.md.
 
 All functions consume the decisions DataFrame from a run (any market kind);
 LSV/Sias are also applied to real-world panels (13F) for the H2 anchor.

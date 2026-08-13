@@ -2,7 +2,7 @@
 
 The nested power simulator is the confirmatory planning path.  The legacy
 normal-approximation seed count is retained only as a quick diagnostic.  See
-docs/research/metrics.md.
+docs/research/experimental-methods-and-statistical-analysis.md.
 """
 
 from __future__ import annotations

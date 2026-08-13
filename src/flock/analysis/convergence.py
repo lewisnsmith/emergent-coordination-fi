@@ -1,4 +1,6 @@
-"""Decision- and portfolio-level convergence metrics (docs/research/metrics.md).
+"""Decision and portfolio convergence metrics.
+
+See docs/research/experimental-methods-and-statistical-analysis.md.
 
 All functions consume the run outputs (decisions.jsonl, portfolio.parquet)
 loaded into DataFrames by `load_run`.
