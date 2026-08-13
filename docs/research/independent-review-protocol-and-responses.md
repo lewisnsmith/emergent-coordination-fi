@@ -1,4 +1,4 @@
-# Independent Review and Response
+# Independent review protocol and responses
 
 **Status: EMPTY REVIEW TEMPLATE; no independent review has yet been recorded here. Last updated:
 2026-07-17.** A completed table requires actual reviewer feedback. AI review, repository tests, and
@@ -92,9 +92,9 @@ This section remains blank until real reviews exist:
 - Statistics review completed: **no**
 - Market-microstructure review completed: **no**
 - Reproducibility review completed: **no**
-- All P0/P1 findings resolved and rechecked: **no**
+- All release-blocking and high-priority findings resolved and rechecked: **no**
 - Review packet commit/release ID: **not available**
 - Public response-table hash: **not available**
 
 The release owner verifies these facts in
-[Release Checklist and Walkthrough](release-checklist-and-walkthrough.md).
+[Data provenance, artifacts, and release](data-provenance-artifacts-and-release.md#release-gates-and-handoff).

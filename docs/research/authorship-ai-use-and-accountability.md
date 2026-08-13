@@ -1,6 +1,6 @@
-# Authorship and Tool Use
+# Authorship, AI use, and accountability
 
-**Status: DRAFT for Lewis to verify before any public release. Last updated: 2026-07-23.** This
+**Status: DRAFT for Lewis to verify before any public release. Last updated: 2026-08-12.** This
 statement describes the current working process. It is not an authorship certification, and it
 must be updated from the final release manifest, research log, git history, and human-review record.
 
@@ -43,6 +43,10 @@ audited repository condensation, literature provenance, H2/statistics, raw-run a
 market mechanics, experiment status, and admissions-facing claims; these agents are internal tools,
 not independent reviewers.
 
+On 2026-08-12, Codex audit agents independently mapped scope, experimental, and governance sources
+for documentation preservation, while the primary Codex agent performed the consolidation and
+verification. This was internal AI-assisted work, not scholarly peer review or an empirical study.
+
 This is a process disclosure, not evidence that the identified problems are fully solved. The
 exact providers, model/release identifiers, dates, material prompts or task descriptions, and
 accepted code/document changes must be exported from the final release record. If a provider does
@@ -72,15 +76,34 @@ Lewis's final sign-off should attest that he:
 - manually checked every substantive claim against `claims.json` and its source artifact;
 - checked every citation against the cited source and did not treat an AI summary as a source;
 - obtained and answered genuine human review in statistics, market microstructure, and
-  reproducibility, using [Independent Review and Response](independent-review-response.md);
+  reproducibility, using [Independent review protocol and responses](independent-review-protocol-and-responses.md);
 - preserved unsuccessful, null, and contradictory outcomes under the frozen reporting rules; and
 - described the work proportionally: a completed study only after a real verified study exists,
   otherwise a scaffold, pilot, or proposed research program.
 
+## Presentation and accountability boundary
+
+Git history establishes that work existed in the repository by particular dates. It does not prove
+idea priority, unaided authorship, understanding, or novelty. If Lewis truthfully recalls reaching
+an intuition independently, he may describe that as a first-person recollection while making no
+broad priority claim.
+
+The defensible project narrative is: broad prototype, adversarial audit, discovery of
+pseudoreplication and the ecology-control confound, matched-design correction, mock system
+verification, and—only after it occurs—preregistered empirical execution. Do not describe mock
+artifacts as research findings or use line/test counts as evidence of scientific quality.
+
+Admissions or portfolio materials should show the concise status, one experiment diagram, the
+before/after correction, a short walkthrough, and a reproducible release link only when those
+artifacts exist. Avoid “first,” “unprecedented,” “completed research,” mock-as-empirical language,
+and unqualified claims of collusion or real-market causation.
+
 ## Explicit non-claims at this stage
 
-As of 2026-07-23, this document does **not** claim that a paid study has run, a preregistration has
+As of 2026-08-12, this document does **not** claim that a paid study has run, a preregistration has
 been frozen, a human expert has reviewed the project, a result has replicated, or a paper has been
 accepted. Passing mock tests demonstrates software behavior under synthetic fixtures, not an
-empirical finding about frontier models or markets. Current milestones and blockers are recorded
-in [Research Log](research-log.md) and [Release Checklist and Walkthrough](release-checklist-and-walkthrough.md).
+empirical finding about frontier models or markets. An internal deterministic mock reproduction
+exists, but an independent public clean-room reproduction does not. Current milestones and
+blockers are recorded in the [research decisions and execution log](research-decisions-and-execution-log.md)
+and [data provenance, artifacts, and release manual](data-provenance-artifacts-and-release.md).
