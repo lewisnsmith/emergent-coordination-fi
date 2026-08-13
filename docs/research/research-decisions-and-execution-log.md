@@ -396,8 +396,12 @@ scientific revision, not retrospective perfection. The dated reconstruction is i
   claims, experimental contracts, dated conflicts, or release boundaries.
 - **Recovery:** Branch `docs/consolidate-research-record`; recovery baseline commit `697f94a`.
   The baseline preserved the dirty README and untracked local-first plan before consolidation.
-- **Preservation audit:** External ledger `/tmp/flock-consolidation-ledger.tsv` maps 397 source
-  heading blocks by hash and disposition; it reported zero unmapped source documents before edits.
+- **Preservation audit:** External ledger
+  `/Users/lewis/Documents/flock-consolidation-preservation-ledger.tsv` maps 397 source heading
+  blocks to canonical destination headings and records each source-content SHA-256, disposition,
+  and review basis. It contains 318 `merged`, 36 `verbatim`, 30 `historical_only`, and 13
+  `superseded_current` rows, with zero unmapped substantive ranges. Its final SHA-256 before source
+  deletion is `cd8c0e605901174bd8f0c81db3f18596481890c58111aa72e05e820ca420a5e3`.
 - **Controlling resolutions:** Active records use financial scoring key; describe H5 as a
   step-synchronous price-time-priority call process with an intra-step limit-order book; use the
   configured `0%, 10%, 25%, 50%, 75%, 100%` H5 grid; treat the eight-level grid as unfrozen; keep
