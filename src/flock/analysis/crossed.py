@@ -22,9 +22,8 @@ Technology = Literal["llm", "classical"]
 Ecology = Literal["homogeneous", "heterogeneous"]
 
 H1_CONTRASTS = (
-    "H1.technology.homogeneous",
-    "H1.technology.heterogeneous",
-    "H1.technology_x_ecology",
+    "H1.delta_tech",
+    "H1.delta_int",
 )
 H3_CONTRASTS = (
     "H3.same_model_vs_cross_provider",
@@ -36,6 +35,25 @@ H4_CONTRASTS = (
     "H4.information_vs_profile",
     "H4.information_vs_question",
 )
+
+
+def mphiq_cube_edges() -> dict[str, tuple[tuple[str, str], ...]]:
+    """Return every MPHIQ cube edge as ``(same_code, different_code)``."""
+    edges: dict[str, tuple[tuple[str, str], ...]] = {}
+    for component_index, component in enumerate(H4_COMPONENTS):
+        component_edges: list[tuple[str, str]] = []
+        for value in range(32):
+            different = f"{value:05b}"
+            if different[component_index] != "0":
+                continue
+            same = (
+                different[:component_index]
+                + "1"
+                + different[component_index + 1 :]
+            )
+            component_edges.append((same, different))
+        edges[component] = tuple(component_edges)
+    return edges
 
 _IDENTITY_COLUMNS = (
     "independent_block",
@@ -261,10 +279,11 @@ def _crossed_block_values(
             classical_h = cell_values[(block, metric, "classical", "homogeneous")]
             llm_x = cell_values[(block, metric, "llm", "heterogeneous")]
             classical_x = cell_values[(block, metric, "classical", "heterogeneous")]
+            technology_h = llm_h - classical_h
+            technology_x = llm_x - classical_x
             contrasts = {
-                H1_CONTRASTS[0]: llm_h - classical_h,
-                H1_CONTRASTS[1]: llm_x - classical_x,
-                H1_CONTRASTS[2]: (llm_x - classical_x) - (llm_h - classical_h),
+                H1_CONTRASTS[0]: 0.5 * (technology_h + technology_x),
+                H1_CONTRASTS[1]: technology_h - technology_x,
             }
             for estimand_id, effect in contrasts.items():
                 nested_count = sum(
@@ -427,6 +446,8 @@ def _mphiq_effects(
         raise ValueError("MPHIQ rows must use exactly the crossed-design independent blocks")
     _require_frozen_metrics(records, metrics, source)
     pair_effects: dict[tuple[str, str, str, str], float] = {}
+    pair_definitions: dict[str, tuple[str, str, str]] = {}
+    observed_edges: dict[tuple[str, str, str], set[tuple[str, str]]] = {}
     for record in records:
         block = _text(record["independent_block"], "independent_block", source)
         metric = _text(record["metric"], "metric", source)
@@ -451,12 +472,45 @@ def _mphiq_effects(
             raise ValueError(
                 "MPHIQ rows must be Hamming-one pairs oriented from same (1) to different (0)"
             )
+        definition = (component, same, different)
+        prior_definition = pair_definitions.get(pair)
+        if prior_definition is not None and prior_definition != definition:
+            raise ValueError(f"MPHIQ pair definition drift for {pair!r}")
+        pair_definitions[pair] = definition
+        edge_key = (block, metric, component)
+        edge = (same, different)
+        component_edges = observed_edges.setdefault(edge_key, set())
+        if edge in component_edges:
+            raise ValueError(
+                f"MPHIQ rows repeats cube edge {edge!r} for {(block, metric, component)}"
+            )
+        component_edges.add(edge)
         key = (block, metric, component, pair)
         if key in pair_effects:
             raise ValueError(f"duplicate MPHIQ pair row {key}")
         pair_effects[key] = _number(
-            record["value_different"], "value_different", source
-        ) - _number(record["value_same"], "value_same", source)
+            record["value_same"], "value_same", source
+        ) - _number(record["value_different"], "value_different", source)
+
+    expected_edges = mphiq_cube_edges()
+    for block in sorted(identities):
+        for metric in metrics:
+            observed_total = 0
+            for component in H4_COMPONENTS:
+                key = (block, metric, component)
+                observed = observed_edges.get(key, set())
+                expected = set(expected_edges[component])
+                if observed != expected:
+                    raise ValueError(
+                        "MPHIQ rows must contain exactly 16 unique Hamming-one edges "
+                        f"for {key}; missing={sorted(expected - observed)}, "
+                        f"unexpected={sorted(observed - expected)}"
+                    )
+                observed_total += len(observed)
+            if observed_total != 80:
+                raise ValueError(
+                    f"MPHIQ rows must contain exactly 80 cube edges for {(block, metric)}"
+                )
 
     block_values: list[dict[str, Any]] = []
     effects: list[dict[str, Any]] = []
@@ -545,13 +599,13 @@ def analyze_first_paper_estimands(
     seed: int = 0,
     n_bootstrap: int = 10_000,
 ) -> FirstPaperEstimands:
-    """Estimate frozen H1 and optional H3/H4 contrasts over independent blocks.
+    """Estimate the candidate H1 and optional H3/H4 contrasts over independent blocks.
 
     H1 uses a family-weighted value for each technology-by-ecology cell.  H3
     first averages nested pairs within provider/family strata and then gives
-    each stratum equal weight.  H4 averages audited Hamming-one pair effects
-    within block and component.  Only the resulting block effects enter the
-    bootstrap, sign-flip tests, and Holm family.
+    each stratum equal weight.  H4 averages all 16 audited Hamming-one pair
+    effects within block and component.  H1 sign flips are sensitivity-only;
+    the unfrozen top-level H1 model blocks paper eligibility.
     """
     if not 0 < alpha < 1:
         raise ValueError("alpha must be between zero and one")
@@ -573,7 +627,8 @@ def analyze_first_paper_estimands(
         key = (str(row["hypothesis"]), str(row["estimand_id"]), str(row["metric"]))
         grouped.setdefault(key, []).append(float(row["effect"]))
 
-    raw: dict[str, float] = {}
+    provisional_raw: dict[str, float] = {}
+    sensitivity_raw: dict[str, float] = {}
     summaries: list[dict[str, Any]] = []
     for (hypothesis, estimand_id, metric), values in sorted(grouped.items()):
         contrast_key = f"{estimand_id}::{metric}"
@@ -587,7 +642,11 @@ def analyze_first_paper_estimands(
             n_resamples=n_bootstrap,
             seed=_contrast_seed(seed, contrast_key, "bootstrap"),
         )
-        raw[contrast_key] = inference.p_value
+        h1_sensitivity = hypothesis == "H1"
+        if h1_sensitivity:
+            sensitivity_raw[contrast_key] = inference.p_value
+        else:
+            provisional_raw[contrast_key] = inference.p_value
         summaries.append(
             {
                 "hypothesis": hypothesis,
@@ -600,30 +659,69 @@ def analyze_first_paper_estimands(
                 "exact": inference.exact,
                 "randomizations": inference.n_randomizations,
                 "independent_n": len(values),
-                "method": "paired sign-flip test over independent block effects",
+                "method": (
+                    "paired sign-flip sensitivity over independent block effects"
+                    if h1_sensitivity
+                    else "provisional paired sign-flip test over independent block effects"
+                ),
+                "inference_role": (
+                    "sensitivity_only" if h1_sensitivity else "provisional_confirmatory"
+                ),
+                "confirmatory": not h1_sensitivity,
+                "paper_eligible": False,
             }
         )
 
-    adjusted = holm_bonferroni(raw, alpha=alpha)
+    adjusted = (
+        holm_bonferroni(provisional_raw, alpha=alpha) if provisional_raw else {}
+    )
     for row in summaries:
         key = f"{row['estimand_id']}::{row['metric']}"
-        row["p_adjusted"] = adjusted[key]["p_adjusted"]
-        row["reject"] = adjusted[key]["reject"]
+        if key in adjusted:
+            row["p_adjusted"] = adjusted[key]["p_adjusted"]
+            row["reject"] = adjusted[key]["reject"]
+            row["multiplicity_status"] = "provisional_holm"
+        else:
+            row["p_adjusted"] = None
+            row["reject"] = False
+            row["multiplicity_status"] = "excluded_sensitivity"
 
-    hypotheses = {
+    hypotheses: dict[str, dict[str, Any]] = {
         key: {
-            "raw_p": raw[key],
+            "raw_p": provisional_raw[key],
             "adjusted_p": adjusted[key]["p_adjusted"],
             "reject": adjusted[key]["reject"],
+            "inference_role": "provisional_confirmatory",
+            "paper_eligible": False,
         }
-        for key in sorted(raw)
+        for key in sorted(provisional_raw)
     }
+    hypotheses.update(
+        {
+            key: {
+                "raw_p": sensitivity_raw[key],
+                "adjusted_p": None,
+                "reject": False,
+                "inference_role": "sensitivity_only",
+                "paper_eligible": False,
+            }
+            for key in sorted(sensitivity_raw)
+        }
+    )
     multiplicity = {
-        "family": "confirmatory-H1-H3-H4",
-        "method": "Holm-Bonferroni",
+        "family": "unfrozen-first-paper-analysis",
+        "method": "provisional Holm-Bonferroni with H1 sign flips excluded",
         "alpha": alpha,
-        "frozen_contrasts": sorted(raw),
+        "frozen_contrasts": [],
+        "provisional_contrasts": sorted(provisional_raw),
+        "sensitivity_contrasts": sorted(sensitivity_raw),
         "hypotheses": hypotheses,
+        "confirmatory_family_frozen": False,
+        "paper_eligible": False,
+        "paper_blocker": (
+            "H1 top-level-unit model, directions, decision rules, and ordered "
+            "H1/H3/H4 family remain unfrozen"
+        ),
         "independent_unit": "trajectory/window block",
         "nested_units_not_counted": [
             "agent",

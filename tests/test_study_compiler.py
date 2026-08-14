@@ -1,12 +1,17 @@
 import copy
 import json
+from collections import Counter
 from pathlib import Path
 
 import pytest
 import yaml
 from pydantic import ValidationError
 
-from flock.core.study import StudySpec
+from flock.core.study import (
+    MPHIQDesignSpec,
+    StudySpec,
+    generate_full_cube_mphiq_pairs,
+)
 from flock.experiments.study import (
     compile_study,
     compile_study_file,
@@ -41,6 +46,102 @@ def test_paper_core_compiles_deterministically_to_json_serializable_frozen_plan(
     assert json.loads(json.dumps(first.to_jsonable()))["plan_hash"] == first.plan_hash
     with pytest.raises(ValidationError, match="frozen"):
         first.exact_calls = 0
+
+
+def test_full_cube_declaration_expands_every_canonical_edge_deterministically():
+    raw = _raw_spec()
+    assert raw["mphiq_design"] == {
+        "kind": "full_cube",
+        "assignment_seed_start": 8001,
+    }
+    assert "mphiq_pairs" not in raw
+    mphiq_stage = next(stage for stage in raw["stages"] if stage["design"] == "mphiq")
+    assert mphiq_stage["mphiq_pair_ids"] == ["full-cube"]
+
+    spec = StudySpec.model_validate(raw)
+    expected = generate_full_cube_mphiq_pairs(
+        MPHIQDesignSpec(kind="full_cube", assignment_seed_start=8001)
+    )
+    assert tuple(spec.mphiq_pairs) == expected
+    assert len(spec.mphiq_pairs) == 80
+    assert Counter(pair.factor for pair in spec.mphiq_pairs) == {
+        "M": 16,
+        "P": 16,
+        "H": 16,
+        "I": 16,
+        "Q": 16,
+    }
+    assert {
+        code
+        for pair in spec.mphiq_pairs
+        for code in (pair.different_code, pair.same_code)
+    } == {f"{value:05b}" for value in range(32)}
+    assert [pair.assignment_seed for pair in spec.mphiq_pairs] == list(
+        range(8001, 8081)
+    )
+    assert spec.mphiq_pairs[0].pair_id == "mphiq-m-00000-10000"
+    assert spec.mphiq_pairs[-1].pair_id == "mphiq-q-11110-11111"
+    expanded_stage = next(stage for stage in spec.stages if stage.design == "mphiq")
+    assert expanded_stage.mphiq_pair_ids == [pair.pair_id for pair in expected]
+
+    serialized = spec.model_dump(mode="json")
+    assert StudySpec.model_validate(serialized) == spec
+
+
+def test_full_cube_declaration_rejects_expanded_pair_or_stage_drift():
+    expanded = StudySpec.model_validate(_raw_spec()).model_dump(mode="json")
+
+    pair_mutations = []
+    missing = copy.deepcopy(expanded)
+    missing["mphiq_pairs"].pop()
+    pair_mutations.append(missing)
+    duplicate = copy.deepcopy(expanded)
+    duplicate["mphiq_pairs"][-1] = copy.deepcopy(duplicate["mphiq_pairs"][0])
+    pair_mutations.append(duplicate)
+    reversed_edge = copy.deepcopy(expanded)
+    reversed_edge["mphiq_pairs"][0]["different_code"], reversed_edge["mphiq_pairs"][0][
+        "same_code"
+    ] = (
+        reversed_edge["mphiq_pairs"][0]["same_code"],
+        reversed_edge["mphiq_pairs"][0]["different_code"],
+    )
+    pair_mutations.append(reversed_edge)
+    reweighted = copy.deepcopy(expanded)
+    reweighted["mphiq_pairs"][0]["weight"] = 2
+    pair_mutations.append(reweighted)
+    custom = copy.deepcopy(expanded)
+    custom["mphiq_pairs"][0]["pair_id"] = "custom-edge"
+    pair_mutations.append(custom)
+
+    for payload in pair_mutations:
+        with pytest.raises(ValidationError):
+            StudySpec.model_validate(payload)
+
+    mphiq_stage_index = next(
+        index
+        for index, stage in enumerate(expanded["stages"])
+        if stage["design"] == "mphiq"
+    )
+    for replacement in (
+        expanded["stages"][mphiq_stage_index]["mphiq_pair_ids"][:-1],
+        [
+            *expanded["stages"][mphiq_stage_index]["mphiq_pair_ids"][:-1],
+            expanded["stages"][mphiq_stage_index]["mphiq_pair_ids"][0],
+        ],
+        list(
+            reversed(expanded["stages"][mphiq_stage_index]["mphiq_pair_ids"])
+        ),
+        ["custom-edge"],
+    ):
+        payload = copy.deepcopy(expanded)
+        payload["stages"][mphiq_stage_index]["mphiq_pair_ids"] = replacement
+        with pytest.raises(ValidationError, match="exactly match"):
+            StudySpec.model_validate(payload)
+
+    no_design = _raw_spec()
+    no_design.pop("mphiq_design")
+    with pytest.raises(ValidationError, match="requires mphiq_design"):
+        StudySpec.model_validate(no_design)
 
 
 def test_schema_forbids_unknown_fields_and_invalid_values():

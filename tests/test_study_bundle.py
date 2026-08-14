@@ -11,7 +11,13 @@ from flock.analysis.bundle import (
     reproduce_study_bundle,
     verify_study_bundle,
 )
-from flock.analysis.crossed import H1_CONTRASTS, H3_CONTRASTS, H4_COMPONENTS, H4_CONTRASTS
+from flock.analysis.crossed import (
+    H1_CONTRASTS,
+    H3_CONTRASTS,
+    H4_COMPONENTS,
+    H4_CONTRASTS,
+    mphiq_cube_edges,
+)
 from flock.analysis.study import StudyInference
 from flock.experiments.verify import RunVerification
 
@@ -193,23 +199,24 @@ def _paper_inputs(
     mphiq = []
     for block_index, (block, cluster, trajectory) in enumerate(identities):
         for component_index, component in enumerate(H4_COMPONENTS):
-            different = list("11111")
-            different[component_index] = "0"
-            mphiq.append(
-                {
-                    "independent_block": block,
-                    "dependence_cluster": cluster,
-                    "trajectory_id": trajectory,
-                    "metric": "kappa",
-                    "component": component,
-                    "pair_id": f"{component}-{block_index}",
-                    "code_same": "11111",
-                    "code_different": "".join(different),
-                    "value_same": 0.5,
-                    "value_different": 0.45 + component_index * 0.01,
-                    "source_run_ids": source_runs[block],
-                }
-            )
+            for edge_index, (same, different) in enumerate(
+                mphiq_cube_edges()[component]
+            ):
+                mphiq.append(
+                    {
+                        "independent_block": block,
+                        "dependence_cluster": cluster,
+                        "trajectory_id": trajectory,
+                        "metric": "kappa",
+                        "component": component,
+                        "pair_id": f"{component}-{block_index}-{edge_index:02d}",
+                        "code_same": same,
+                        "code_different": different,
+                        "value_same": 0.5,
+                        "value_different": 0.45 + component_index * 0.01,
+                        "source_run_ids": source_runs[block],
+                    }
+                )
     frames = {
         "crossed_rows": pd.DataFrame(crossed),
         "lineage_rows": pd.DataFrame(lineage),
@@ -443,7 +450,7 @@ def test_crossed_mock_rehearsal_is_verified_reproducible_and_never_paper_eligibl
     assert release["artifact_sha256"] == reproduced_release["artifact_sha256"]
 
 
-def test_paper_bundle_requires_frozen_preregistration_and_detects_tampering(
+def test_paper_bundle_requires_genuinely_frozen_analysis_and_checks_lineage(
     tmp_path, monkeypatch
 ):
     prereg = tmp_path / "preregistration.json"
@@ -492,62 +499,8 @@ def test_paper_bundle_requires_frozen_preregistration_and_detects_tampering(
 
     with pytest.raises(ValueError, match="require --paper"):
         analyze_study_bundle(source)
-    bundle = analyze_study_bundle(source, paper=True)
-    assert verify_study_bundle(bundle, require_paper=True).paper_eligible
-    units = pd.read_parquet(bundle / "independent_units.parquet")
-    assert len(units) == 2
-    assert set(units["nested_treatment_runs"]) == {2}
-    registry = json.loads((bundle / "estimand_registry.json").read_text())
-    assert len(registry["estimands"]) == 12
-    assert {row["sesoi"] for row in registry["estimands"]} == {0.08}
-    assert {row["margin_status"] for row in registry["estimands"]} == {
-        "frozen-preregistered"
-    }
-    effects = pd.read_parquet(bundle / "effects.parquet")
-    assert len(effects) == 12
-    multiplicity = json.loads((bundle / "multiplicity.json").read_text())
-    assert set(multiplicity["hypotheses"]) == set(_first_paper_contract()["estimands"])
-
-    claims_path = bundle / "claims.json"
-    claims = json.loads(claims_path.read_text())
-    claims["claims"].pop()
-    claims_path.write_text(json.dumps(claims, indent=2, sort_keys=True) + "\n")
-    release_path = bundle / "release-manifest.json"
-    release = json.loads(release_path.read_text())
-    release["artifact_sha256"]["claims.json"] = hashlib.sha256(
-        claims_path.read_bytes()
-    ).hexdigest()
-    release_path.write_text(json.dumps(release, indent=2, sort_keys=True) + "\n")
-    claim_tampering = verify_study_bundle(bundle, require_paper=True)
-    assert not claim_tampering.ok
-    assert (
-        "paper claims do not exactly cover the frozen estimand family"
-        in claim_tampering.errors
-    )
-
-    bundle = analyze_study_bundle(source, paper=True)
-
-    release_path = bundle / "release-manifest.json"
-    release = json.loads(release_path.read_text())
-    first_key = next(iter(release["first_paper_statistical_contract"]["estimands"]))
-    release["first_paper_statistical_contract"]["estimands"][first_key]["sesoi"] = 0.09
-    release_path.write_text(json.dumps(release, indent=2, sort_keys=True) + "\n")
-    contract_tampering = verify_study_bundle(bundle, require_paper=True)
-    assert not contract_tampering.ok
-    assert (
-        "release first-paper statistical contract differs from preregistration"
-        in contract_tampering.errors
-    )
-
-    release["first_paper_statistical_contract"]["estimands"][first_key]["sesoi"] = 0.08
-    release_path.write_text(json.dumps(release, indent=2, sort_keys=True) + "\n")
-
-    effects = pd.read_parquet(bundle / "effects.parquet")
-    effects.loc[0, "estimate"] = 99
-    effects.to_parquet(bundle / "effects.parquet", index=False)
-    result = verify_study_bundle(bundle, require_paper=True)
-    assert not result.ok
-    assert "artifact hash mismatch: effects.parquet" in result.errors
+    with pytest.raises(ValueError, match="frozen confirmatory family"):
+        analyze_study_bundle(source, paper=True)
 
     crossed_path = tmp_path / "crossed_rows.parquet"
     crossed = pd.read_parquet(crossed_path)

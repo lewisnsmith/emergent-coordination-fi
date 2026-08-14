@@ -228,40 +228,8 @@ cohorts:
 
 held_out_families: [gemini-3.1]
 
-# This deterministic Gray-code chain covers all 32 MPHIQ schemes. Every edge is
-# an exact paired contrast differing at one declared factor only.
-mphiq_pairs:
-  - {pair_id: mphiq-edge-01, factor: Q, different_code: "00000", same_code: "00001", assignment_seed: 8001}
-  - {pair_id: mphiq-edge-02, factor: I, different_code: "00001", same_code: "00011", assignment_seed: 8002}
-  - {pair_id: mphiq-edge-03, factor: Q, different_code: "00010", same_code: "00011", assignment_seed: 8003}
-  - {pair_id: mphiq-edge-04, factor: H, different_code: "00010", same_code: "00110", assignment_seed: 8004}
-  - {pair_id: mphiq-edge-05, factor: Q, different_code: "00110", same_code: "00111", assignment_seed: 8005}
-  - {pair_id: mphiq-edge-06, factor: I, different_code: "00101", same_code: "00111", assignment_seed: 8006}
-  - {pair_id: mphiq-edge-07, factor: Q, different_code: "00100", same_code: "00101", assignment_seed: 8007}
-  - {pair_id: mphiq-edge-08, factor: P, different_code: "00100", same_code: "01100", assignment_seed: 8008}
-  - {pair_id: mphiq-edge-09, factor: Q, different_code: "01100", same_code: "01101", assignment_seed: 8009}
-  - {pair_id: mphiq-edge-10, factor: I, different_code: "01101", same_code: "01111", assignment_seed: 8010}
-  - {pair_id: mphiq-edge-11, factor: Q, different_code: "01110", same_code: "01111", assignment_seed: 8011}
-  - {pair_id: mphiq-edge-12, factor: H, different_code: "01010", same_code: "01110", assignment_seed: 8012}
-  - {pair_id: mphiq-edge-13, factor: Q, different_code: "01010", same_code: "01011", assignment_seed: 8013}
-  - {pair_id: mphiq-edge-14, factor: I, different_code: "01001", same_code: "01011", assignment_seed: 8014}
-  - {pair_id: mphiq-edge-15, factor: Q, different_code: "01000", same_code: "01001", assignment_seed: 8015}
-  - {pair_id: mphiq-edge-16, factor: M, different_code: "01000", same_code: "11000", assignment_seed: 8016}
-  - {pair_id: mphiq-edge-17, factor: Q, different_code: "11000", same_code: "11001", assignment_seed: 8017}
-  - {pair_id: mphiq-edge-18, factor: I, different_code: "11001", same_code: "11011", assignment_seed: 8018}
-  - {pair_id: mphiq-edge-19, factor: Q, different_code: "11010", same_code: "11011", assignment_seed: 8019}
-  - {pair_id: mphiq-edge-20, factor: H, different_code: "11010", same_code: "11110", assignment_seed: 8020}
-  - {pair_id: mphiq-edge-21, factor: Q, different_code: "11110", same_code: "11111", assignment_seed: 8021}
-  - {pair_id: mphiq-edge-22, factor: I, different_code: "11101", same_code: "11111", assignment_seed: 8022}
-  - {pair_id: mphiq-edge-23, factor: Q, different_code: "11100", same_code: "11101", assignment_seed: 8023}
-  - {pair_id: mphiq-edge-24, factor: P, different_code: "10100", same_code: "11100", assignment_seed: 8024}
-  - {pair_id: mphiq-edge-25, factor: Q, different_code: "10100", same_code: "10101", assignment_seed: 8025}
-  - {pair_id: mphiq-edge-26, factor: I, different_code: "10101", same_code: "10111", assignment_seed: 8026}
-  - {pair_id: mphiq-edge-27, factor: Q, different_code: "10110", same_code: "10111", assignment_seed: 8027}
-  - {pair_id: mphiq-edge-28, factor: H, different_code: "10010", same_code: "10110", assignment_seed: 8028}
-  - {pair_id: mphiq-edge-29, factor: Q, different_code: "10010", same_code: "10011", assignment_seed: 8029}
-  - {pair_id: mphiq-edge-30, factor: I, different_code: "10001", same_code: "10011", assignment_seed: 8030}
-  - {pair_id: mphiq-edge-31, factor: Q, different_code: "10000", same_code: "10001", assignment_seed: 8031}
+# The compiler expands this declaration to all 80 canonically oriented edges.
+mphiq_design: {kind: full_cube, assignment_seed_start: 8001}
 
 capital_share_levels:
   - {level_id: ai-share-0000, ai_share_bps: 0, total_capital_usd: 10000000, ai_capital_usd: 0, background_capital_usd: 10000000}
@@ -275,9 +243,9 @@ estimands:
   - estimand_id: h1-kappa-contrast
     hypothesis_id: H1
     outcome: Chance-corrected per-symbol action agreement.
-    contrast: LLM technology minus matched classical technology within ecology and trajectory blocks.
+    contrast: Ecology-averaged LLM-minus-classical technology effect and registered technology-by-ecology interaction.
     independent_unit: Independent trajectory or nonoverlapping market-window dependence cluster.
-    estimator: Family-balanced paired contrast with cluster-aware small-sample inference.
+    estimator: Family-balanced block contrasts; the primary model, directions, and decision rules remain unfrozen.
   - estimand_id: h3-provider-contrast
     hypothesis_id: H3
     outcome: Pairwise decision and forecast-error agreement.
@@ -289,7 +257,7 @@ estimands:
     outcome: Per-symbol agreement and constrained-oracle regret.
     contrast: Paired same-minus-different effect for each MPHIQ factor and locked interactions.
     independent_unit: Independent trajectory or nonoverlapping market-window dependence cluster.
-    estimator: Full-factorial contrasts with paired Hamming-one comparisons and hierarchical FDR.
+    estimator: Equal-weight same-minus-different contrasts over all 80 cube edges; confirmatory rules remain unfrozen.
   - estimand_id: h5-capital-dose-response
     hypothesis_id: H5
     outcome: Impact, volatility, spread, depth, cascades, and convergence breadth.
@@ -379,7 +347,7 @@ stages:
     seeds: [3101]
     steps_per_run: 80
     calls_per_llm_agent_step: 1
-    mphiq_pair_ids: [mphiq-edge-01, mphiq-edge-02, mphiq-edge-03, mphiq-edge-04, mphiq-edge-05, mphiq-edge-06, mphiq-edge-07, mphiq-edge-08, mphiq-edge-09, mphiq-edge-10, mphiq-edge-11, mphiq-edge-12, mphiq-edge-13, mphiq-edge-14, mphiq-edge-15, mphiq-edge-16, mphiq-edge-17, mphiq-edge-18, mphiq-edge-19, mphiq-edge-20, mphiq-edge-21, mphiq-edge-22, mphiq-edge-23, mphiq-edge-24, mphiq-edge-25, mphiq-edge-26, mphiq-edge-27, mphiq-edge-28, mphiq-edge-29, mphiq-edge-30, mphiq-edge-31]
+    mphiq_pair_ids: [full-cube]
     estimand_ids: [h3-provider-contrast, h4-mphiq-effects]
     output_ids: [frozen-plan, mphiq-assignments, mphiq-effects, confirmatory-inference, paper-figures]
     expected_counts: {runs: 128, steps: 10240, agents_per_run: 8, agent_steps: 81920, calls: 81920}

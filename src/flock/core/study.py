@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import copy
 import re
 from datetime import date
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     BaseModel,
@@ -25,6 +26,11 @@ Identifier = Annotated[
     ),
 ]
 MPHIQCode = Annotated[str, StringConstraints(pattern=r"^[01]{5}$")]
+MPHIQFactor = Literal["M", "P", "H", "I", "Q"]
+
+_MPHIQ_FACTORS: tuple[MPHIQFactor, ...] = ("M", "P", "H", "I", "Q")
+_FULL_CUBE_SENTINEL = "full-cube"
+_FULL_CUBE_EDGE_COUNT = 80
 
 _PLACEHOLDER_TOKENS = {
     "dummy",
@@ -148,7 +154,7 @@ class CohortSpec(StrictFrozenModel):
 
 class MPHIQPairAssignmentSpec(StrictFrozenModel):
     pair_id: Identifier
-    factor: Literal["M", "P", "H", "I", "Q"]
+    factor: MPHIQFactor
     different_code: MPHIQCode
     same_code: MPHIQCode
     assignment_seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
@@ -164,6 +170,46 @@ class MPHIQPairAssignmentSpec(StrictFrozenModel):
         if self.different_code[expected] != "0" or self.same_code[expected] != "1":
             raise ValueError("MPHIQ pair direction must be different_code=0 to same_code=1")
         return self
+
+
+class MPHIQDesignSpec(StrictFrozenModel):
+    """Compact declaration for a deterministic MPHIQ assignment design."""
+
+    kind: Literal["full_cube"]
+    assignment_seed_start: Annotated[
+        int, Field(ge=0, le=2**32 - _FULL_CUBE_EDGE_COUNT)
+    ]
+
+
+def generate_full_cube_mphiq_pairs(
+    design: MPHIQDesignSpec,
+) -> tuple[MPHIQPairAssignmentSpec, ...]:
+    """Generate all 80 canonically oriented edges of the five-dimensional cube."""
+    pairs: list[MPHIQPairAssignmentSpec] = []
+    for factor_index, factor in enumerate(_MPHIQ_FACTORS):
+        for value in range(32):
+            different_code = f"{value:05b}"
+            if different_code[factor_index] != "0":
+                continue
+            same_code = (
+                different_code[:factor_index]
+                + "1"
+                + different_code[factor_index + 1 :]
+            )
+            pairs.append(
+                MPHIQPairAssignmentSpec(
+                    pair_id=(
+                        f"mphiq-{factor.lower()}-{different_code}-{same_code}"
+                    ),
+                    factor=factor,
+                    different_code=different_code,
+                    same_code=same_code,
+                    assignment_seed=design.assignment_seed_start + len(pairs),
+                )
+            )
+    if len(pairs) != _FULL_CUBE_EDGE_COUNT:  # pragma: no cover - construction invariant
+        raise RuntimeError("full MPHIQ cube generation did not produce exactly 80 edges")
+    return tuple(pairs)
 
 
 class CapitalShareLevelSpec(StrictFrozenModel):
@@ -251,9 +297,76 @@ class StudySpec(StrictFrozenModel):
     trajectories: list[TrajectoryWindowSpec] = Field(min_length=1)
     cohorts: list[CohortSpec] = Field(min_length=1)
     held_out_families: list[Identifier] = Field(min_length=1)
+    mphiq_design: MPHIQDesignSpec | None = None
     mphiq_pairs: list[MPHIQPairAssignmentSpec] = Field(default_factory=list)
     capital_share_levels: list[CapitalShareLevelSpec] = Field(default_factory=list)
     estimands: list[EstimandSpec] = Field(min_length=1)
     required_outputs: list[RequiredOutputSpec] = Field(min_length=1)
     stages: list[StageSpec] = Field(min_length=1)
     budget_cap: BudgetCapSpec
+
+    @model_validator(mode="before")
+    @classmethod
+    def materialize_mphiq_design(cls, value: Any) -> Any:
+        """Expand a full-cube declaration and reject any expanded representation drift."""
+        if not isinstance(value, dict):
+            return value
+        materialized = copy.deepcopy(value)
+        raw_design = materialized.get("mphiq_design")
+        stages = materialized.get("stages")
+        if raw_design is None:
+            if isinstance(stages, list) and any(
+                isinstance(stage, dict)
+                and stage.get("mphiq_pair_ids") == [_FULL_CUBE_SENTINEL]
+                for stage in stages
+            ):
+                raise ValueError("full-cube stage sentinel requires mphiq_design")
+            return materialized
+
+        design = MPHIQDesignSpec.model_validate(raw_design)
+        expected_pairs = generate_full_cube_mphiq_pairs(design)
+        expected_pair_payloads = [
+            pair.model_dump(mode="json") for pair in expected_pairs
+        ]
+        expected_pair_ids = [pair.pair_id for pair in expected_pairs]
+
+        if "mphiq_pairs" in materialized:
+            raw_pairs = materialized["mphiq_pairs"]
+            if not isinstance(raw_pairs, list):
+                raise ValueError("mphiq_pairs must be a list")
+            parsed_pairs = [
+                MPHIQPairAssignmentSpec.model_validate(pair) for pair in raw_pairs
+            ]
+            parsed_payloads = [pair.model_dump(mode="json") for pair in parsed_pairs]
+            if parsed_payloads != expected_pair_payloads:
+                raise ValueError(
+                    "mphiq_pairs must exactly match the declared full_cube design"
+                )
+        else:
+            materialized["mphiq_pairs"] = expected_pair_payloads
+
+        if not isinstance(stages, list):
+            return materialized
+        expanded_stages: list[Any] = []
+        for raw_stage in stages:
+            if isinstance(raw_stage, StageSpec):
+                stage: Any = raw_stage.model_dump(mode="json")
+            else:
+                stage = raw_stage
+            if not isinstance(stage, dict):
+                expanded_stages.append(stage)
+                continue
+            pair_ids = stage.get("mphiq_pair_ids", [])
+            if stage.get("design") == "mphiq":
+                if pair_ids == [_FULL_CUBE_SENTINEL]:
+                    stage["mphiq_pair_ids"] = expected_pair_ids
+                elif pair_ids != expected_pair_ids:
+                    raise ValueError(
+                        "MPHIQ stage assignments must exactly match the declared "
+                        "full_cube design"
+                    )
+            elif pair_ids == [_FULL_CUBE_SENTINEL]:
+                raise ValueError("only MPHIQ stages may use the full-cube sentinel")
+            expanded_stages.append(stage)
+        materialized["stages"] = expanded_stages
+        return materialized

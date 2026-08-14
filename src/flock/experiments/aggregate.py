@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from flock.analysis import convergence
-from flock.analysis.crossed import H4_COMPONENTS
+from flock.analysis.crossed import H4_COMPONENTS, mphiq_cube_edges
 from flock.core.config import ExperimentConfig
 from flock.experiments.materialize import MaterializedStudy, RunAssignment
 from flock.experiments.runner import resolved_config_hash
@@ -620,6 +620,7 @@ def _mphiq_rows(
 ) -> pd.DataFrame:
     values: dict[tuple[str, str], list[tuple[float, str]]] = {}
     pair_specs: dict[str, tuple[str, str, str]] = {}
+    block_pair_specs: dict[str, dict[str, tuple[str, str, str]]] = {}
     for run in runs:
         code = run.assignment.cell.mphiq_code
         if code is None:
@@ -636,13 +637,39 @@ def _mphiq_rows(
         values.setdefault((run.assignment.trajectory_id, code), []).append(
             (_kappa(run, agents), run.run_id)
         )
+        block_specs = block_pair_specs.setdefault(run.assignment.trajectory_id, {})
         for pair in run.assignment.cell.mphiq_pairs:
             definition = (pair.factor, pair.same_code, pair.different_code)
             if pair.pair_id in pair_specs and pair_specs[pair.pair_id] != definition:
                 raise ValueError(f"MPHIQ pair definition drift for {pair.pair_id}")
+            if pair.pair_id in block_specs and block_specs[pair.pair_id] != definition:
+                raise ValueError(
+                    f"MPHIQ block pair definition drift for {pair.pair_id}"
+                )
             pair_specs[pair.pair_id] = definition
-    if {factor for factor, _, _ in pair_specs.values()} != set(H4_COMPONENTS):
-        raise ValueError("MPHIQ pair definitions do not cover all five components")
+            block_specs[pair.pair_id] = definition
+    expected_edges = mphiq_cube_edges()
+    for label, specs in (
+        ("all blocks", pair_specs),
+        *((f"block {block!r}", block_pair_specs.get(block, {})) for block in identities),
+    ):
+        if len(specs) != 80 or len(set(specs.values())) != 80:
+            raise ValueError(
+                f"MPHIQ assignments for {label} must define exactly 80 unique cube edges"
+            )
+        for factor in H4_COMPONENTS:
+            observed = {
+                (same_code, different_code)
+                for row_factor, same_code, different_code in specs.values()
+                if row_factor == factor
+            }
+            expected = set(expected_edges[factor])
+            if observed != expected:
+                raise ValueError(
+                    "MPHIQ assignments must define exactly 16 unique Hamming-one edges "
+                    f"for {label} factor {factor}; missing={sorted(expected - observed)}, "
+                    f"unexpected={sorted(observed - expected)}"
+                )
 
     runs_by_block_code = {
         key: {run_id for _, run_id in nested} for key, nested in values.items()

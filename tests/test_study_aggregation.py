@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from typer.testing import CliRunner
 
-from flock.analysis.crossed import analyze_first_paper_estimands
+from flock.analysis.crossed import analyze_first_paper_estimands, mphiq_cube_edges
 from flock.cli import app
 from flock.core.config import ExperimentConfig
 from flock.experiments.aggregate import (
@@ -152,26 +152,20 @@ def _replay_config(name: str, block: str, cluster: str, seed: int) -> dict:
 
 
 def _mphiq_pairs() -> list[dict]:
-    codes = [f"{value ^ (value >> 1):05b}" for value in range(32)]
     pairs = []
-    for index, (left, right) in enumerate(
-        zip(codes[:-1], codes[1:], strict=True), start=1
-    ):
-        changed = next(
-            i
-            for i, bits in enumerate(zip(left, right, strict=True))
-            if len(set(bits)) == 2
-        )
-        different, same = (left, right) if left[changed] == "0" else (right, left)
-        pairs.append(
-            {
-                "pair_id": f"mock-edge-{index:02d}",
-                "factor": "MPHIQ"[changed],
-                "different_code": different,
-                "same_code": same,
-                "assignment_seed": 8000 + index,
-            }
-        )
+    ordinal = 0
+    for factor, edges in mphiq_cube_edges().items():
+        for same, different in edges:
+            ordinal += 1
+            pairs.append(
+                {
+                    "pair_id": f"mock-{factor.lower()}-{different}-{same}",
+                    "factor": factor,
+                    "different_code": different,
+                    "same_code": same,
+                    "assignment_seed": 8000 + ordinal,
+                }
+            )
     return pairs
 
 
@@ -391,14 +385,16 @@ def _write_run(results_root: Path, assignment: dict) -> Path:
     return run_dir
 
 
-def _write_bundle(root: Path) -> tuple[Path, Path, MaterializedStudy]:
+def _write_bundle(
+    root: Path, *, mphiq_pairs: list[dict] | None = None
+) -> tuple[Path, Path, MaterializedStudy]:
     results_root = root / "results"
     results_root.mkdir()
     source_cohorts = _source_cohorts()
     mphiq_cohort = [
         cohort for cohort in source_cohorts if cohort["cohort_id"] == "llm-heterogeneous"
     ]
-    pairs = _mphiq_pairs()
+    pairs = _mphiq_pairs() if mphiq_pairs is None else mphiq_pairs
     assignments = []
     ordinal = 1
     for block_index in range(2):
@@ -512,6 +508,10 @@ def test_aggregate_study_is_byte_identical_and_bundle_compatible(tmp_path, monke
         "cross_provider",
     }
     assert set(mphiq["component"]) == set("MPHIQ")
+    assert len(mphiq) == 160
+    assert set(
+        mphiq.groupby(["independent_block", "component"]).size().astype(int)
+    ) == {16}
     estimates = analyze_first_paper_estimands(
         crossed,
         confirmatory_metrics=["kappa"],
@@ -535,6 +535,21 @@ def test_aggregate_study_is_byte_identical_and_bundle_compatible(tmp_path, monke
     )
     assert cli.exit_code == 0, cli.output
     assert "66 verified runs" in cli.output
+
+
+def test_aggregate_study_rejects_an_incomplete_mphiq_cube(tmp_path, monkeypatch):
+    pairs = _mphiq_pairs()
+    assignments, results_root, _materialized = _write_bundle(
+        tmp_path, mphiq_pairs=pairs[:-1]
+    )
+    monkeypatch.setattr("flock.experiments.aggregate.verify_run", lambda _path: _verified())
+
+    with pytest.raises(ValueError, match="exactly 80 unique cube edges"):
+        aggregate_study(
+            assignments,
+            tmp_path / "incomplete-cube-output",
+            results_root=results_root,
+        )
 
 
 def test_aggregate_study_fails_closed_on_raw_run_violations(tmp_path, monkeypatch):
@@ -662,5 +677,17 @@ def test_current_paper_plan_uses_common_blocks_but_remains_execution_gated():
         if item.stage_id == "mphiq-factorial"
     }
     assert replay_blocks == mphiq_blocks
+    observed_edges = {
+        (pair.factor, pair.same_code, pair.different_code)
+        for item in materialized.assignments
+        if item.stage_id == "mphiq-factorial"
+        for pair in item.cell.mphiq_pairs
+    }
+    expected_edges = {
+        (factor, same, different)
+        for factor, edges in mphiq_cube_edges().items()
+        for same, different in edges
+    }
+    assert observed_edges == expected_edges
     with pytest.raises(ValueError, match="first-paper assignments are not executable"):
         _first_paper_assignments(materialized)

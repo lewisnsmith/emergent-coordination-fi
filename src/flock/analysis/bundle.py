@@ -80,7 +80,7 @@ class EstimandThresholds(BaseModel):
 
 
 class FirstPaperStatisticalContract(BaseModel):
-    """Preregistered multiplicity family and margins for crossed H1/H3/H4."""
+    """Candidate estimands and margins for the crossed H1/H3/H4 analysis."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -89,7 +89,7 @@ class FirstPaperStatisticalContract(BaseModel):
     alpha: float = Field(gt=0, lt=0.5)
 
     @model_validator(mode="after")
-    def validate_complete_family(self) -> FirstPaperStatisticalContract:
+    def validate_analysis_family(self) -> FirstPaperStatisticalContract:
         metrics = [metric.strip() for metric in self.confirmatory_metrics]
         if any(not metric for metric in metrics) or len(metrics) != len(set(metrics)):
             raise ValueError("confirmatory_metrics must be nonempty and unique")
@@ -101,7 +101,7 @@ class FirstPaperStatisticalContract(BaseModel):
         actual = set(self.estimands)
         if actual != expected:
             raise ValueError(
-                "estimands must exactly freeze every H1/H3/H4 contrast and metric: "
+                "estimands must define thresholds for every H1/H3/H4 contrast and metric: "
                 f"missing={sorted(expected - actual)}, unexpected={sorted(actual - expected)}"
             )
         self.confirmatory_metrics = metrics
@@ -575,6 +575,15 @@ def _emit_first_paper_bundle(
         alpha=contract.alpha,
         seed=seed,
     )
+    if paper_requested and not (
+        result.multiplicity.get("confirmatory_family_frozen") is True
+        and result.multiplicity.get("paper_eligible") is True
+        and bool(result.multiplicity.get("frozen_contrasts"))
+    ):
+        raise ValueError(
+            "paper export requires a frozen confirmatory family; the current "
+            "first-paper analysis is explicitly unfrozen"
+        )
     expected_blocks = set(spec.expected_independent_blocks)
     observed_blocks = set(result.block_effects["independent_block"].astype(str))
     if observed_blocks != expected_blocks:
@@ -824,9 +833,14 @@ def _emit_first_paper_bundle(
             "independent_n": len(expected_blocks),
             "independent_unit": "trajectory or nonoverlapping market-window block",
             "nested_units_not_counted": result.multiplicity["nested_units_not_counted"],
-            "inference_method": "paired block sign flips with unified Holm correction",
+            "inference_method": result.multiplicity["method"],
+            "confirmatory_family_frozen": result.multiplicity[
+                "confirmatory_family_frozen"
+            ],
             "margin_status": margin_status,
-            "margins_frozen_before_analysis": paper_requested,
+            "margins_frozen_before_analysis": bool(
+                result.multiplicity["confirmatory_family_frozen"]
+            ),
             "run_verifications": [check.model_dump() for check in run_checks],
         },
     )
@@ -1266,30 +1280,105 @@ def _verify_crossed_artifacts(
             errors.append(f"crossed block effects are incomplete for {key}")
 
     multiplicity_path = bundle_dir / "multiplicity.json"
+    frozen_contrasts: set[str] = set()
     if multiplicity_path.is_file():
         multiplicity = _json(multiplicity_path)
-        hypotheses = cast(dict[str, dict[str, Any]], multiplicity.get("hypotheses", {}))
-        if (
-            multiplicity.get("family") != "confirmatory-H1-H3-H4"
-            or set(cast(list[str], multiplicity.get("frozen_contrasts", [])))
-            != set(contract.estimands)
-            or set(hypotheses) != set(contract.estimands)
+        raw_hypotheses = multiplicity.get("hypotheses", {})
+        hypotheses = (
+            cast(dict[str, dict[str, Any]], raw_hypotheses)
+            if isinstance(raw_hypotheses, dict)
+            else {}
+        )
+        partitions: dict[str, set[str]] = {}
+        for field in (
+            "frozen_contrasts",
+            "provisional_contrasts",
+            "sensitivity_contrasts",
         ):
-            errors.append("multiplicity artifact does not contain one frozen unified family")
-        else:
-            if recomputed is not None and multiplicity != recomputed.multiplicity:
-                errors.append("multiplicity artifact does not reproduce from frozen inputs")
-            for row in effects.to_dict("records"):
-                key = f"{row['estimand_id']}::{row['metric']}"
-                hypothesis = hypotheses[key]
-                if not (
-                    np.isclose(float(hypothesis["raw_p"]), float(row["p_value"]))
-                    and np.isclose(
-                        float(hypothesis["adjusted_p"]), float(row["p_adjusted"])
-                    )
-                    and bool(hypothesis["reject"]) == bool(row["reject"])
-                ):
-                    errors.append(f"multiplicity result differs from effects for {key}")
+            raw_values = multiplicity.get(field)
+            if not isinstance(raw_values, list) or any(
+                not isinstance(value, str) for value in raw_values
+            ):
+                errors.append(f"multiplicity artifact has invalid {field}")
+                partitions[field] = set()
+            else:
+                values = cast(list[str], raw_values)
+                if len(values) != len(set(values)):
+                    errors.append(f"multiplicity artifact repeats {field}")
+                partitions[field] = set(values)
+        frozen_contrasts = partitions["frozen_contrasts"]
+        provisional_contrasts = partitions["provisional_contrasts"]
+        sensitivity_contrasts = partitions["sensitivity_contrasts"]
+        partition_union = (
+            frozen_contrasts | provisional_contrasts | sensitivity_contrasts
+        )
+        partition_total = sum(
+            len(values)
+            for values in (
+                frozen_contrasts,
+                provisional_contrasts,
+                sensitivity_contrasts,
+            )
+        )
+        expected_h1_sensitivities = {
+            f"{estimand_id}::{metric}"
+            for estimand_id in H1_CONTRASTS
+            for metric in contract.confirmatory_metrics
+        }
+        family_frozen = multiplicity.get("confirmatory_family_frozen") is True
+        multiplicity_paper_eligible = multiplicity.get("paper_eligible") is True
+        if (
+            partition_union != effect_keys
+            or partition_total != len(partition_union)
+            or set(hypotheses) != effect_keys
+        ):
+            errors.append(
+                "multiplicity artifact does not partition the declared analysis estimands"
+            )
+        if sensitivity_contrasts != expected_h1_sensitivities:
+            errors.append("H1 sign flips must be sensitivity-only")
+        if family_frozen != bool(frozen_contrasts):
+            errors.append("multiplicity frozen-family state is inconsistent")
+        if multiplicity_paper_eligible and not family_frozen:
+            errors.append("unfrozen multiplicity cannot be paper-eligible")
+        expected_family = (
+            "confirmatory-H1-H3-H4"
+            if family_frozen
+            else "unfrozen-first-paper-analysis"
+        )
+        if multiplicity.get("family") != expected_family:
+            errors.append("multiplicity family label is inconsistent with freeze state")
+        if recomputed is not None and multiplicity != recomputed.multiplicity:
+            errors.append("multiplicity artifact does not reproduce from analysis inputs")
+        effect_map = {
+            f"{row['estimand_id']}::{row['metric']}": row
+            for row in effects.to_dict("records")
+        }
+        for key in sorted(expected_h1_sensitivities & set(effect_map)):
+            effect = effect_map[key]
+            hypothesis = hypotheses.get(key, {})
+            if not (
+                effect.get("inference_role") == "sensitivity_only"
+                and effect.get("confirmatory") is False
+                and effect.get("paper_eligible") is False
+                and effect.get("multiplicity_status") == "excluded_sensitivity"
+                and hypothesis.get("inference_role") == "sensitivity_only"
+                and hypothesis.get("adjusted_p") is None
+                and hypothesis.get("reject") is False
+                and hypothesis.get("paper_eligible") is False
+            ):
+                errors.append(f"H1 sensitivity metadata is inconsistent for {key}")
+        for key in sorted(frozen_contrasts & set(effect_map)):
+            effect = effect_map[key]
+            if not (
+                effect.get("confirmatory") is True
+                and effect.get("inference_role") == "confirmatory"
+            ):
+                errors.append(f"frozen estimand lacks confirmatory inference for {key}")
+        if paper_requested and not (
+            family_frozen and multiplicity_paper_eligible and frozen_contrasts
+        ):
+            errors.append("paper request relies on an unfrozen confirmatory analysis")
 
     sensitivity_path = bundle_dir / "sensitivity_results.parquet"
     if sensitivity_path.is_file():
@@ -1409,7 +1498,8 @@ def _verify_crossed_artifacts(
         expected_margin = (
             "frozen-preregistered" if paper_requested else "mock-rehearsal-only"
         )
-        if len(claims) != len(claim_map) or set(claim_map) != set(contract.estimands):
+        required_claims = frozen_contrasts if paper_requested else effect_keys
+        if len(claims) != len(claim_map) or set(claim_map) != required_claims:
             errors.append("paper claims do not exactly cover the frozen estimand family")
         elif any(
             row.get("claim_id") != key
@@ -1521,6 +1611,15 @@ def verify_study_bundle(
             errors.append("statistical verification margin status is inconsistent")
         if crossed_design and stats.get("analysis_design") != "crossed-H1-H3-H4":
             errors.append("statistical verification omits the crossed paper design")
+        crossed_multiplicity = bundle_dir / "multiplicity.json"
+        if crossed_design and crossed_multiplicity.is_file():
+            multiplicity_frozen = (
+                _json(crossed_multiplicity).get("confirmatory_family_frozen") is True
+            )
+            if stats.get("confirmatory_family_frozen") is not multiplicity_frozen:
+                errors.append(
+                    "statistical verification confirmatory freeze state is inconsistent"
+                )
 
     missingness_path = bundle_dir / "missingness_failures.parquet"
     if missingness_path.is_file():
@@ -1664,6 +1763,18 @@ def verify_study_bundle(
         if not claims or claims_unverified:
             errors.append("paper claims are not verification-eligible")
 
+    crossed_family_paper_eligible = False
+    crossed_multiplicity_path = bundle_dir / "multiplicity.json"
+    if crossed_design and crossed_multiplicity_path.is_file():
+        crossed_multiplicity = _json(crossed_multiplicity_path)
+        raw_frozen = crossed_multiplicity.get("frozen_contrasts")
+        crossed_family_paper_eligible = (
+            isinstance(raw_frozen, list)
+            and bool(raw_frozen)
+            and all(isinstance(value, str) for value in raw_frozen)
+            and crossed_multiplicity.get("confirmatory_family_frozen") is True
+            and crossed_multiplicity.get("paper_eligible") is True
+        )
     paper_eligible = (
         not errors
         and evidence_kind == "real"
@@ -1671,6 +1782,7 @@ def verify_study_bundle(
         and bool(release.get("paper_requested"))
         and release.get("margin_status") == "frozen-preregistered"
         and crossed_design
+        and crossed_family_paper_eligible
     )
     if require_paper:
         if not crossed_design:
@@ -1681,6 +1793,8 @@ def verify_study_bundle(
             errors.append("bundle was not generated through the paper gate")
         if release.get("margin_status") != "frozen-preregistered":
             errors.append("paper verification requires preregistered statistical margins")
+        if not crossed_family_paper_eligible:
+            errors.append("paper verification requires a frozen confirmatory analysis")
         prereg = release.get("preregistration")
         if not prereg:
             errors.append("paper verification requires an immutable preregistration")
