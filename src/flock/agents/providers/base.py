@@ -10,6 +10,7 @@ import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType, SimpleNamespace
 from typing import Protocol
 from weakref import WeakSet
 
@@ -18,17 +19,85 @@ from flock.core.config import ModelSpec
 
 @dataclass(frozen=True)
 class ChatResponse:
+    """Normalized response envelope preserved by caches, ledgers, and manifests."""
+
     text: str
+    provider: str = ""
+    requested_model_id: str = ""
+    resolved_model_id: str = ""
+    provider_request_id: str = ""
+    provider_response_id: str = ""
+    sdk_name: str = ""
+    sdk_version: str = ""
+    api_version: str = ""
+    api_endpoint: str = ""
+    terminal_state: str = ""
+    finish_reason: str = ""
+    stop_reason: str = ""
+    refusal_reason: str = ""
+    safety_status: str = "not_reported"
+    block_reason: str = ""
+    blocked: bool = False
+    usage_reported: bool = False
     input_tokens: int = 0
     output_tokens: int = 0
+    total_tokens: int = 0
     cost_usd: float = 0.0
+    # Legacy alias for the provider response ID. New code should use the
+    # explicit provider_request_id/provider_response_id fields above.
     request_id: str = ""
     cached_input_tokens: int = 0
     cache_write_tokens: int = 0
     visible_output_tokens: int = 0
     reasoning_tokens: int = 0
+    omitted_parameters: tuple[str, ...] = ()
     attempts: int = 1
     retry_errors: tuple[str, ...] = ()
+
+
+class ProviderResponseError(RuntimeError):
+    """A provider result was quarantined before it could enter the experiment."""
+
+
+class ProviderTransportError(RuntimeError):
+    """Sanitized SDK failure retaining only retry control metadata."""
+
+    def __init__(
+        self,
+        provider: str,
+        *,
+        status_code: int | None = None,
+        retry_after: str | None = None,
+    ) -> None:
+        super().__init__(f"{provider} request failed")
+        self.status_code = status_code
+        if retry_after is not None:
+            headers = MappingProxyType({"retry-after": retry_after})
+            self.response = SimpleNamespace(headers=headers)
+
+
+def sanitized_provider_error(provider: str, error: Exception) -> ProviderTransportError:
+    """Discard SDK error text and retain only status/retry scheduling metadata."""
+    raw_status = getattr(error, "status_code", None)
+    status_code = raw_status if isinstance(raw_status, int) else None
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", None)
+    retry_after: str | None = None
+    if isinstance(headers, Mapping):
+        for key, value in headers.items():
+            if str(key).lower() == "retry-after":
+                retry_after = str(value)
+                break
+    return ProviderTransportError(
+        provider,
+        status_code=status_code,
+        retry_after=retry_after,
+    )
+
+
+def quarantine_provider_response(provider: str, reason: str) -> ProviderResponseError:
+    """Build a deterministic error that never includes provider payload content."""
+    return ProviderResponseError(f"{provider} response quarantined: {reason}")
 
 
 class ChatModel(Protocol):
