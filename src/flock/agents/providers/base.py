@@ -163,6 +163,8 @@ def _issue_execution_lease(
 
 def requires_execution_lease(spec: ModelSpec) -> bool:
     """Return whether constructing this model crosses the provider boundary."""
+    if spec.provider in {"anthropic", "openai", "google"}:
+        return True
     return spec.provider != "mock" and spec.deployment != "local"
 
 
@@ -198,12 +200,20 @@ def make_chat_model(
     if spec.provider == "anthropic":
         from flock.agents.providers.anthropic_provider import AnthropicChatModel
 
-        model = AnthropicChatModel(model_key, spec)
+        model = AnthropicChatModel(
+            model_key,
+            spec,
+            execution_lease=execution_lease,
+        )
         return _resilient(model)
     if spec.provider == "openai":
         from flock.agents.providers.openai_provider import OpenAIChatModel
 
-        model = OpenAIChatModel(model_key, spec)
+        model = OpenAIChatModel(
+            model_key,
+            spec,
+            execution_lease=execution_lease,
+        )
         return _resilient(model)
     if spec.provider == "google":
         from flock.agents.providers.google_provider import GoogleChatModel
@@ -219,6 +229,6 @@ def make_chat_model(
 
 
 def _resilient(model: ChatModel) -> ChatModel:
-    from flock.agents.providers.resilient import ResilientChatModel
+    from flock.agents.providers.resilient import ResilientChatModel, RetryPolicy
 
-    return ResilientChatModel(model)
+    return ResilientChatModel(model, RetryPolicy(max_attempts=1))

@@ -7,7 +7,12 @@ from typing import Any, cast
 import pytest
 
 from flock.agents.providers.anthropic_provider import AnthropicChatModel
-from flock.agents.providers.base import ProviderResponseError, ProviderTransportError
+from flock.agents.providers.base import (
+    ProviderResponseError,
+    ProviderTransportError,
+    _issue_execution_lease,
+    make_chat_model,
+)
 from flock.agents.providers.google_provider import GoogleChatModel
 from flock.agents.providers.openai_compatible import OpenAICompatibleChatModel
 from flock.agents.providers.openai_provider import OpenAIChatModel
@@ -20,6 +25,36 @@ from flock.agents.providers.resilient import (
 from flock.core.config import ModelSpec
 
 KW = {"temperature": 0.5, "seed": 1, "max_tokens": 100}
+_TEST_AUTHORIZATION_DIGEST = "a" * 64
+
+
+def _test_execution_lease(model_key: str, spec: ModelSpec) -> object:
+    return _issue_execution_lease(
+        allowed_models={model_key: spec},
+        authorization_digest=_TEST_AUTHORIZATION_DIGEST,
+    )
+
+
+def _anthropic_model(
+    model_key: str, spec: ModelSpec, client: Any = None
+) -> AnthropicChatModel:
+    return AnthropicChatModel(
+        model_key,
+        spec,
+        client=client,
+        execution_lease=_test_execution_lease(model_key, spec),
+    )
+
+
+def _openai_model(
+    model_key: str, spec: ModelSpec, client: Any = None
+) -> OpenAIChatModel:
+    return OpenAIChatModel(
+        model_key,
+        spec,
+        client=client,
+        execution_lease=_test_execution_lease(model_key, spec),
+    )
 
 
 def _anthropic_response(**overrides):
@@ -121,6 +156,81 @@ def test_pricing_prefix_match():
         cost_usd("totally-unknown", 1_000_000, 1_000_000)
 
 
+def test_direct_api_adapters_require_exact_lease_before_sdk_client_construction(
+    monkeypatch,
+):
+    client_constructions = []
+    anthropic = ModuleType("anthropic")
+    openai = ModuleType("openai")
+    cast(Any, anthropic).Anthropic = lambda **kwargs: client_constructions.append(
+        ("anthropic", kwargs)
+    )
+    cast(Any, openai).OpenAI = lambda **kwargs: client_constructions.append(
+        ("openai", kwargs)
+    )
+    monkeypatch.setitem(sys.modules, "anthropic", anthropic)
+    monkeypatch.setitem(sys.modules, "openai", openai)
+
+    anthropic_spec = ModelSpec(provider="anthropic", model_id="claude-sonnet-5")
+    openai_spec = ModelSpec(provider="openai", model_id="gpt-5.6-terra")
+    for constructor, model_key, spec in (
+        (AnthropicChatModel, "claude-direct", anthropic_spec),
+        (OpenAIChatModel, "gpt-direct", openai_spec),
+    ):
+        with pytest.raises(
+            PermissionError, match="internally issued exact-model execution lease"
+        ):
+            constructor(model_key, spec)
+        with pytest.raises(
+            PermissionError, match="internally issued exact-model execution lease"
+        ):
+            constructor(model_key, spec, client=SimpleNamespace())
+
+    wrong_lease = _test_execution_lease("claude-direct", anthropic_spec)
+    with pytest.raises(
+        PermissionError, match="internally issued exact-model execution lease"
+    ):
+        OpenAIChatModel(
+            "gpt-direct",
+            openai_spec,
+            execution_lease=wrong_lease,
+        )
+
+    mislabeled_local = anthropic_spec.model_copy(update={"deployment": "local"})
+    with pytest.raises(
+        PermissionError, match="internally issued exact-model execution lease"
+    ):
+        AnthropicChatModel("claude-direct", mislabeled_local)
+    for constructor, model_key in (
+        (AnthropicChatModel, "claude-direct"),
+        (OpenAIChatModel, "gpt-direct"),
+    ):
+        mislabeled_mock = ModelSpec(provider="mock", model_id="frontier-model")
+        with pytest.raises(ValueError, match="requires provider"):
+            constructor(model_key, mislabeled_mock)
+    assert client_constructions == []
+
+
+@pytest.mark.parametrize(
+    ("model_key", "spec"),
+    [
+        (
+            "claude-direct",
+            ModelSpec(provider="anthropic", model_id="claude-sonnet-5"),
+        ),
+        ("gpt-direct", ModelSpec(provider="openai", model_id="gpt-5.6-terra")),
+    ],
+)
+def test_factory_passes_exact_lease_and_disables_outer_retries(model_key, spec):
+    model = make_chat_model(
+        model_key,
+        spec,
+        execution_lease=_test_execution_lease(model_key, spec),
+    )
+    assert isinstance(model, ResilientChatModel)
+    assert model.policy.max_attempts == 1
+
+
 def test_anthropic_adapter_parses_response():
     calls = {}
 
@@ -130,7 +240,7 @@ def test_anthropic_adapter_parses_response():
 
     client = SimpleNamespace(messages=SimpleNamespace(create=create))
     spec = ModelSpec(provider="anthropic", model_id="claude-sonnet-5")
-    model = AnthropicChatModel("claude-sonnet", spec, client=client)
+    model = _anthropic_model("claude-sonnet", spec, client=client)
     resp = model.complete("sys", "user", **KW)
     assert resp.text == '{"orders": []}'
     assert calls["system"] == "sys"
@@ -169,7 +279,9 @@ def _responses_fake_client(calls: dict, response=None):
 def test_openai_adapter_records_complete_envelope():
     calls = {}
     spec = ModelSpec(provider="openai", model_id="gpt-5.6-terra")
-    model = OpenAIChatModel("gpt-terra-frontier", spec, client=_responses_fake_client(calls))
+    model = _openai_model(
+        "gpt-terra-frontier", spec, client=_responses_fake_client(calls)
+    )
     resp = model.complete("sys", "user", **KW)
     assert resp.text == "ok"
     assert "seed" not in calls
@@ -203,10 +315,10 @@ def test_provider_clients_disable_hidden_sdk_retries(monkeypatch):
         client_factory=lambda **kwargs: google_calls.update(kwargs) or SimpleNamespace(),
     )
 
-    AnthropicChatModel(
+    _anthropic_model(
         "claude", ModelSpec(provider="anthropic", model_id="claude-sonnet-5")
     )._get_client()
-    OpenAIChatModel(
+    _openai_model(
         "gpt", ModelSpec(provider="openai", model_id="gpt-5.6-terra")
     )._get_client()
     GoogleChatModel(
@@ -239,7 +351,7 @@ def test_provider_clients_disable_hidden_sdk_retries(monkeypatch):
 )
 def test_openai_quarantines_incomplete_or_unapproved_responses(response, reason):
     spec = ModelSpec(provider="openai", model_id="gpt-5.6-terra")
-    model = OpenAIChatModel("gpt", spec, client=_responses_fake_client({}, response))
+    model = _openai_model("gpt", spec, client=_responses_fake_client({}, response))
     with pytest.raises(ProviderResponseError, match=reason) as captured:
         model.complete("sys", "user", **KW)
     assert "private payload" not in str(captured.value)
@@ -259,7 +371,7 @@ def test_sdk_error_text_is_sanitized_before_retry_logging():
     )
     spec = ModelSpec(provider="openai", model_id="gpt-5.6-terra")
     with pytest.raises(ProviderTransportError, match="openai request failed") as captured:
-        OpenAIChatModel("gpt", spec, client=client).complete("sys", "user", **KW)
+        _openai_model("gpt", spec, client=client).complete("sys", "user", **KW)
     assert "secret-token" not in str(captured.value)
     assert captured.value.status_code == 429
     assert captured.value.response.headers == {"retry-after": "1.25"}
@@ -281,7 +393,7 @@ def test_current_anthropic_models_omit_unsupported_sampling(monkeypatch, model_i
         )
     )
     spec = ModelSpec(provider="anthropic", model_id=model_id)
-    response = AnthropicChatModel("claude", spec, client=client).complete("s", "u", **KW)
+    response = _anthropic_model("claude", spec, client=client).complete("s", "u", **KW)
     assert "temperature" not in calls
     assert response.omitted_parameters == ("temperature", "top_p", "top_k")
 
@@ -292,7 +404,7 @@ def test_anthropic_quarantines_missing_response_metadata():
     )
     spec = ModelSpec(provider="anthropic", model_id="claude-sonnet-5")
     with pytest.raises(ProviderResponseError, match="missing response id"):
-        AnthropicChatModel("claude", spec, client=client).complete("s", "u", **KW)
+        _anthropic_model("claude", spec, client=client).complete("s", "u", **KW)
 
 
 def test_openai_compatible_requires_base_url(monkeypatch):

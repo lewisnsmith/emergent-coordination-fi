@@ -9,6 +9,7 @@ from urllib.parse import urlsplit, urlunsplit
 from flock.agents.providers.base import (
     ChatResponse,
     quarantine_provider_response,
+    require_execution_lease,
     sanitized_provider_error,
 )
 from flock.agents.providers.pricing import cost_usd
@@ -49,7 +50,17 @@ def _endpoint(client: object) -> str:
 
 
 class AnthropicChatModel:
-    def __init__(self, model_key: str, spec: ModelSpec, client=None):
+    def __init__(
+        self,
+        model_key: str,
+        spec: ModelSpec,
+        client=None,
+        *,
+        execution_lease: object | None = None,
+    ):
+        if spec.provider != "anthropic":
+            raise ValueError("AnthropicChatModel requires provider='anthropic'")
+        require_execution_lease(model_key, spec, execution_lease)
         self.model_key = model_key
         self.model_id = spec.model_id
         self._client = client
