@@ -165,6 +165,13 @@ def requires_execution_lease(spec: ModelSpec) -> bool:
     """Return whether constructing this model crosses the provider boundary."""
     if spec.provider in {"anthropic", "openai", "google"}:
         return True
+    if spec.provider == "openai_compatible" and spec.deployment == "local":
+        from flock.agents.providers.openai_compatible import (
+            validate_local_compatible_endpoint,
+        )
+
+        validate_local_compatible_endpoint()
+        return False
     return spec.provider != "mock" and spec.deployment != "local"
 
 
@@ -218,12 +225,23 @@ def make_chat_model(
     if spec.provider == "google":
         from flock.agents.providers.google_provider import GoogleChatModel
 
-        model = GoogleChatModel(model_key, spec)
+        model = GoogleChatModel(
+            model_key,
+            spec,
+            execution_lease=execution_lease,
+        )
         return _resilient(model)
     if spec.provider == "openai_compatible":
         from flock.agents.providers.openai_compatible import OpenAICompatibleChatModel
 
-        model = OpenAICompatibleChatModel(model_key, spec)
+        if requires_execution_lease(spec):
+            model = OpenAICompatibleChatModel(
+                model_key,
+                spec,
+                execution_lease=execution_lease,
+            )
+        else:
+            model = OpenAICompatibleChatModel(model_key, spec)
         return _resilient(model)
     raise ValueError(f"unknown provider '{spec.provider}'")
 

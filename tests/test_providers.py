@@ -57,6 +57,17 @@ def _openai_model(
     )
 
 
+def _google_model(
+    model_key: str, spec: ModelSpec, client: Any = None
+) -> GoogleChatModel:
+    return GoogleChatModel(
+        model_key,
+        spec,
+        client=client,
+        execution_lease=_test_execution_lease(model_key, spec),
+    )
+
+
 def _anthropic_response(**overrides):
     values = {
         "id": "msg_123",
@@ -128,6 +139,7 @@ def _fake_provider_versions(monkeypatch):
     }
     for module in (
         "flock.agents.providers.anthropic_provider",
+        "flock.agents.providers.openai_compatible",
         "flock.agents.providers.openai_provider",
         "flock.agents.providers.google_provider",
     ):
@@ -170,12 +182,20 @@ def test_direct_api_adapters_require_exact_lease_before_sdk_client_construction(
     )
     monkeypatch.setitem(sys.modules, "anthropic", anthropic)
     monkeypatch.setitem(sys.modules, "openai", openai)
+    _install_google_types(
+        monkeypatch,
+        client_factory=lambda **kwargs: client_constructions.append(
+            ("google", kwargs)
+        ),
+    )
 
     anthropic_spec = ModelSpec(provider="anthropic", model_id="claude-sonnet-5")
     openai_spec = ModelSpec(provider="openai", model_id="gpt-5.6-terra")
+    google_spec = ModelSpec(provider="google", model_id="gemini-3.1-pro-preview")
     for constructor, model_key, spec in (
         (AnthropicChatModel, "claude-direct", anthropic_spec),
         (OpenAIChatModel, "gpt-direct", openai_spec),
+        (GoogleChatModel, "gemini-direct", google_spec),
     ):
         with pytest.raises(
             PermissionError, match="internally issued exact-model execution lease"
@@ -204,6 +224,7 @@ def test_direct_api_adapters_require_exact_lease_before_sdk_client_construction(
     for constructor, model_key in (
         (AnthropicChatModel, "claude-direct"),
         (OpenAIChatModel, "gpt-direct"),
+        (GoogleChatModel, "gemini-direct"),
     ):
         mislabeled_mock = ModelSpec(provider="mock", model_id="frontier-model")
         with pytest.raises(ValueError, match="requires provider"):
@@ -219,6 +240,10 @@ def test_direct_api_adapters_require_exact_lease_before_sdk_client_construction(
             ModelSpec(provider="anthropic", model_id="claude-sonnet-5"),
         ),
         ("gpt-direct", ModelSpec(provider="openai", model_id="gpt-5.6-terra")),
+        (
+            "gemini-direct",
+            ModelSpec(provider="google", model_id="gemini-3.1-pro-preview"),
+        ),
     ],
 )
 def test_factory_passes_exact_lease_and_disables_outer_retries(model_key, spec):
@@ -255,16 +280,34 @@ def test_anthropic_adapter_parses_response():
     assert resp.cost_usd == pytest.approx(expected_cost)
 
 
-def _openai_fake_client(calls: dict):
+def _openai_fake_client(
+    calls: dict,
+    *,
+    base_url: str = "http://127.0.0.1:11434/v1",
+    response: object | None = None,
+):
     def create(**kwargs):
         calls.update(kwargs)
-        return SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
-            usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5),
+        return response or SimpleNamespace(
+            id="chatcmpl-local-1",
+            model="llama3.3:70b",
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content="ok"),
+                    finish_reason="stop",
+                )
+            ],
+            usage=SimpleNamespace(
+                prompt_tokens=10,
+                completion_tokens=5,
+                total_tokens=15,
+            ),
+            _request_id="compatible-http-1",
         )
 
     return SimpleNamespace(
-        chat=SimpleNamespace(completions=SimpleNamespace(create=create))
+        base_url=base_url,
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create)),
     )
 
 
@@ -321,7 +364,7 @@ def test_provider_clients_disable_hidden_sdk_retries(monkeypatch):
     _openai_model(
         "gpt", ModelSpec(provider="openai", model_id="gpt-5.6-terra")
     )._get_client()
-    GoogleChatModel(
+    _google_model(
         "gemini", ModelSpec(provider="google", model_id="gemini-3.1-pro-preview")
     )._get_client()
 
@@ -409,18 +452,254 @@ def test_anthropic_quarantines_missing_response_metadata():
 
 def test_openai_compatible_requires_base_url(monkeypatch):
     monkeypatch.delenv("OPENAI_COMPATIBLE_BASE_URL", raising=False)
-    spec = ModelSpec(provider="openai_compatible", model_id="llama3.3:70b")
-    model = OpenAICompatibleChatModel("local", spec)
+    spec = ModelSpec(
+        provider="openai_compatible",
+        model_id="llama3.3:70b",
+        deployment="local",
+    )
     with pytest.raises(RuntimeError, match="OPENAI_COMPATIBLE_BASE_URL"):
-        model.complete("sys", "user", **KW)
+        OpenAICompatibleChatModel("local", spec)
 
 
-def test_openai_compatible_with_injected_client():
+def test_openai_compatible_with_injected_loopback_client_preserves_provenance(
+    monkeypatch,
+):
+    base_url = "http://127.0.0.1:11434/v1"
+    monkeypatch.setenv("OPENAI_COMPATIBLE_BASE_URL", base_url)
     calls = {}
-    spec = ModelSpec(provider="openai_compatible", model_id="llama3.3:70b")
-    model = OpenAICompatibleChatModel("local", spec, client=_openai_fake_client(calls))
+    spec = ModelSpec(
+        provider="openai_compatible",
+        model_id="llama3.3:70b",
+        deployment="local",
+    )
+    model = OpenAICompatibleChatModel(
+        "local",
+        spec,
+        client=_openai_fake_client(calls, base_url=base_url),
+    )
     resp = model.complete("sys", "user", **KW)
-    assert resp.text == "ok" and resp.cost_usd == 0.0
+    assert resp.text == "ok"
+    assert resp.provider == "openai_compatible"
+    assert resp.requested_model_id == resp.resolved_model_id == "llama3.3:70b"
+    assert resp.provider_request_id == "compatible-http-1"
+    assert resp.provider_response_id == "chatcmpl-local-1"
+    assert resp.sdk_name == "openai" and resp.sdk_version == "0.test"
+    assert resp.api_endpoint == f"{base_url}/chat/completions"
+    assert resp.finish_reason == "stop"
+    assert resp.usage_reported
+    assert (resp.input_tokens, resp.output_tokens, resp.total_tokens) == (10, 5, 15)
+    assert resp.cost_usd == 0.0
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "https://api.example.test/v1",
+        "http://localhost.example.test/v1",
+        "http://127.0.0.1.example.test/v1",
+        "http://2130706433/v1",
+        "http://user:secret@localhost:11434/v1",
+        "http://localhost:11434/v1?target=remote",
+        "http://localhost:11434/v1?",
+        "http://localhost:11434/v1#fragment",
+        "ftp://localhost:11434/v1",
+        "file:///tmp/provider.sock",
+        "http://[::1",
+        "http://[::1%25lo0]:8000/v1",
+        " http://localhost:11434/v1",
+        "http://localhost\\@remote.example/v1",
+    ],
+)
+def test_local_compatible_rejects_remote_masquerades_before_sdk_construction(
+    monkeypatch, base_url
+):
+    sdk_constructions = []
+    openai = ModuleType("openai")
+    cast(Any, openai).OpenAI = lambda **kwargs: sdk_constructions.append(kwargs)
+    monkeypatch.setitem(sys.modules, "openai", openai)
+    monkeypatch.setenv("OPENAI_COMPATIBLE_BASE_URL", base_url)
+    spec = ModelSpec(
+        provider="openai_compatible",
+        model_id="llama3.3:70b",
+        deployment="local",
+    )
+
+    with pytest.raises(RuntimeError, match="OPENAI_COMPATIBLE_BASE_URL"):
+        OpenAICompatibleChatModel("local", spec)
+    assert sdk_constructions == []
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "http://localhost:11434/v1",
+        "http://127.42.0.1:8000/v1/",
+        "http://[::1]:8000/v1",
+    ],
+)
+def test_local_compatible_loopback_client_disables_sdk_retries(
+    monkeypatch, base_url
+):
+    sdk_constructions = []
+    openai = ModuleType("openai")
+
+    def construct(**kwargs):
+        sdk_constructions.append(kwargs)
+        return SimpleNamespace(base_url=kwargs["base_url"])
+
+    cast(Any, openai).OpenAI = construct
+    monkeypatch.setitem(sys.modules, "openai", openai)
+    monkeypatch.setenv("OPENAI_COMPATIBLE_BASE_URL", base_url)
+    spec = ModelSpec(
+        provider="openai_compatible",
+        model_id="llama3.3:70b",
+        deployment="local",
+    )
+
+    OpenAICompatibleChatModel("local", spec)._get_client()
+
+    assert len(sdk_constructions) == 1
+    assert sdk_constructions[0]["max_retries"] == 0
+    assert sdk_constructions[0]["base_url"] == base_url.rstrip("/")
+
+
+def test_local_compatible_revalidates_environment_before_client_creation(monkeypatch):
+    sdk_constructions = []
+    openai = ModuleType("openai")
+    cast(Any, openai).OpenAI = lambda **kwargs: sdk_constructions.append(kwargs)
+    monkeypatch.setitem(sys.modules, "openai", openai)
+    monkeypatch.setenv("OPENAI_COMPATIBLE_BASE_URL", "http://127.0.0.1:8000/v1")
+    spec = ModelSpec(
+        provider="openai_compatible",
+        model_id="llama3.3:70b",
+        deployment="local",
+    )
+    model = OpenAICompatibleChatModel("local", spec)
+    monkeypatch.setenv("OPENAI_COMPATIBLE_BASE_URL", "http://127.0.0.1:9000/v1")
+
+    with pytest.raises(RuntimeError, match="changed after adapter construction"):
+        model._get_client()
+    assert sdk_constructions == []
+
+
+def test_compatible_injected_client_cannot_masquerade_as_loopback(monkeypatch):
+    monkeypatch.setenv("OPENAI_COMPATIBLE_BASE_URL", "http://127.0.0.1:8000/v1")
+    spec = ModelSpec(
+        provider="openai_compatible",
+        model_id="llama3.3:70b",
+        deployment="local",
+    )
+    client = _openai_fake_client({}, base_url="https://remote.example.test/v1")
+
+    with pytest.raises(RuntimeError, match="loopback host"):
+        OpenAICompatibleChatModel("local", spec, client=client)
+
+
+def test_api_compatible_requires_exact_lease_and_factory_passes_it(monkeypatch):
+    base_url = "https://api.example.test/v1"
+    monkeypatch.setenv("OPENAI_COMPATIBLE_BASE_URL", base_url)
+    spec = ModelSpec(
+        provider="openai_compatible",
+        model_id="llama3.3:70b",
+        deployment="api",
+    )
+    with pytest.raises(
+        PermissionError, match="internally issued exact-model execution lease"
+    ):
+        OpenAICompatibleChatModel("compatible-api", spec)
+
+    lease = _test_execution_lease("compatible-api", spec)
+    model = OpenAICompatibleChatModel(
+        "compatible-api",
+        spec,
+        client=_openai_fake_client({}, base_url=base_url),
+        execution_lease=lease,
+    )
+    assert model.complete("sys", "user", **KW).api_endpoint == (
+        f"{base_url}/chat/completions"
+    )
+    wrapped = make_chat_model("compatible-api", spec, execution_lease=lease)
+    assert isinstance(wrapped, ResilientChatModel)
+    assert isinstance(wrapped.inner, OpenAICompatibleChatModel)
+    assert wrapped.policy.max_attempts == 1
+
+
+def test_local_compatible_factory_requires_no_lease_only_for_loopback(monkeypatch):
+    monkeypatch.setenv("OPENAI_COMPATIBLE_BASE_URL", "http://localhost:11434/v1")
+    spec = ModelSpec(
+        provider="openai_compatible",
+        model_id="llama3.3:70b",
+        deployment="local",
+    )
+    wrapped = make_chat_model("compatible-local", spec)
+    assert isinstance(wrapped, ResilientChatModel)
+    assert isinstance(wrapped.inner, OpenAICompatibleChatModel)
+
+
+def test_compatible_transport_errors_are_sanitized(monkeypatch):
+    class SecretError(Exception):
+        status_code = 503
+
+    base_url = "http://127.0.0.1:11434/v1"
+    monkeypatch.setenv("OPENAI_COMPATIBLE_BASE_URL", base_url)
+    client = SimpleNamespace(
+        base_url=base_url,
+        chat=SimpleNamespace(
+            completions=SimpleNamespace(
+                create=lambda **_kwargs: (_ for _ in ()).throw(
+                    SecretError("secret-compatible-token")
+                )
+            )
+        ),
+    )
+    spec = ModelSpec(
+        provider="openai_compatible",
+        model_id="llama3.3:70b",
+        deployment="local",
+    )
+    with pytest.raises(
+        ProviderTransportError, match="openai_compatible request failed"
+    ) as captured:
+        OpenAICompatibleChatModel("local", spec, client=client).complete(
+            "sys", "user", **KW
+        )
+    assert "secret-compatible-token" not in str(captured.value)
+
+    openai = ModuleType("openai")
+    cast(Any, openai).OpenAI = lambda **_kwargs: (_ for _ in ()).throw(
+        SecretError("secret-compatible-constructor-token")
+    )
+    monkeypatch.setitem(sys.modules, "openai", openai)
+    with pytest.raises(
+        ProviderTransportError, match="openai_compatible request failed"
+    ) as constructor_error:
+        OpenAICompatibleChatModel("local", spec)._get_client()
+    assert "secret-compatible-constructor-token" not in str(constructor_error.value)
+
+
+def test_compatible_does_not_invent_missing_optional_provenance(monkeypatch):
+    base_url = "http://127.0.0.1:11434/v1"
+    monkeypatch.setenv("OPENAI_COMPATIBLE_BASE_URL", base_url)
+    response = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))]
+    )
+    spec = ModelSpec(
+        provider="openai_compatible",
+        model_id="llama3.3:70b",
+        deployment="local",
+    )
+    result = OpenAICompatibleChatModel(
+        "local",
+        spec,
+        client=_openai_fake_client({}, base_url=base_url, response=response),
+    ).complete("sys", "user", **KW)
+
+    assert result.resolved_model_id == ""
+    assert result.provider_request_id == ""
+    assert result.provider_response_id == ""
+    assert result.finish_reason == ""
+    assert not result.usage_reported
+    assert (result.input_tokens, result.output_tokens, result.total_tokens) == (0, 0, 0)
 
 
 def test_resilient_provider_retries_with_deterministic_schedule():
@@ -501,7 +780,7 @@ def test_google_adapter_bills_thinking_tokens(monkeypatch):
     _install_google_types(monkeypatch)
     client = SimpleNamespace(models=Models())
     spec = ModelSpec(provider="google", model_id="gemini-3.1-pro-preview")
-    response = GoogleChatModel("gemini", spec, client=client).complete("s", "u", **KW)
+    response = _google_model("gemini", spec, client=client).complete("s", "u", **KW)
     assert response.visible_output_tokens == 20
     assert response.reasoning_tokens == 30
     assert response.output_tokens == 50
@@ -540,4 +819,4 @@ def test_google_quarantines_drift_blocking_and_missing_usage(
     )
     spec = ModelSpec(provider="google", model_id="gemini-3.1-pro-preview")
     with pytest.raises(ProviderResponseError, match=reason):
-        GoogleChatModel("gemini", spec, client=client).complete("s", "u", **KW)
+        _google_model("gemini", spec, client=client).complete("s", "u", **KW)

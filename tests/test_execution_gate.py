@@ -145,11 +145,17 @@ def test_grid_and_sweep_cli_preflight_all_cells_before_resume_or_execution(
 def test_provider_factory_rejects_missing_forged_and_wrong_model_leases_before_constructor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[tuple[str, ModelSpec]] = []
+    calls: list[tuple[str, ModelSpec, object | None]] = []
 
     class ConstructorSpy:
-        def __init__(self, model_key: str, spec: ModelSpec):
-            calls.append((model_key, spec))
+        def __init__(
+            self,
+            model_key: str,
+            spec: ModelSpec,
+            *,
+            execution_lease: object | None = None,
+        ):
+            calls.append((model_key, spec, execution_lease))
             self.model_key = model_key
             self.model_id = spec.model_id
 
@@ -181,10 +187,10 @@ def test_provider_factory_rejects_missing_forged_and_wrong_model_leases_before_c
 
     model = make_chat_model("claude-opus-frontier", spec, execution_lease=lease)
     assert model.model_id == spec.model_id
-    assert calls == [("claude-opus-frontier", spec)]
+    assert calls == [("claude-opus-frontier", spec, lease)]
 
 
-def test_mock_and_local_models_do_not_require_execution_lease(
+def test_mock_and_verified_loopback_models_do_not_require_execution_lease(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     local_calls: list[tuple[str, ModelSpec]] = []
@@ -208,6 +214,14 @@ def test_mock_and_local_models_do_not_require_execution_lease(
     local_spec = models["gpt-oss-120b-local"]
 
     mock_model = make_chat_model("mock-hold", mock_spec)
+    monkeypatch.setenv(
+        "OPENAI_COMPATIBLE_BASE_URL", "https://remote.example.test/v1"
+    )
+    with pytest.raises(RuntimeError, match="loopback host"):
+        make_chat_model("gpt-oss-120b-local", local_spec)
+    assert local_calls == []
+
+    monkeypatch.setenv("OPENAI_COMPATIBLE_BASE_URL", "http://127.0.0.1:11434/v1")
     local_model = make_chat_model("gpt-oss-120b-local", local_spec)
 
     assert mock_model.model_id == mock_spec.model_id
