@@ -1,6 +1,8 @@
 """flock command-line interface.
 
 Commands:
+    flock control status        Read deterministic phase and readiness state.
+    flock control preflight     Build a fail-closed, hash-bound request packet.
     flock data build <builder>   Build a versioned local dataset.
     flock data list              List datasets in the registry.
     flock run <config>           Run one mock/local experiment from a YAML config.
@@ -22,7 +24,66 @@ import typer
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
 data_app = typer.Typer(no_args_is_help=True)
+control_app = typer.Typer(no_args_is_help=True)
 app.add_typer(data_app, name="data", help="Build and list versioned local datasets.")
+app.add_typer(
+    control_app,
+    name="control",
+    help="Inspect and preflight experiment phases without executing them.",
+)
+
+
+@control_app.command("status")
+def control_status_command(
+    json_output: bool = typer.Option(False, "--json", help="Emit canonical JSON"),
+    root: Path = typer.Option(Path("."), "--root", help="Repository root"),
+) -> None:
+    """Read deterministic controller state without inspecting secrets."""
+    from flock.control.controller import build_status, canonical_output
+
+    status = build_status(root)
+    if json_output:
+        typer.echo(canonical_output(status))
+        return
+    blocker_count = sum(len(items) for items in status.blockers.values())
+    typer.echo(
+        f"highest safe tier: {status.highest_safe_tier}; "
+        f"signers: {status.signer_enrollment_count}; blockers: {blocker_count}; "
+        f"state: {status.state_sha256}"
+    )
+
+
+@control_app.command("preflight")
+def control_preflight_command(
+    phase: str = typer.Option(..., "--phase", help="Exact program phase"),
+    tier: str = typer.Option(..., "--tier", help="Exact authorization tier"),
+    materialization: Path = typer.Option(
+        ..., "--materialization", help="Materialized assignment bundle"
+    ),
+    output_root: Path = typer.Option(
+        ..., "--out", "--output-root", help="Intended artifact output root"
+    ),
+    root: Path = typer.Option(Path("."), "--root", help="Repository root"),
+) -> None:
+    """Build a hash-bound packet; never sign, enqueue, or execute it."""
+    from flock.control.controller import build_preflight, canonical_output
+    from flock.control.program import parse_phase, parse_tier
+
+    try:
+        parsed_phase = parse_phase(phase)
+        parsed_tier = parse_tier(tier)
+    except ValueError as error:
+        raise typer.BadParameter(str(error)) from error
+    packet = build_preflight(
+        repo_root=root,
+        phase=parsed_phase,
+        tier=parsed_tier,
+        materialization_path=materialization,
+        output_root=output_root,
+    )
+    typer.echo(canonical_output(packet))
+    if not packet.ready:
+        raise typer.Exit(code=1)
 
 
 @app.command("doctor")
