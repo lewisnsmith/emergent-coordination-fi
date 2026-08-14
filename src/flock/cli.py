@@ -3,8 +3,8 @@
 Commands:
     flock data build <builder>   Build a versioned local dataset.
     flock data list              List datasets in the registry.
-    flock run <config>           Run one experiment from a YAML config.
-    flock sweep <config>         Run a sweep (models x personas x seeds), resumable.
+    flock run <config>           Run one mock/local experiment from a YAML config.
+    flock sweep <config>         Run a mock/local sweep, resumable.
     flock analyze <run-id>       Compute convergence metrics and write a report.
     flock validate               Verify the complete scaffold and execution blockers.
     flock design                 Print/export MPHIQ and prompt-pressure cells.
@@ -79,7 +79,7 @@ def run(
     config: Path = typer.Argument(..., help="Path to experiment YAML config"),
     seed: int = typer.Option(None, help="Override config seed"),
 ) -> None:
-    """Run one experiment; writes decision logs + run manifest under results/."""
+    """Run one mock/local experiment; API providers require the control worker."""
     from flock.experiments.runner import run_experiment
 
     result = run_experiment(config, seed_override=seed)
@@ -92,7 +92,7 @@ def sweep(
     config: Path = typer.Argument(..., help="Path to sweep YAML config"),
     resume: bool = typer.Option(True, help="Skip cells already completed"),
 ) -> None:
-    """Run a sweep across models x personas x seeds. Resumable."""
+    """Run a mock/local sweep; API providers require the control worker."""
     from flock.experiments.grid import run_sweep
 
     summary = run_sweep(config, resume=resume)

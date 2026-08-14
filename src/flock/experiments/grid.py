@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from flock.core.config import ExperimentConfig, SweepConfig, load_experiment, load_sweep
-from flock.experiments.runner import make_run_id, run_config
+from flock.experiments.runner import _require_config_execution_lease, make_run_id, run_config
 from flock.logging_.decisions import RESULTS_DIR
 
 
@@ -56,18 +56,30 @@ def sweep_cells(sweep: SweepConfig, base: ExperimentConfig) -> list[ExperimentCo
 
 
 def run_sweep(
-    config_path: Path, resume: bool = True, results_root: Path = RESULTS_DIR
+    config_path: Path,
+    resume: bool = True,
+    results_root: Path = RESULTS_DIR,
+    *,
+    execution_lease: object | None = None,
 ) -> SweepSummary:
     sweep = load_sweep(config_path)
     base = load_experiment(Path(sweep.base))
+    cells = sweep_cells(sweep, base)
+    for cfg in cells:
+        _require_config_execution_lease(cfg, execution_lease)
+
     summary = SweepSummary()
-    for cfg in sweep_cells(sweep, base):
+    for cfg in cells:
         run_id = make_run_id(cfg)
         if resume and (results_root / run_id / "manifest.json").exists():
             summary.skipped += 1
             summary.run_ids.append(run_id)
             continue
-        result = run_config(cfg, results_root=results_root)
+        result = run_config(
+            cfg,
+            results_root=results_root,
+            execution_lease=execution_lease,
+        )
         summary.completed += 1
         summary.run_ids.append(result.run_id)
     return summary

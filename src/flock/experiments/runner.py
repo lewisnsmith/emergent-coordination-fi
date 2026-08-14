@@ -19,7 +19,7 @@ from flock.agents.baselines import make_baseline
 from flock.agents.cache import ResponseCache
 from flock.agents.llm_agent import LLMAgent
 from flock.agents.prompts import resolve_prompt
-from flock.agents.providers.base import make_chat_model
+from flock.agents.providers.base import make_chat_model, require_execution_lease
 from flock.core.config import ExperimentConfig, load_experiment, load_models, load_persona
 from flock.core.types import Observation
 from flock.data import schemas
@@ -72,6 +72,23 @@ def make_run_id(cfg: ExperimentConfig) -> str:
     return f"{cfg.name}-s{cfg.seed}-{resolved_config_hash(cfg)[:8]}"
 
 
+def _require_config_execution_lease(
+    cfg: ExperimentConfig, execution_lease: object | None
+) -> None:
+    """Preflight every model before reading data, reusing a run, or building a provider."""
+    models = load_models()
+    model_keys = sorted(
+        {
+            group.model
+            for cohort in cfg.cohorts
+            for group in cohort.agents
+            if group.kind == "llm" and group.model is not None
+        }
+    )
+    for model_key in model_keys:
+        require_execution_lease(model_key, models[model_key], execution_lease)
+
+
 def build_market(cfg: ExperimentConfig, registry: Registry):
     entry = registry.get(cfg.dataset)
     ds_dir = registry.dataset_dir(entry.name)
@@ -111,6 +128,8 @@ def build_agents(
     cfg: ExperimentConfig,
     cache: ResponseCache | None,
     budget: RuntimeBudgetGuard | None = None,
+    *,
+    execution_lease: object | None = None,
 ):
     """Instantiate all cohorts; deterministic per-agent seeding from cfg.seed."""
     models = load_models()
@@ -152,7 +171,11 @@ def build_agents(
                         LLMAgent(
                             agent_id,
                             cohort.name,
-                            make_chat_model(group.model, spec),
+                            make_chat_model(
+                                group.model,
+                                spec,
+                                execution_lease=execution_lease,
+                            ),
                             load_persona(group.persona),
                             temperature=group.temperature,
                             seed=int(rng.integers(0, 2**31)),
@@ -194,18 +217,28 @@ def run_experiment(
     seed_override: int | None = None,
     results_root: Path = RESULTS_DIR,
     use_cache: bool = True,
+    *,
+    execution_lease: object | None = None,
 ) -> RunResult:
     cfg = load_experiment(config_path)
     if seed_override is not None:
         cfg = cfg.model_copy(update={"seed": seed_override})
-    return run_config(cfg, results_root=results_root, use_cache=use_cache)
+    return run_config(
+        cfg,
+        results_root=results_root,
+        use_cache=use_cache,
+        execution_lease=execution_lease,
+    )
 
 
 def run_config(
     cfg: ExperimentConfig,
     results_root: Path = RESULTS_DIR,
     use_cache: bool = True,
+    *,
+    execution_lease: object | None = None,
 ) -> RunResult:
+    _require_config_execution_lease(cfg, execution_lease)
     run_id = make_run_id(cfg)
     completed_manifest = results_root / run_id / "manifest.json"
     if completed_manifest.exists():
@@ -221,7 +254,7 @@ def run_config(
     market, dataset_entry = build_market(cfg, registry)
     cache = ResponseCache() if use_cache else None
     budget = RuntimeBudgetGuard(cfg.runtime_budget) if cfg.runtime_budget else None
-    agents = build_agents(cfg, cache, budget)
+    agents = build_agents(cfg, cache, budget, execution_lease=execution_lease)
     ledgers = {
         a.agent_id: Ledger(cfg.initial_cash, cfg.max_position_per_symbol, cfg.market.fee_bps)
         for a in agents
