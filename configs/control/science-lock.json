@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "study_id": "paper-core-v1",
+  "status": "draft",
+  "scope_sha256": "60fedafda051536a06d89d2e2be3b52b60070e9b6cec6135936f3e2a41024d58",
+  "methods_sha256": "0400d3bcf1ca79fe01a5a7e4692d95857ccae0fa42273ef47d6c812fd9ff0a3f",
+  "preregistration_sha256": "5109da05e4b1516bc88c2f5577987e6ff95a4dce06f4501de3f6f13d2017c19e",
+  "estimands": [
+    {
+      "estimand_id": "H1.delta_tech",
+      "hypothesis_id": "H1",
+      "outcome": "family-balanced chance-corrected per-symbol action agreement",
+      "orientation": "linear_contrast",
+      "coefficients": [
+        {"cell": "llm_homogeneous", "coefficient": 0.5},
+        {"cell": "classical_homogeneous", "coefficient": -0.5},
+        {"cell": "llm_heterogeneous", "coefficient": 0.5},
+        {"cell": "classical_heterogeneous", "coefficient": -0.5}
+      ],
+      "independent_unit": "independent trajectory or nonoverlapping window dependence cluster",
+      "inference_role": "confirmatory",
+      "primary_model": null,
+      "direction": null,
+      "null_value": 0.0,
+      "sesoi": null,
+      "interval_rule": null,
+      "missingness_rule": null,
+      "multiplicity_order": null,
+      "required_cube_edges": 0,
+      "claim_template": "the ecology-averaged technology contrast met its frozen decision rule within the sampled design"
+    },
+    {
+      "estimand_id": "H1.delta_int",
+      "hypothesis_id": "H1",
+      "outcome": "family-balanced chance-corrected per-symbol action agreement",
+      "orientation": "linear_contrast",
+      "coefficients": [
+        {"cell": "llm_homogeneous", "coefficient": 1.0},
+        {"cell": "llm_heterogeneous", "coefficient": -1.0},
+        {"cell": "classical_homogeneous", "coefficient": -1.0},
+        {"cell": "classical_heterogeneous", "coefficient": 1.0}
+      ],
+      "independent_unit": "independent trajectory or nonoverlapping window dependence cluster",
+      "inference_role": "confirmatory",
+      "primary_model": null,
+      "direction": null,
+      "null_value": 0.0,
+      "sesoi": null,
+      "interval_rule": null,
+      "missingness_rule": null,
+      "multiplicity_order": null,
+      "required_cube_edges": 0,
+      "claim_template": "the technology-by-ecology interaction met its frozen decision rule within the sampled design"
+    },
+    {
+      "estimand_id": "H1.sign_flip_sensitivity",
+      "hypothesis_id": "H1",
+      "outcome": "locked H1 independent-unit effects",
+      "orientation": "linear_contrast",
+      "coefficients": [
+        {"cell": "unit_effect", "coefficient": 1.0},
+        {"cell": "symmetry_null", "coefficient": -1.0}
+      ],
+      "independent_unit": "independent trajectory or nonoverlapping window dependence cluster",
+      "inference_role": "sensitivity_only",
+      "primary_model": "paired sign-flip under an explicit symmetry assumption",
+      "direction": "two_sided",
+      "null_value": 0.0,
+      "sesoi": null,
+      "interval_rule": null,
+      "missingness_rule": null,
+      "multiplicity_order": null,
+      "required_cube_edges": 0,
+      "claim_template": "sensitivity analysis only; this result cannot support a confirmatory claim"
+    },
+    {
+      "estimand_id": "H3.same_model_vs_cross_provider",
+      "hypothesis_id": "H3",
+      "outcome": "provider-balanced pairwise decision and forecast-error agreement",
+      "orientation": "same_model_minus_cross_provider",
+      "coefficients": [],
+      "independent_unit": "independent trajectory or nonoverlapping window dependence cluster",
+      "inference_role": "confirmatory",
+      "primary_model": null,
+      "direction": null,
+      "null_value": 0.0,
+      "sesoi": null,
+      "interval_rule": null,
+      "missingness_rule": null,
+      "multiplicity_order": null,
+      "required_cube_edges": 0,
+      "claim_template": "the same-model contrast met its frozen provider-balanced decision rule within the sampled lineages"
+    },
+    {
+      "estimand_id": "H4.mphiq_component",
+      "hypothesis_id": "H4",
+      "outcome": "per-symbol agreement and constrained-oracle regret",
+      "orientation": "same_minus_different",
+      "coefficients": [],
+      "independent_unit": "independent trajectory or nonoverlapping window dependence cluster",
+      "inference_role": "confirmatory",
+      "primary_model": null,
+      "direction": null,
+      "null_value": 0.0,
+      "sesoi": null,
+      "interval_rule": null,
+      "missingness_rule": null,
+      "multiplicity_order": null,
+      "required_cube_edges": 80,
+      "claim_template": "the balanced same-minus-different MPHIQ component contrast met its frozen decision rule"
+    }
+  ],
+  "multiplicity_method": "Holm-Bonferroni",
+  "exclusion_rule": "no post-hoc deletion; malformed responses remain included under the frozen failure rule",
+  "split_rule": "discovery, confirmation, and held-out model and market families remain content-hash isolated",
+  "blockers": [
+    "outcome-blind simulation has not frozen the primary cluster-aware model",
+    "contrast directions, SESOIs, interval rules, and multiplicity order remain unfrozen",
+    "missingness and partial-unit rules remain unfrozen",
+    "prereg-v1 tag and immutable registration receipt do not exist"
+  ],
+  "preregistration_receipt": {
+    "frozen_commit": null,
+    "git_tag": null,
+    "registration_id": null,
+    "receipt_sha256": null
+  }
+}

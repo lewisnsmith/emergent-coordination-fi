@@ -22,6 +22,13 @@ from flock.control.models import (
     canonical_json_bytes,
     canonical_sha256,
 )
+from flock.control.science import (
+    ContrastCoefficientV1,
+    EstimandLockV1,
+    PreregistrationReceiptV1,
+    ScienceLockV1,
+    load_science_lock,
+)
 from flock.control.signing import (
     AuthorizationVerificationError,
     VerifiedAuthorization,
@@ -37,6 +44,8 @@ __all__ = [
     "BudgetExceeded",
     "BudgetUsageV1",
     "ControlLedger",
+    "ContrastCoefficientV1",
+    "EstimandLockV1",
     "ExecutionFingerprintV1",
     "LedgerError",
     "LedgerIntegrityError",
@@ -44,12 +53,15 @@ __all__ = [
     "LedgerVerification",
     "PhaseEventV1",
     "ProgramPhase",
+    "PreregistrationReceiptV1",
     "ProviderContractV1",
     "SignedAuthorizationV1",
+    "ScienceLockV1",
     "SpendEventV1",
     "VerifiedAuthorization",
     "canonical_json_bytes",
     "canonical_sha256",
+    "load_science_lock",
     "verify_authorization",
     "verify_detached_signature",
 ]
