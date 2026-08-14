@@ -1,0 +1,574 @@
+version: 1
+snapshot_id: external-evidence-2026-08-12
+cutoff: "2026-08-12T23:59:59-07:00"
+status: frozen_decision_audit
+source_registry: literature-search-and-screening-log.yaml
+artifact_registry: external-evidence-artifact-ledger.yaml
+use_classes: [method_only, prior_only, partial_substitute, full_substitute]
+assessment_states: [verified, reported_not_verified, unavailable, unclear, not_applicable]
+rules:
+  - "A source can have different permitted uses for different claims."
+  - "No experiment cell is reduced without a named passed artifact and a matched claim assessment."
+  - "A direct topic match is not a design match."
+  - "The scoring key, same-checkpoint precision baseline, and frontier behavioral bridge are noninterchangeable."
+  - "Simulation truth, AI-like resemblance, verified exposure, and causal attribution remain separate evidence tiers."
+
+claim_assessments:
+  - id: h1_external
+    hypotheses: [H1]
+    experiments: [exp-000, exp-001, exp-002]
+    output_tracks: [public_dataset, validated_risk]
+    ring: direct
+    source_ids: [henning2025llm, joglar2026converging, saxena2026machine, gorecki2025monoculture, kleinberg2021algorithmic, bommasani2022picking]
+    source_claim: "LLM decisions, portfolios, and simulated-market behavior can be concentrated or family-specific, while multiplicity can coexist across prompts, models, and institutions."
+    population: "LLM investment recommendations or LLM-agent experimental markets"
+    treatment: "LLM model, family, homogeneous or selected mixed LLM ecology"
+    comparator: "human sessions, random portfolios, other LLMs, or component-diverse systems"
+    estimand: "dispersion, overlap, homogenization, or model/ecology differences"
+    outcome: "recommendation overlap, portfolio dispersion, price behavior, or model agreement"
+    highest_independent_unit: "market session, task block, or recommendation block; never agent, pair, call, or step"
+    lineage_match: false
+    domain_match: partial
+    validity:
+      dependence: "Top-level replication is limited in several direct studies; exact units remain unresolved for some working papers."
+      multiplicity: "Not uniformly controlled across direct precedents."
+      leakage: "Historical-data and experiment-familiarity risks vary by study."
+      missingness: unclear
+      negative_controls: "Random and human controls exist in parts of the literature; no matched classical technology-by-ecology benchmark was found."
+      external_validation: false
+    permitted_use: prior_only
+    mismatch_reasons:
+      - "No source crosses LLM versus classical technology with homogeneous versus heterogeneous ecology under matched information, activity, capital, constraints, and independent replay blocks."
+      - "Direct studies use different market institutions, model generations, prompts, and outcome definitions."
+    contradiction: "Henning reports relatively stable low-dispersion LLM markets, whereas Saxena reports family-specific bubbles and variable mixed-ecology outcomes; design differences prevent a clean replication verdict."
+    remaining_owned_evidence: "All confirmatory H1 replay cells and independent top-level blocks."
+    consequences: [novelty_pressure, design_change, control_required]
+    novelty: "Generic LLM convergence and homogeneous/mixed LLM-market claims are occupied. The matched technology-by-ecology estimand remains unoccupied in the searched evidence."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: h2_external
+    hypotheses: [H2]
+    experiments: [exp-003]
+    output_tracks: [public_dataset, validated_risk]
+    ring: correlated
+    source_ids: [lakonishok1992impact, sias2004institutional, wermers1999mutual, wylie2005fund, frey2014measuring, cai2019bondherding, rumpf2026humansalgorithms]
+    source_claim: "Investor herding estimates depend on cadence, constraints, activity probabilities, asset class, direction, liquidity, and measurement choice."
+    population: "institutional holdings or trades and static human-versus-LLM advice"
+    treatment: "contemporaneous or lagged investor demand and adviser type"
+    comparator: "expected buyer share, structural null, or other adviser source"
+    estimand: "LSV, serial demand correlation, structural herding, or allocation dispersion"
+    outcome: "directional herding, future returns, or advice allocations"
+    highest_independent_unit: "stock-period, bond-period, adviser, or participant"
+    lineage_match: false
+    domain_match: partial
+    validity:
+      dependence: "Funds and trades are nested; stock-period or panel-period units govern inference."
+      multiplicity: "Asset, direction, and regime stratification require controlled families."
+      leakage: not_applicable
+      missingness: "Holdings and trade panels incompletely observe intentions and within-period actions."
+      negative_controls: "Bias-aware and structural alternatives exist."
+      external_validation: partial
+    permitted_use: method_only
+    mismatch_reasons:
+      - "No external panel matches universe, cadence, activity, outcome, and sampling to flock's AI cohorts."
+      - "Unmatched 13F or trader panels cannot answer whether AI convergence is unusual."
+    contradiction: "Average herding can be small or informative, while sell herding in illiquid stress settings can destabilize prices."
+    remaining_owned_evidence: "Panel selection, harmonization gate, matched estimand, and uncertainty analysis."
+    consequences: [design_change, control_required]
+    novelty: "Institutional-herding measurement is occupied; the harmonized LLM-versus-real-panel estimand remains unoccupied in the searched evidence."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: h2b_external
+    hypotheses: [H2b]
+    experiments: [exp-004, exp-014]
+    output_tracks: [validated_risk]
+    ring: correlated
+    source_ids: [kleinberg2021algorithmic, bommasani2022picking, stein2009presidential, khandani2011quants, coval2007firesales, greenwood2011fragility, carlin2026aiportfolios]
+    source_claim: "Shared systems, overlapping holdings, common tilts, leverage, and forced flows can spread ordinary pairwise similarity across more capital and assets."
+    population: "algorithm users, institutional portfolios, or simulated delegation populations"
+    treatment: "shared algorithm, overlap, delegation breadth, correlated flow, or common shock"
+    comparator: "diverse algorithms, lower overlap, or lower delegation breadth"
+    estimand: "capital- and participant-weighted breadth at fixed pairwise convergence"
+    outcome: "correlated selections, fragility, fire-sale pressure, or synchronized coverage"
+    highest_independent_unit: "market replica, stock-period, fund-flow event, or delegation panel period"
+    lineage_match: false
+    domain_match: partial
+    validity: {dependence: "Ownership and flow clusters must define the unit.", multiplicity: "Breadth metrics must be frozen.", leakage: not_applicable, missingness: "Actual AI delegation is unobserved.", negative_controls: "Classical crowding and forced-flow controls required.", external_validation: partial}
+    permitted_use: prior_only
+    mismatch_reasons: ["No study varies shared-AI delegation while holding pairwise convergence at a real-investor level."]
+    remaining_owned_evidence: "All exp-004 and exp-014 identification cells."
+    consequences: [design_change, extension_candidate]
+    novelty: "Generic crowding and overlapping-holdings mechanisms are occupied; AI-delegation breadth at fixed pairwise convergence remains unoccupied in the searched evidence."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: h3_external
+    hypotheses: [H3]
+    experiments: [exp-005]
+    output_tracks: [public_dataset, validated_risk]
+    ring: direct
+    source_ids: [joglar2026converging, saxena2026machine, gorecki2025monoculture, carlin2026aiportfolios]
+    source_claim: "Models and providers can have distinct behavioral fingerprints, but within-family similarity and cross-family multiplicity are domain- and prompt-dependent."
+    population: "sampled LLMs on recommendations, portfolios, or simulated markets"
+    treatment: "same model or provider lineage"
+    comparator: "provider-balanced cross-family pairs"
+    estimand: "within-lineage minus cross-lineage behavioral similarity"
+    outcome: "recommendation, allocation, market, or fingerprint agreement"
+    highest_independent_unit: "task, market, or time block aggregated over dyads"
+    lineage_match: false
+    domain_match: partial
+    validity: {dependence: "Dyads share models and cannot be treated as independent.", multiplicity: "Many family comparisons need a frozen family.", leakage: "Provider and training overlap is opaque.", missingness: unclear, negative_controls: "Provider-balanced cross-family comparisons are uncommon.", external_validation: false}
+    permitted_use: prior_only
+    mismatch_reasons: ["No source uses flock's verified endpoint lineages, balanced dyadic contrast, and independent blocks."]
+    remaining_owned_evidence: "All exp-005 cells."
+    consequences: [novelty_pressure, design_change]
+    novelty: "Generic model-family fingerprints are occupied; the balanced within-lineage versus cross-lineage financial contrast remains unoccupied in the searched evidence."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: h4_external
+    hypotheses: [H4]
+    experiments: [exp-006, exp-007, exp-008]
+    output_tracks: [validated_risk]
+    ring: direct
+    source_ids: [ouyang2026dissecting, rosslo2026heuristic, rumpf2026humansalgorithms, foltyn2026gender]
+    source_claim: "Profile wording and identity can change advice, yet apparent personalization can collapse mainly onto stated risk tolerance."
+    population: "LLM advice or simulated-trading prompts with profile and information changes"
+    treatment: "profile facts, identity cue, persona wording, information partition, or prompt intervention"
+    comparator: "matched neutral or alternate profile/information condition"
+    estimand: "information decorrelation minus substantive-profile and wording effects"
+    outcome: "allocation, action, quantity, suitability, or convergence"
+    highest_independent_unit: "matched profile-information block"
+    lineage_match: false
+    domain_match: partial
+    validity: {dependence: "Outputs within model and profile are nested.", multiplicity: "Many profile factors require a balanced frozen factorial.", leakage: "Static public vignettes can enter training.", missingness: unclear, negative_controls: "Identity-only and wording-only controls exist in parts of the literature.", external_validation: false}
+    permitted_use: prior_only
+    mismatch_reasons: ["No source estimates the balanced profile-by-information difference-in-differences across sequential financial decisions."]
+    partial_candidate: "foltyn2026gender may support one identity-only static sensitivity cell after artifact and unit verification; it does not reduce the MPHIQ core."
+    remaining_owned_evidence: "Substantive suitability facts, information partitions, wording controls, and full MPHIQ Hamming-edge contrasts."
+    consequences: [novelty_pressure, design_change, control_required]
+    novelty: "Generic profile and identity sensitivity is occupied; information-versus-substantive-profile decorrelation under the full MPHIQ design remains unoccupied in the searched evidence."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: h5_external
+    hypotheses: [H5]
+    experiments: [exp-010, exp-011, exp-012]
+    output_tracks: [public_dataset, validated_risk]
+    ring: direct
+    source_ids: [smith1962experimental, gode1993allocative, lopezlira2025trade, ouyang2026dissecting, saxena2026machine, smithsuchanek1988, kirchler2012confusion, hommes2008expectations, brock1998heterogeneous, calvano2020artificial, klein2021autonomous, colliard2026algorithmic, brunnermeier2009market, chordia2000commonality, vyetrenko2020getreal, platt2016calibration, grimm2020odd]
+    source_claim: "LLM and algorithmic-agent markets can generate bubbles, liquidity changes, and strategic outcomes, but market institutions, confusion, constraints, feedback, and classical crowding can generate the same aggregate patterns."
+    population: "experimental or simulated asset and pricing markets"
+    treatment: "agent type, ecology, prompt, AI share, market institution, or learning regime"
+    comparator: "fundamental, competitive, human, random, or alternate simulated market"
+    estimand: "AI-capital-share dose response and material threshold"
+    outcome: "impact, volatility, liquidity, herding, cascades, spreads, or bubbles"
+    highest_independent_unit: "independent market session or replica"
+    lineage_match: false
+    domain_match: partial
+    validity:
+      dependence: "Markets, not agents or orders, are the independent unit."
+      multiplicity: "Multiple microstructure endpoints require a frozen family."
+      leakage: "Experiment familiarity and provider training overlap affect direct LLM papers."
+      missingness: "Cancellations, rejected orders, and zero-volume states are not uniformly preserved."
+      negative_controls: "Constrained zero-intelligence, strong classical ecology, comprehension, common-shock, and failed-learning controls are required."
+      external_validation: "No direct LLM simulator passes flock's ODD/STRESS and held-out real-mechanics gate."
+    permitted_use: method_only
+    mismatch_reasons:
+      - "No source randomizes AI-managed capital share against paired zero-AI markets in a validated reconstructable exchange."
+      - "Generic bubbles, high spreads, or liquidity withdrawal do not identify AI causality or collusion."
+    contradiction: "Herding and algorithms can improve discovery or normal liquidity in some conditions and destabilize markets in others."
+    remaining_owned_evidence: "Exchange calibration plus all randomized exp-011 and exp-012 market replicas."
+    consequences: [novelty_pressure, design_change, control_required, cost_saver]
+    novelty: "Generic LLM bubbles, price effects, order books, and algorithmic coordination are occupied; the paired randomized AI-capital-share dose response remains unoccupied in the searched evidence."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: h6_external
+    hypotheses: [H6]
+    experiments: [exp-013]
+    output_tracks: [validated_risk]
+    ring: direct
+    source_ids: [finrafoundation2024machines, alemanni2020robots, chak2022roboadvice]
+    source_claim: "Human acceptance of automated financial advice is heterogeneous and depends on topic, design, transparency, incentives, and user characteristics."
+    population: "survey or experimental participants receiving financial or debt advice"
+    treatment: "AI, robo, or human source label; advice availability; explanation or interface"
+    comparator: "human adviser, no advice, or alternate automated-advice design"
+    estimand: "randomized effect on incentive-compatible delegated share"
+    outcome: "trust attitude, advice use, override, willingness to pay, choice quality, or delegation"
+    highest_independent_unit: participant
+    lineage_match: false
+    domain_match: partial
+    validity: {dependence: "Repeated scenarios are nested within participant.", multiplicity: "Subgroup and interface effects require prespecification.", leakage: not_applicable, missingness: "Survey nonresponse and attrition can be material.", negative_controls: "Human/no-advice comparators exist but autonomy and oversight are rarely crossed.", external_validation: partial}
+    permitted_use: prior_only
+    mismatch_reasons: ["No study crosses audited performance, explanation, oversight, autonomy, stakes, and reversibility with autonomous investment delegation."]
+    contradiction: "There is no stable human-versus-AI preference direction across topics or designs."
+    remaining_owned_evidence: "Incentive-compatible autonomous investment delegation study with approved human-subject protocol."
+    consequences: [novelty_pressure, design_change]
+    novelty: "Generic trust and robo-advice uptake are occupied; incentive-compatible autonomous investment delegation across oversight and reversibility conditions remains unoccupied in the searched evidence."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: h7_external
+    hypotheses: [H7]
+    experiments: [exp-015]
+    output_tracks: [validated_risk]
+    ring: direct
+    source_ids: [boefca2024aisurvey, fsb2024ai, fsb2025monitoring, iosco2025ai, sheng2026genaiasset]
+    source_claim: "AI use in finance is growing, but reported firm use, foundation-model use cases, robo-advice, inferred GenAI reliance, autonomy, and exposed capital are different constructs."
+    population: "regulated firms, asset managers, hedge funds, or official monitoring systems"
+    treatment: "time, reported AI use, or inferred GenAI reliance"
+    comparator: "earlier period, nonuser, or lower-reliance firm"
+    estimand: "calibrated probability and date of crossing a market-impacting exposed-capital threshold"
+    outcome: "use cases, autonomy, inferred adoption, fund holdings, or forecast calibration"
+    highest_independent_unit: "firm, fund-quarter, or forecast origin"
+    lineage_match: false
+    domain_match: partial
+    validity: {dependence: "Firm and fund panels require longitudinal clustering.", multiplicity: "Multiple incompatible adoption definitions cannot be pooled.", leakage: not_applicable, missingness: "Nonresponse and unobserved deployment are central.", negative_controls: "Operational verification is usually absent.", external_validation: false}
+    permitted_use: prior_only
+    mismatch_reasons: ["No verified time series jointly measures investment discretion, autonomy, affected assets, exposed capital or order flow, model lineage, and a stable denominator."]
+    remaining_owned_evidence: "H7 is blocked pending a verified exposure series; only conditional scenario forecasts are defensible."
+    consequences: [risk_warning, design_change]
+    novelty: "Broad AI-use and inferred GenAI-adoption estimates are occupied; a verified exposed-capital adoption series and calibrated threshold forecast were not identified."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: h8_external
+    hypotheses: [H8]
+    experiments: [exp-016, exp-017]
+    output_tracks: [validated_risk]
+    ring: direct
+    source_ids: [turpin2023think, lanham2023faithfulness, chen2025reasoningthink, rosslo2026heuristic, zhang2023patching, makelov2024illusion, kramar2024atp, dunefsky2024transcoders, lieberum2024gemma, wang2025universality]
+    source_claim: "Generated rationales can omit causal influences; input and activation interventions are necessary, while patching and representation similarity have their own false-positive modes."
+    population: "closed and open language models on reasoning or decision tasks"
+    treatment: "controlled cue, input replacement, activation patch, ablation, steering, SAE, or transcoder"
+    comparator: "neutral input, clean/corrupted activation, sham, random, or natural path"
+    estimand: "paired decision change under input or activation intervention"
+    outcome: "action, answer, logit, recovery, disruption, or causal mediation"
+    highest_independent_unit: "intervention block or held-out task family"
+    lineage_match: false
+    domain_match: partial
+    validity: {dependence: "Sites and tokens are nested discovery candidates.", multiplicity: "Layer/site scans require discovery-confirmation separation.", leakage: "Open benchmark tasks may be trained on.", missingness: unclear, negative_controls: "Bidirectional patches, ablations, shams, random and norm-matched controls required.", external_validation: "Cross-family similarity is not causal transfer."}
+    permitted_use: method_only
+    mismatch_reasons: ["No source combines finance-specific paired input attribution, open-model causal activation intervention, safety/action/convergence outcomes, and held-out transfer."]
+    partial_candidate: "Gemma Scope features can reduce discovery compute only; they cannot replace precision-specific intervention evidence."
+    remaining_owned_evidence: "All finance behavior, causal intervention, negative-control, and transfer confirmation cells."
+    consequences: [novelty_pressure, design_change, control_required, cost_saver]
+    novelty: "Generic rationale unfaithfulness and activation-intervention methods are occupied; finance-specific paired input and activation causality with held-out transfer remains unoccupied in the searched evidence."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: h9_external
+    hypotheses: [H9]
+    experiments: [exp-018, exp-019]
+    output_tracks: [public_dataset, validated_risk, owned_alpha]
+    ring: enabling
+    source_ids: [vyetrenko2020getreal, platt2016calibration, rabanser2019failing, ovadia2019shift]
+    source_claim: "Simulation validation needs more than stylized facts, and discrimination and calibration can fail under domain shift."
+    population: "simulated and real domains with potential distribution shift"
+    treatment: "domain, shift type, simulator parameterization, or locked detector"
+    comparator: "source domain, real target, classical crowding, or placebo label"
+    estimand: "locked detector discrimination and calibration on an independent domain"
+    outcome: "AUC/PR, Brier/log loss, calibration, shift statistic, and false positives"
+    highest_independent_unit: "held-out simulation replica or nonoverlapping target-market period"
+    lineage_match: false
+    domain_match: partial
+    validity: {dependence: "Lineage-level splits and time clusters required.", multiplicity: "Feature discovery must remain inside training folds.", leakage: "Target outcomes cannot tune the detector.", missingness: "Real AI labels may not exist.", negative_controls: "Crowded classical, common-shock and placebo labels mandatory.", external_validation: "Methods exist; no direct AI-signature transport precedent was found."}
+    permitted_use: method_only
+    mismatch_reasons: ["No source learns a causal AI signature in randomized simulation and validates it on a real market with known AI labels."]
+    remaining_owned_evidence: "All signature discovery, independent simulation validation, and real transport tests."
+    consequences: [design_change, control_required, extension_candidate]
+    novelty: "Generic simulation validation and shift methods are occupied; locked AI-signature transport to a real market with known labels was not identified."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: h10_external
+    hypotheses: [H10]
+    experiments: [exp-020, exp-021]
+    output_tracks: [validated_risk]
+    ring: correlated
+    source_ids: [sec2024aiwashing, boefca2024aisurvey, sheng2026genaiasset, fsb2024ai, federalreserve2026modelrisk]
+    source_claim: "AI-use claims and statistical proxies are not operational exposure verification; official evidence documents material monitoring gaps."
+    population: "financial institutions, funds, products, or market events"
+    treatment: "verified AI deployment with quantified affected capital or order flow"
+    comparator: "credible randomized, staggered, natural, or quasi-experimental counterfactual"
+    estimand: "design-specific causal effect of verified AI exposure"
+    outcome: "locked market signature or market-quality endpoint"
+    highest_independent_unit: "assignment or exposure unit defined by the causal design"
+    lineage_match: false
+    domain_match: partial
+    validity: {dependence: "Cluster at assignment/exposure level.", multiplicity: "Outcomes and event windows must be frozen.", leakage: "Exposure must be defined before outcomes.", missingness: "Operational deployment and exposed capital are normally unobserved.", negative_controls: "Pretrends, placebo dates/assets/outcomes, spillovers and confounding sensitivity mandatory.", external_validation: false}
+    permitted_use: prior_only
+    mismatch_reasons: ["No study combines verified deployment timing and model scope, quantified exposure, credible assignment, and real-market outcomes."]
+    remaining_owned_evidence: "H10 is externally blocked pending verified exposure and a credible counterfactual."
+    consequences: [risk_warning, extension_candidate]
+    novelty: "AI-use proxies and governance warnings are occupied; verified deployment, quantified exposure, a credible counterfactual, and a real-market outcome were not jointly identified."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: h11_external
+    hypotheses: [H11]
+    experiments: [exp-022]
+    output_tracks: [public_dataset]
+    ring: enabling
+    source_ids: [w3cprov2013, datacite47, wilkinson2016fair, pushkarna2022datacards, nist2024genai]
+    source_claim: "Established standards specify provenance, versioning, rights, lifecycle documentation, and risk-management fields."
+    population: "research datasets, models, and releases"
+    treatment: "structured provenance, metadata, rights, cards, validation, and maintenance"
+    comparator: "undocumented or weakly documented release"
+    estimand: "reproducibility, validity, leakage, calibration, privacy, and held-out utility by causal tier"
+    outcome: "verified build, lineage, lawful reuse, tier validity, and downstream utility"
+    highest_independent_unit: "independently held-out release or evaluation unit"
+    lineage_match: false
+    domain_match: partial
+    validity: {dependence: "Release utility must use independent held-out units.", multiplicity: "Each tier has its own gates.", leakage: "Lineage and split DAG required.", missingness: "Restricted and unavailable sources stay explicit.", negative_controls: "False causal labels and lineage leakage must fail closed.", external_validation: "Standards define methods, not project validity."}
+    permitted_use: method_only
+    mismatch_reasons: ["External standards cannot prove flock's license clearance, privacy, causal labels, reproducibility, or utility."]
+    remaining_owned_evidence: "All tier-specific data builds, manifests, checksums, held-out tests, and claims linkage."
+    consequences: [design_change, cost_saver]
+    novelty: "Generic provenance, metadata, and dataset-card methods are occupied; novelty can only attach to the project-specific causal tiers and verified claim-to-artifact lineage."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: h12_external
+    hypotheses: [H12]
+    experiments: [exp-023, exp-024]
+    output_tracks: [validated_risk]
+    ring: direct
+    source_ids: [kim2024pressure, madhusudhan2025abstain, chen2026choicesrisk, li2023emotionprompt, sharma2024sycophancy, anagnostidis2024influence]
+    source_claim: "Pressure, emotional framing, forced choice, authority, and social information can help, harm, or leave behavior unchanged depending on model and task."
+    population: "language models on reasoning, safety, abstention, or influence tasks"
+    treatment: "stakes, urgency, emotion, forced choice, authority, or social information"
+    comparator: "neutral, open-ended, abstention-permitted, or source-free prompt"
+    estimand: "factorial effects on quality, safety, risk, abstention, behavior, and convergence"
+    outcome: "accuracy, refusal, unsafe action, confidence, abstention, action, or convergence"
+    highest_independent_unit: "pressure block or held-out prompt family"
+    lineage_match: false
+    domain_match: partial
+    validity: {dependence: "Prompts and outputs are nested within task families.", multiplicity: "Factors and endpoints need registered families.", leakage: "Public pressure benchmarks may be trained on.", missingness: "Refusals and malformed outputs are outcomes, not silent exclusions.", negative_controls: "Neutral, semantic-equivalence, hold-allowed, and corrective controls required.", external_validation: false}
+    permitted_use: prior_only
+    mismatch_reasons: ["No source uses a finance-specific orthogonal stakes-by-urgency-by-emotion-by-forced-action design with quality, suitability, safety, abstention, quantity, and convergence outcomes."]
+    contradiction: "Prior effect directions conflict, making two-sided, equivalence, and safety-noninferiority decisions mandatory."
+    remaining_owned_evidence: "Finance-specific core factorial, realistic held-out prompt families, and causal mediation tests."
+    consequences: [novelty_pressure, design_change, control_required, cost_saver]
+    novelty: "Generic pressure, emotional-framing, influence, and forced-choice effects are occupied; the orthogonal finance factorial and its safety/convergence outcomes remain unoccupied in the searched evidence."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: h13_external
+    hypotheses: [H13]
+    experiments: [exp-025, exp-026]
+    output_tracks: [public_dataset, validated_risk]
+    ring: direct
+    source_ids: [ruan2024observational, schaeffer2023emergent, liu2025quantization, li2025quantization, kumar2024precision, mekala2025long, chang2025qerror, zhang2026mixkvq, chen2021finqa, chen2022convfinqa, xie2026finchain, tang2025financereasoning, srivastava2024financialdepth, reddy2024docfinqa, lieberum2024gemma, wang2025universality]
+    source_claim: "Quantization effects vary by checkpoint, scale, method, task, difficulty, context and precision; early low-bit errors can cascade, and public financial benchmarks offer executable or long-context tasks."
+    population: "open-weight checkpoints and financial or general reasoning tasks"
+    treatment: "same-checkpoint precision, model capability, dependency depth, context length, or state feedback"
+    comparator: "BF16/FP16 same checkpoint, lower capability model, or cached frontier behavior"
+    estimand: "precision-by-depth change in conditional step-error hazard, chain survival, activation drift, behavior, and closed-loop trajectory"
+    outcome: "program/final accuracy, first error, recovery, calibration, action/quantity disagreement, convergence, trajectory divergence, and cost"
+    highest_independent_unit: "held-out template/document/market family"
+    lineage_match: partial
+    domain_match: partial
+    validity:
+      dependence: "Questions are clustered by document and generated problems by template family."
+      multiplicity: "Checkpoint, quantizer, precision, depth, context, and mechanism families need staged gates."
+      leakage: "Public benchmarks have item- and task-level contamination risk."
+      missingness: "Native low-bit checkpoints cannot identify quantization loss without a full-precision parent."
+      negative_controls: "Matched decoding/runtime plus W8 canary, W4 primary stress, W3 trigger, and separate KV-cache treatment."
+      external_validation: "No source joins finance correctness, same-checkpoint causality, frontier similarity, state feedback, and mechanism transfer."
+    permitted_use: prior_only
+    partial_candidates:
+      - "FinQA and ConvFinQA can supply pinned MIT-licensed ecological benchmark infrastructure after post-fix smoke reproduction."
+      - "DocFinQA can supply a long-context bridge after lineage and license review."
+      - "Gemma Scope can replace SAE training for discovery on exact Gemma checkpoints only."
+    mismatch_reasons:
+      - "Aggregate local-to-frontier scaling is not item-level equivalence."
+      - "Non-finance quantization results do not answer finance-specific propagation or closed-loop divergence."
+      - "Context length and dependency depth are not interchangeable."
+    remaining_owned_evidence: "Fresh private scoring key, all same-checkpoint precision contrasts, state-feedback replays, frontier finalists, and causal mechanism confirmation."
+    consequences: [novelty_pressure, design_change, artifact_candidate, cost_saver, control_required]
+    novelty: "Generic low-bit reasoning and financial-depth degradation are occupied; same-checkpoint precision by executable depth, context, and state-feedback propagation remains unoccupied in the searched evidence."
+    reviewer_date: "multi-agent adjudication 2026-08-12"
+
+  - id: owned_alpha_external
+    hypotheses: []
+    experiments: []
+    output_tracks: [owned_alpha]
+    ring: enabling
+    source_ids: [white2000reality, bailey2014deflated, bailey2017pbo, harvey2016crosssection, wiecki2016glitters, carlin2026aiportfolios]
+    source_claim: "Repeated strategy search inflates backtests; reported Sharpe can poorly predict later performance."
+    population: "candidate trading strategies or published return predictors"
+    treatment: "strategy search, selection, backtesting, and later evaluation"
+    comparator: "benchmark, null search, temporal holdout, or live/prospective period"
+    estimand: "net prospective performance of a frozen rule accounting for all tried variants"
+    outcome: "net return, deflated Sharpe, drawdown, turnover, factor exposure, PBO, and prospective relative performance"
+    highest_independent_unit: "nonoverlapping market period or prospective decision block"
+    lineage_match: not_applicable
+    domain_match: true
+    validity: {dependence: "Time dependence and overlapping horizons require blocked inference.", multiplicity: "All attempted variants enter the trial ledger.", leakage: "Point-in-time data and embargoed temporal splits mandatory.", missingness: "Failed signals and abandoned variants stay in the ledger.", negative_controls: "Factor, cost, placebo and benchmark controls required.", external_validation: "Prospective paper trading is required."}
+    permitted_use: method_only
+    mismatch_reasons: ["The owned-alpha estimand, splits, stop rules, and verdict criteria remain unregistered; external methods cannot silently define them."]
+    remaining_owned_evidence: "Outcome-blind track registration, locked rule, temporal evaluation, all-variant ledger, and prospective paper record."
+    consequences: [design_change, risk_warning]
+    novelty: "Backtest-selection corrections and prospective-validation methods are occupied; owned alpha cannot support a novelty claim until its estimand and decision rules are registered."
+    reviewer_date: "main-agent adjudication 2026-08-12"
+
+  - id: classical_baseline_methods
+    hypotheses: [H1, H5]
+    experiments: [exp-001, exp-002, exp-009, exp-011, exp-012]
+    output_tracks: [public_dataset, owned_alpha, validated_risk]
+    ring: enabling
+    source_ids: [deBondt1985overreaction, jegadeesh1993momentum, moskowitz2012timeseries, avellaneda2010statarb]
+    source_claim: "Reversal, cross-sectional momentum, time-series momentum, volatility targeting, and residual mean reversion define established classical strategy families with material regime dependence."
+    population: "historical equity or futures portfolios"
+    treatment: "published signal and portfolio-construction rules"
+    comparator: "market, opposite signal, alternate horizon, or later regime"
+    estimand: "strategy-family behavior under flock's matched information, activity, capital, risk, and cost constraints"
+    outcome: "action, turnover, exposure, convergence, net return, and regime sensitivity"
+    highest_independent_unit: "nonoverlapping formation, holding, or market-period block"
+    lineage_match: not_applicable
+    domain_match: partial
+    validity: {dependence: "Historical returns and overlapping portfolios require blocked inference.", multiplicity: "Strategy and parameter families must be frozen.", leakage: "Point-in-time implementation is required.", missingness: "Historical implementation details and costs can be incomplete.", negative_controls: "Buy-hold and constrained random controls remain required.", external_validation: "Published historical performance does not establish current performance."}
+    permitted_use: method_only
+    mismatch_reasons: ["The external results do not implement the baselines inside flock's matched action space or establish contemporary alpha."]
+    remaining_owned_evidence: "Implement, activity-match, and validate each baseline inside the registered ecology."
+    consequences: [control_required, cost_saver, design_change]
+    novelty: "The strategy families are occupied and should be treated as controls, not project novelty."
+    reviewer_date: "main-agent validation 2026-08-13"
+
+  - id: statistical_inference_methods
+    hypotheses: [H1, H2, H2b, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13]
+    experiments: [exp-001, exp-003, exp-004, exp-005, exp-007, exp-011, exp-013, exp-015, exp-016, exp-019, exp-021, exp-022, exp-023, exp-025, exp-026]
+    output_tracks: [public_dataset, owned_alpha, validated_risk]
+    ring: enabling
+    source_ids: [lakens2017equivalence, cameron2015cluster, benjamini1995fdr]
+    source_claim: "Equivalence requires prespecified meaningful bounds; inference follows the highest independent cluster; multiplicity procedures require an explicit family and dependence assumptions."
+    population: "clustered experiments and multiple-outcome research programs"
+    treatment: "equivalence, cluster-aware, and false-discovery procedures"
+    comparator: "nonsignificance, row-level inference, or unadjusted multiple testing"
+    estimand: "registered effect, interval, equivalence, and multiplicity decision at the correct independent unit"
+    outcome: "coverage, error control, equivalence decision, and calibrated uncertainty"
+    highest_independent_unit: "registered market, trajectory, participant, panel period, prompt family, or document/template block"
+    lineage_match: not_applicable
+    domain_match: true
+    validity: {dependence: "Few clusters and shared units require design-specific methods.", multiplicity: "Families must be defined before outcomes.", leakage: not_applicable, missingness: "Missing blocks and outcomes require explicit handling.", negative_controls: "Simulation and sensitivity checks are required.", external_validation: not_applicable}
+    permitted_use: method_only
+    mismatch_reasons: ["These methods do not supply any project effect or retire any experiment cell."]
+    remaining_owned_evidence: "Freeze estimands, SESOIs, units, families, and missingness rules and apply the methods to owned data."
+    consequences: [control_required, cost_saver]
+    novelty: "The statistical methods are occupied and cannot support a project novelty claim."
+    reviewer_date: "main-agent validation 2026-08-13"
+
+  - id: exchange_surveillance_methods
+    hypotheses: [H5, H9]
+    experiments: [exp-010, exp-012, exp-018, exp-019, exp-020]
+    output_tracks: [public_dataset, validated_risk]
+    ring: enabling
+    source_ids: [luo2026qfinzero, cftcsec2010flash, sec2020algorithmic]
+    source_claim: "Order-lifecycle logging, deterministic replay, cancellations, liquidity withdrawal, and cross-venue reconstruction are established methods and regulatory context for market-event analysis."
+    population: "trading-agent infrastructure and historical algorithmic-market events"
+    treatment: "standardized order lifecycle or event reconstruction"
+    comparator: "normal periods, incomplete logs, or alternate market conditions"
+    estimand: "reconstructable market state and event-path difference at the market or time-block level"
+    outcome: "orders, fills, cancellations, depth, spreads, withdrawal, prices, and cross-venue propagation"
+    highest_independent_unit: "market session or nonoverlapping event-time block"
+    lineage_match: false
+    domain_match: partial
+    validity: {dependence: "Orders within an event are not independent.", multiplicity: "Event windows and endpoints must be frozen.", leakage: not_applicable, missingness: "Public reports do not expose the complete audit trail.", negative_controls: "Normal periods and non-AI algorithmic controls required.", external_validation: partial}
+    permitted_use: method_only
+    mismatch_reasons: ["A single historical event and a tooling paper do not validate flock's exchange or identify AI exposure."]
+    remaining_owned_evidence: "Exchange calibration, complete project logs, independent replicas, and held-out signature controls."
+    consequences: [cost_saver, control_required]
+    novelty: "Order lifecycle and event reconstruction are occupied methods, not project novelty."
+    reviewer_date: "main-agent validation 2026-08-13"
+
+  - id: performance_benchmark_boundary
+    hypotheses: [H1, H5]
+    experiments: [exp-001, exp-002, exp-009]
+    output_tracks: [owned_alpha]
+    ring: enabling
+    source_ids: [ma2025agent]
+    source_claim: "Trading arenas can benchmark numerical understanding, adaptation, and return-oriented agent architectures without estimating convergence or market consequences."
+    population: "LLM trading agents in a virtual stock arena"
+    treatment: "model or agent architecture"
+    comparator: "performance baselines"
+    estimand: "architecture or numerical-reasoning performance difference"
+    outcome: "return and task performance"
+    highest_independent_unit: "market period or independently repeated arena run"
+    lineage_match: false
+    domain_match: partial
+    validity: {dependence: "Trades and dates within a run are nested.", multiplicity: "Architecture and metric selection require adjustment.", leakage: "Historical market inputs can be contaminated.", missingness: unclear, negative_controls: "No matched ecology contrast.", external_validation: false}
+    permitted_use: method_only
+    mismatch_reasons: ["Performance is not the H1 convergence estimand or the H5 randomized market-consequence estimand."]
+    remaining_owned_evidence: "All matched convergence and randomized market-consequence cells."
+    consequences: [boundary_guard, cost_saver]
+    novelty: "Performance-oriented trading benchmarks are occupied and sit outside the confirmatory convergence claim."
+    reviewer_date: "main-agent validation 2026-08-13"
+
+  - id: simulated_agent_validity_boundary
+    hypotheses: [H4, H6]
+    experiments: [exp-006, exp-013]
+    output_tracks: [public_dataset, validated_risk]
+    ring: enabling
+    source_ids: [horton2023large]
+    source_claim: "Language-model agents can support controlled simulations of economic behavior but do not substitute for observations from the target human population."
+    population: "language-model simulated economic agents"
+    treatment: "prompted role, context, or experimental condition"
+    comparator: "human experimental evidence or alternate simulated condition"
+    estimand: "simulation fidelity and condition sensitivity"
+    outcome: "simulated choice or response distribution"
+    highest_independent_unit: "independent task or simulation block"
+    lineage_match: false
+    domain_match: partial
+    validity: {dependence: "Repeated generations are nested within model and prompt.", multiplicity: "Roles, models, and tasks form a selection family.", leakage: "Source experiments may appear in training.", missingness: unclear, negative_controls: "Direct human validation required.", external_validation: false}
+    permitted_use: method_only
+    mismatch_reasons: ["Simulated agents cannot identify real investor herding, trust, or delegated capital."]
+    remaining_owned_evidence: "Substantive profile tests and the approved human delegation study."
+    consequences: [boundary_guard, control_required]
+    novelty: "Simulated-agent methodology is occupied and cannot support a human-behavior claim."
+    reviewer_date: "main-agent validation 2026-08-13"
+
+cell_decisions:
+  - {experiment: exp-000, hypotheses: [H1], status: retain, basis: h1_external, reason: "External papers do not replace known-behavior software calibration."}
+  - {experiment: exp-001, hypotheses: [H1], status: retain, basis: h1_external, reason: "No matched technology-by-ecology equity replay result."}
+  - {experiment: exp-002, hypotheses: [H1], status: retain, basis: h1_external, reason: "No leakage-safe matched prediction-market result."}
+  - {experiment: exp-003, hypotheses: [H2], status: retain_blocked, basis: h2_external, reason: "Panel and harmonization must be selected and validated."}
+  - {experiment: exp-004, hypotheses: [H2b], status: retain, basis: h2b_external, reason: "No delegation-breadth result at fixed pairwise convergence."}
+  - {experiment: exp-005, hypotheses: [H3], status: retain, basis: h3_external, reason: "Exact endpoint lineage and balanced dyadic evidence remain owned."}
+  - {experiment: exp-006, hypotheses: [H4], status: retain, basis: h4_external, reason: "Static advice papers do not replace substantive profile tests."}
+  - {experiment: exp-007, hypotheses: [H4], status: retain, basis: h4_external, reason: "No matched profile-by-information difference-in-differences."}
+  - {experiment: exp-008, hypotheses: [H1, H3, H4, H12], status: retain, basis: h4_external, reason: "No full MPHIQ component decomposition."}
+  - {experiment: exp-009, hypotheses: [H1, H3, H4], status: retain_staged, basis: h1_external, reason: "External heterogeneity narrows robustness priorities but does not replace held-out blocks."}
+  - {experiment: exp-010, hypotheses: [H5], status: retain_with_method_reuse, basis: h5_external, reason: "Reuse ODD and realism methods; validate flock's exchange directly."}
+  - {experiment: exp-011, hypotheses: [H5], status: retain, basis: h5_external, reason: "No paired randomized AI-share dose response."}
+  - {experiment: exp-012, hypotheses: [H5], status: retain, basis: h5_external, reason: "External strategic controls sharpen but do not answer market consequences."}
+  - {experiment: exp-013, hypotheses: [H6], status: retain_blocked, basis: h6_external, reason: "Requires approved incentive-compatible human delegation study."}
+  - {experiment: exp-014, hypotheses: [H2b, H6], status: retain, basis: h2b_external, reason: "Advisor-to-executor transmission remains untested."}
+  - {experiment: exp-015, hypotheses: [H7], status: blocked_external, basis: h7_external, reason: "No verified exposed-capital time series."}
+  - {experiment: exp-016, hypotheses: [H8, H12], status: retain, basis: h8_external, reason: "Finance-specific causal input effects remain owned."}
+  - {experiment: exp-017, hypotheses: [H8], status: retain_staged, basis: h8_external, reason: "Reuse discovery tools; retain causal confirmation and controls."}
+  - {experiment: exp-018, hypotheses: [H9, H11], status: retain, basis: h9_external, reason: "Simulation signature discovery remains project-specific."}
+  - {experiment: exp-019, hypotheses: [H9], status: retain_blocked, basis: h9_external, reason: "Requires lawful real panel and independent transport."}
+  - {experiment: exp-020, hypotheses: [H9, H10], status: retain_blocked, basis: h10_external, reason: "AI-like detection requires a lawful real panel and remains noncausal."}
+  - {experiment: exp-021, hypotheses: [H10], status: blocked_external, basis: h10_external, reason: "Verified exposure and credible counterfactual were not found."}
+  - {experiment: exp-022, hypotheses: [H11], status: retain, basis: h11_external, reason: "Standards supply schemas, not project release validity."}
+  - {experiment: exp-023, hypotheses: [H12], status: retain_narrowed, basis: h12_external, reason: "Keep the orthogonal core and hold-permitted control; do not repeat generic pressure demonstrations."}
+  - {experiment: exp-024, hypotheses: [H12, H8], status: retain_staged, basis: h12_external, reason: "Use authority/social proof as held-out stress and retain finance mediation."}
+  - {experiment: exp-025, hypotheses: [H13], status: retain_with_partial_artifacts, basis: h13_external, reason: "Reuse public ecological bridges; item-level equivalence and frontier finalists remain owned."}
+  - {experiment: exp-026, hypotheses: [H8, H13], status: retain_narrowed, basis: h13_external, reason: "Start W8/W4/W3 staged ladder and reuse discovery tools; retain causal precision and trajectory tests."}
+
+adjacent_findings:
+  - {id: stronger_classical_ecology, sources: [deBondt1985overreaction, jegadeesh1993momentum, moskowitz2012timeseries, avellaneda2010statarb, gode1993allocative], consequence: "Use constrained random, momentum, reversal, liquidity/market-making, and multi-asset/stat-arb families with matched activity and risk controls."}
+  - {id: common_style_not_alpha, sources: [carlin2026aiportfolios, wiecki2016glitters], consequence: "Measure growth, momentum, concentration, and media-attention tilts before calling behavior novel or profitable."}
+  - {id: liquidity_commonality_false_positive, sources: [chordia2000commonality, brunnermeier2009market, coval2007firesales], consequence: "Classical common shocks, funding, overlapping holdings, and forced flows are mandatory signature controls."}
+  - {id: task_exposure_not_only_item_leakage, sources: [srivastava2024financialdepth], consequence: "Fresh items reduce exact leakage but do not make local-to-frontier scale comparisons causal."}
+  - {id: independent_unit_and_equivalence_methods, sources: [lakens2017equivalence, cameron2015cluster, benjamini1995fdr], consequence: "Nonsignificance is not equivalence; inference follows the top-level cluster and multiplicity family."}
+  - {id: performance_agent_boundary, sources: [quantagents2025, ma2025agent], consequence: "Performance-oriented trading systems are benchmark or architecture evidence, not convergence or market-consequence evidence."}
+  - {id: simulated_human_boundary, sources: [horton2023large], consequence: "Simulated economic agents can support controlled method development but cannot substitute for human H2 or H6 outcomes."}
+  - {id: review_discovery_boundary, sources: [xia2026agentic], consequence: "Use reviews to locate primary records and reporting gaps, not as empirical claim evidence."}
+  - {id: exchange_and_regulatory_context, sources: [luo2026qfinzero, cftcsec2010flash, sec2020algorithmic], consequence: "Reuse order-lifecycle and event-reconstruction methods, while treating single-event and regulatory synthesis as context rather than causal generalization."}
+  - {id: investment_process_horizon, sources: [investlogicbench2026], consequence: "Track the new real-investor process benchmark, but do not reuse it until provenance, privacy, selection, independence, artifact, and license checks pass."}
+  - {id: api_drift, sources: [], consequence: "Pin exact endpoint aliases, cache raw outputs, monitor nondeterminism, and treat provider revisions as population changes."}
+
+reduction_verdict:
+  full_substitutions: []
+  passed_partial_substitutions: []
+  collection_reductions_authorized: []
+  safe_method_reuse:
+    - "LSV/Sias measures and structural sensitivity"
+    - "ODD and limit-order-book realism metrics"
+    - "constrained zero-intelligence and strategic coordination controls"
+    - "FinQA and ConvFinQA after pinned post-fix smoke reproduction"
+    - "Gemma Scope and AtP* for discovery only"
+    - "TOST, clustered inference, multiplicity, and alpha-selection corrections"
+  decision: "External evidence narrows and stages work but does not presently remove an owned identification cell."
