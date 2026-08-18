@@ -1,6 +1,0 @@
-# Offline pilot sweep over mock models x seeds; feeds the power analysis
-# (docs/research/preregistration.md).
-name: sweep-000-mock
-base: configs/experiments/exp-000-smoke.yaml
-models: [mock-momentum, mock-contrarian, mock-random]
-seeds: [1, 2, 3]
