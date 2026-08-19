@@ -8,7 +8,7 @@ from flock.agents.llm_agent import LLMAgent
 from flock.agents.providers.base import ChatResponse
 from flock.core.config import ExperimentConfig, PersonaConfig, RuntimeBudget
 from flock.experiments.budget import BudgetExceeded, RuntimeBudgetGuard
-from tests.test_llm_agent import _obs
+from tests.test_llm_agent import _cache_context, _obs
 
 
 def _cap(**updates) -> RuntimeBudget:
@@ -77,7 +77,7 @@ def test_cached_response_is_not_rebilled_or_remetered(tmp_path: Path):
             )
 
     model = MeteredModel()
-    cache = ResponseCache(tmp_path)
+    cache = ResponseCache(tmp_path, _cache_context())
     guard = RuntimeBudgetGuard(_cap())
     persona = PersonaConfig(name="neutral", system_prompt="You are a trader.")
     first = LLMAgent(

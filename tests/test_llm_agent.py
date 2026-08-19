@@ -1,11 +1,30 @@
+import json
 from concurrent.futures import ThreadPoolExecutor
+from typing import Literal
 
-from flock.agents.cache import ResponseCache
+import pytest
+from pydantic import ValidationError
+
+from flock.agents.cache import CacheContextV1, CacheIntegrityError, ResponseCache
 from flock.agents.grounding import validate_grounding
 from flock.agents.llm_agent import LLMAgent, parse_response, render_user_prompt
 from flock.agents.providers.base import ChatResponse, make_chat_model
 from flock.core.config import ModelSpec, PersonaConfig
 from flock.core.types import Bar, Observation, PortfolioView
+
+
+def _cache_context(**updates) -> CacheContextV1:
+    values = {
+        "execution_class": "mock",
+        "analysis_role": "rehearsal",
+        "split_role": "not_applicable",
+        "execution_fingerprint_sha256": "1" * 64,
+        "provider_contract_sha256": "0" * 64,
+        "split_registry_sha256": "0" * 64,
+        "dataset_sha256": "2" * 64,
+    }
+    values.update(updates)
+    return CacheContextV1.model_validate(values)
 
 
 def _obs() -> Observation:
@@ -52,7 +71,10 @@ def test_parse_response_handles_code_fence():
     assert parsed is not None and parsed[0] == ()
 
 
-def _mock_agent(behavior: str = "momentum", cache=None) -> LLMAgent:
+def _mock_agent(
+    behavior: Literal["momentum", "contrarian", "random", "hold"] = "momentum",
+    cache=None,
+) -> LLMAgent:
     spec = ModelSpec(provider="mock", model_id=f"mock-{behavior}", behavior=behavior)
     persona = PersonaConfig(name="neutral", system_prompt="You are a trader.")
     model = make_chat_model(f"mock-{behavior}", spec)
@@ -73,24 +95,86 @@ def test_mock_agent_is_deterministic():
 
 
 def test_cache_roundtrip(tmp_path):
-    cache = ResponseCache(root=tmp_path)
-    key = ResponseCache.key("m", "mid", 0.7, 1, 100, "sys", "user")
+    cache = ResponseCache(root=tmp_path, context=_cache_context())
+    key = cache.key("m", "mid", 0.7, 1, 100, "sys", "user")
     assert cache.get(key) is None
-    cache.put(key, ChatResponse(text="hello", cost_usd=0.01))
+    response = ChatResponse(
+        text="hello",
+        provider="mock",
+        requested_model_id="mid",
+        resolved_model_id="mid",
+        provider_response_id="mock-response-1",
+        terminal_state="completed",
+        usage_reported=True,
+        cost_usd=0.01,
+    )
+    cache.put(key, response)
     got = cache.get(key)
-    assert got is not None and got.text == "hello" and got.cost_usd == 0.01
+    assert got == response
 
 
-def test_cache_concurrent_writes_are_atomic_and_first_writer_wins(tmp_path):
-    cache = ResponseCache(root=tmp_path)
-    key = ResponseCache.key("m", "mid", 0.7, 1, 100, "sys", "user")
-    responses = [ChatResponse(text=f"response-{index}") for index in range(12)]
+def test_cache_concurrent_writes_are_atomic_and_idempotent(tmp_path):
+    cache = ResponseCache(root=tmp_path, context=_cache_context())
+    key = cache.key("m", "mid", 0.7, 1, 100, "sys", "user")
+    response = ChatResponse(text="one authenticated response")
     with ThreadPoolExecutor(max_workers=6) as pool:
-        list(pool.map(lambda response: cache.put(key, response), responses))
-    stored = cache.get(key)
-    assert stored is not None
-    assert stored.text in {response.text for response in responses}
+        list(pool.map(lambda _index: cache.put(key, response), range(12)))
+    assert cache.get(key) == response
     assert not list(tmp_path.rglob("*.tmp"))
+
+
+def test_cache_rejects_tamper_and_nondeterministic_collision(tmp_path):
+    cache = ResponseCache(root=tmp_path, context=_cache_context())
+    key = cache.key("m", "mid", 0.7, 1, 100, "sys", "user")
+    cache.put(key, ChatResponse(text="first"))
+    with pytest.raises(CacheIntegrityError, match="different response"):
+        cache.put(key, ChatResponse(text="second"))
+
+    entry = next(tmp_path.rglob("*.json"))
+    payload = json.loads(entry.read_text())
+    payload["response"]["text"] = "mutated"
+    entry.write_text(json.dumps(payload))
+    with pytest.raises(CacheIntegrityError, match="response hash"):
+        cache.get(key)
+
+
+def test_cache_namespaces_cannot_cross_evidence_or_split_roles(tmp_path):
+    contexts = (
+        _cache_context(),
+        _cache_context(
+            execution_class="local",
+            analysis_role="discovery",
+            split_role="train",
+            split_registry_sha256="3" * 64,
+        ),
+        _cache_context(
+            execution_class="fake_provider",
+            analysis_role="discovery",
+            split_role="train",
+            provider_contract_sha256="4" * 64,
+            split_registry_sha256="3" * 64,
+        ),
+        _cache_context(
+            execution_class="provider",
+            analysis_role="confirmatory",
+            split_role="test",
+            provider_contract_sha256="5" * 64,
+            split_registry_sha256="6" * 64,
+        ),
+    )
+    caches = [ResponseCache(tmp_path, context) for context in contexts]
+    keys = [cache.key("m", "mid", 0.7, 1, 100, "sys", "user") for cache in caches]
+    assert len(set(keys)) == len(keys)
+    caches[0].put(keys[0], ChatResponse(text="mock only"))
+    assert all(
+        cache.get(key) is None
+        for cache, key in zip(caches[1:], keys[1:], strict=True)
+    )
+
+    with pytest.raises(ValidationError, match="held-out test"):
+        _cache_context(analysis_role="confirmatory")
+    with pytest.raises(ValidationError, match="provider contract"):
+        _cache_context(execution_class="provider")
 
 
 def test_prompt_contains_observation_block():

@@ -16,10 +16,11 @@ from pathlib import Path
 import numpy as np
 
 from flock.agents.baselines import make_baseline
-from flock.agents.cache import ResponseCache
+from flock.agents.cache import CACHE_ROOT, CacheContextV1, ResponseCache
 from flock.agents.llm_agent import LLMAgent
 from flock.agents.prompts import resolve_prompt
 from flock.agents.providers.base import make_chat_model, require_execution_lease
+from flock.control.models import canonical_sha256
 from flock.core.config import ExperimentConfig, load_experiment, load_models, load_persona
 from flock.core.types import Observation
 from flock.data import schemas
@@ -27,6 +28,7 @@ from flock.data.registry import Registry
 from flock.experiments.budget import RuntimeBudgetGuard
 from flock.experiments.ledger import Ledger
 from flock.experiments.treatments import apply_information_policy
+from flock.experiments.verify import verify_run
 from flock.logging_.decisions import RESULTS_DIR, RunWriter, git_sha
 from flock.markets.exchange import ExchangeMarket
 from flock.markets.replay import ReplayMarket
@@ -219,6 +221,7 @@ def run_experiment(
     use_cache: bool = True,
     *,
     execution_lease: object | None = None,
+    cache_context: CacheContextV1 | None = None,
 ) -> RunResult:
     cfg = load_experiment(config_path)
     if seed_override is not None:
@@ -228,6 +231,7 @@ def run_experiment(
         results_root=results_root,
         use_cache=use_cache,
         execution_lease=execution_lease,
+        cache_context=cache_context,
     )
 
 
@@ -237,22 +241,87 @@ def run_config(
     use_cache: bool = True,
     *,
     execution_lease: object | None = None,
+    cache_context: CacheContextV1 | None = None,
 ) -> RunResult:
     _require_config_execution_lease(cfg, execution_lease)
     run_id = make_run_id(cfg)
     completed_manifest = results_root / run_id / "manifest.json"
+    registry = Registry()
+    dataset_entry = registry.get(cfg.dataset)
+    dataset_errors = registry.verify(dataset_entry)
+    if dataset_errors:
+        raise ValueError(f"dataset verification failed: {'; '.join(dataset_errors)}")
+    if use_cache and cache_context is None:
+        if cfg.model_policy != "mock_only":
+            raise ValueError(
+                "local/provider caching requires an explicit execution, provider, "
+                "and split fingerprint"
+            )
+        cache_context = CacheContextV1(
+            execution_class="mock",
+            analysis_role="rehearsal",
+            split_role="not_applicable",
+            execution_fingerprint_sha256=canonical_sha256(
+                {
+                    "resolved_config_sha256": resolved_config_hash(cfg),
+                    "dataset_sha256": dataset_entry.sha256,
+                }
+            ),
+            provider_contract_sha256="0" * 64,
+            split_registry_sha256="0" * 64,
+            dataset_sha256=dataset_entry.sha256,
+        )
+    if cache_context is not None:
+        if cache_context.dataset_sha256 != dataset_entry.sha256:
+            raise ValueError("cache context dataset hash does not match the resolved dataset")
+        if cfg.model_policy == "mock_only" and cache_context.execution_class != "mock":
+            raise ValueError("mock runs cannot use a local or provider cache namespace")
+        if cfg.model_policy != "mock_only" and cache_context.execution_class == "mock":
+            raise ValueError("local/provider runs cannot use a mock cache namespace")
+    cache = (
+        ResponseCache(CACHE_ROOT, cache_context)
+        if use_cache and cache_context is not None
+        else None
+    )
     if completed_manifest.exists():
         manifest = json.loads(completed_manifest.read_text())
+        expected_cache_sha256 = cache_context.sha256() if cache_context is not None else None
+        reuse_checks = {
+            "status": (manifest.get("status"), "complete"),
+            "resolved_config_hash": (
+                manifest.get("resolved_config_hash"),
+                resolved_config_hash(cfg),
+            ),
+            "dataset_sha256": (
+                manifest.get("dataset", {}).get("sha256"),
+                dataset_entry.sha256,
+            ),
+            "cache_context_sha256": (
+                manifest.get("cache_context_sha256"),
+                expected_cache_sha256,
+            ),
+        }
+        drift = [
+            field
+            for field, (actual, expected) in reuse_checks.items()
+            if actual != expected
+        ]
+        verification = verify_run(completed_manifest.parent)
+        if drift or not verification.ok:
+            details = [*(f"{field} drift" for field in drift), *verification.errors]
+            raise ValueError(
+                "existing run failed strict reuse verification: " + "; ".join(details)
+            )
         return RunResult(
             run_id,
             completed_manifest.parent,
-            manifest["n_steps"],
-            manifest["n_agents"],
+            int(manifest["n_steps"]),
+            int(manifest["n_agents"]),
         )
 
-    registry = Registry()
-    market, dataset_entry = build_market(cfg, registry)
-    cache = ResponseCache() if use_cache else None
+    market, built_entry = build_market(cfg, registry)
+    if built_entry != dataset_entry:
+        raise ValueError("dataset registry changed while constructing the market")
     budget = RuntimeBudgetGuard(cfg.runtime_budget) if cfg.runtime_budget else None
     agents = build_agents(cfg, cache, budget, execution_lease=execution_lease)
     ledgers = {
@@ -349,6 +418,12 @@ def run_config(
         "agents": {a.agent_id: {"cohort": a.cohort, **a.describe()} for a in agents},
         "wall_time_s": round(time.time() - t_start, 2),
         "total_cost_usd": total_cost,
+        "cache_context": (
+            cache_context.model_dump(mode="json") if cache_context is not None else None
+        ),
+        "cache_context_sha256": (
+            cache_context.sha256() if cache_context is not None else None
+        ),
         "runtime_budget": budget.manifest_payload() if budget is not None else None,
     }
     writer.finalize(manifest)

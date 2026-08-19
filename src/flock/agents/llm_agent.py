@@ -240,7 +240,7 @@ class LLMAgent:
 
     def _complete(self, user: str) -> tuple[ChatResponse, bool]:
         if self.cache is not None:
-            key = ResponseCache.key(
+            key = self.cache.key(
                 self.chat_model.model_key, self.chat_model.model_id, self.temperature,
                 self.seed, self.max_tokens, self.system_prompt, user,
             )
