@@ -41,6 +41,22 @@ def test_dataset_roundtrip_and_registry(tmp_path, synthetic_data):
     assert reg.dataset_dir("syn-test") == ds_dir_v2
     assert entry.files is not None
     assert set(entry.files) == {"bars.parquet", "events.parquet", "meta.json"}
+    assert entry.legacy_local_only
+    assert not entry.control_ready
+    assert reg.verify(entry) == []
+
+
+def test_real_dataset_requires_authenticated_control_records(tmp_path, synthetic_data):
+    bars, events, meta = synthetic_data
+    dataset_dir = tmp_path / "dataset"
+    schemas.write_dataset(dataset_dir, bars, events, meta)
+    registry = Registry(root=tmp_path / "registry")
+    entry = registry.register("real-fixture", "equities", dataset_dir, {})
+
+    assert not entry.legacy_local_only
+    assert registry.verify(entry) == [
+        "real dataset is missing authenticated data and split control records"
+    ]
 
 
 def test_dataset_bundle_hash_covers_events_and_metadata(tmp_path, synthetic_data):
