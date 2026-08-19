@@ -1,0 +1,4 @@
+interface:
+  display_name: "run flock experiment"
+  short_description: "control each experiment phase with gates"
+  default_prompt: "use $run-flock-experiment to report status and advance the explicitly selected safe phase"
