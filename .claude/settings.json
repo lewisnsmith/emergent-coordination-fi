@@ -1,6 +1,0 @@
-{
-  "env": {
-    "UV_NO_EDITABLE": "1",
-    "UV_PROJECT_ENVIRONMENT": "~/.venvs/flock"
-  }
-}
