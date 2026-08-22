@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use a published flock study, cite that study's release metadata."
+title: "flock"
+type: software
+authors:
+  - family-names: "Smith"
+    given-names: "Lewis"
+repository-code: "https://github.com/lewisnsmith/flock"
+license: MIT
+version: 0.1.0
