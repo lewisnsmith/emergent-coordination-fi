@@ -1,8 +1,6 @@
 {
   "include": ["src"],
   "exclude": ["**/__pycache__"],
-  "venvPath": ".",
-  "venv": ".venv.nosync",
   "pythonVersion": "3.12",
   "typeCheckingMode": "basic"
 }
