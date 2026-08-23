@@ -1,0 +1,71 @@
+schema_version: 1
+study_id: h10-h11-exp021-022-attribution-release
+branch: feat/h10-h11-exp021-022-attribution-release
+status: blocked_external
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+ownership:
+  experiments: [exp-021, exp-022]
+  hypothesis_roles:
+    primary: [H10, H11]
+question: >-
+  Under verified exposure and a credible counterfactual, does AI exposure change preregistered
+  outcomes, and can every evidence tier be released without collapsing causal status?
+dependencies:
+  upstream:
+    - producer: h9-h11-exp018-simulation-signatures
+      artifacts: [simulation_signature_dataset.parquet, manifest.json]
+      status: blocked_on_verified_release
+    - producer: h9-exp019-020-signature-transport
+      artifacts: [ai_like_events.parquet, detection_calibration.json, manifest.json]
+      status: blocked_on_verified_release
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - src/flock/analysis/causal.py@4016845
+      - src/flock/analysis/data_products.py@4016845
+  inputs:
+    verified_ai_exposure_registry: not_acquired
+    identification_events_and_design: not_fixed
+  rights:
+    exposure_data: unresolved
+    market_data: unresolved
+    tiered_derived_release: unresolved
+resources:
+  compute: moderate_cpu
+  api_calls: 0
+  storage: controlled_panels_not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [exposure_data_license, controlled_storage]
+  purchases_authorized: false
+approvals:
+  data_acquisition: required
+  identification_review: required
+  spending: required_if_paid
+  protocol_freeze: required_before_outcome_inspection
+  tiered_release_rights: required
+  remote_write: required
+outputs:
+  - causal_analysis_panel.parquet
+  - causal_effects.parquet
+  - falsifications.json
+  - simulation_truth.parquet
+  - signature_events.parquet
+  - ai_exposure.parquet
+  - verified_events.parquet
+  - dataset_card.md
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+excluded_outputs: [unverified_causal_labels, collapsed_evidence_tiers]
+blockers:
+  - verified exposure data and a credible assignment or quasi-experimental design are missing
+  - pretrend, placebo, spillover, confounding, leakage, and release verifiers are missing
+  - source and derived-release rights are unresolved
+publication:
+  merge_target: main
+  merge_only_after: identification_falsification_tier_separation_and_release_verify
+  claim_boundary: causal_only_where_exposure_and_counterfactual_pass_all_gates
