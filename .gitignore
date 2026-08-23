@@ -4,4 +4,5 @@ __pycache__/
 .venv.nosync/
 .pytest_cache/
 .ruff_cache/
+datasets/
 .DS_Store
