@@ -1,0 +1,65 @@
+schema_version: 1
+study_id: h9-h11-exp018-simulation-signatures
+branch: feat/h9-h11-exp018-simulation-signatures
+status: planned
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+ownership:
+  experiments: [exp-018]
+  hypothesis_roles:
+    primary: [H9]
+    secondary: [H11]
+question: Which observable signatures distinguish AI participation in held-out exchange replicas?
+dependencies:
+  upstream:
+    - producer: h2b-h5-exp010-012-shared-exchange
+      artifacts:
+        - capital_share_outcomes.parquet
+        - microstructure_effects.parquet
+        - cascade_effects.parquet
+        - manifest.json
+      status: blocked_on_verified_release
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - src/flock/analysis/signatures.py@4016845
+      - src/flock/analysis/data_products.py@4016845
+  inputs:
+    candidate_signature_features: not_frozen
+    independent_exchange_replicas: not_materialized
+  rights:
+    upstream_outputs: unresolved_until_producer_release
+    derived_signature_release: unresolved
+resources:
+  compute: moderate_cpu
+  api_calls: 0
+  storage: not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [compute_capacity]
+  purchases_authorized: false
+approvals:
+  upstream_release_use: required
+  protocol_freeze: required_before_locked_test
+  substantial_compute: required_if_needed
+  release_rights: required
+  remote_write: required
+outputs:
+  - signature_library.parquet
+  - simulation_predictions.parquet
+  - discovery_metrics.json
+  - simulation_signature_dataset.parquet
+  - dataset_card.md
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+blockers:
+  - verified independent exchange replicas do not exist
+  - feature exporter, nested-validation runner, and leakage verifier are missing
+  - candidate features, test split, calibration rules, and placebo labels are not frozen
+publication:
+  merge_target: main
+  merge_only_after: nested_validation_locked_test_placebos_calibration_and_dataset_verify
+  claim_boundary: simulation_discrimination_not_ai_presence_transport_or_causation
