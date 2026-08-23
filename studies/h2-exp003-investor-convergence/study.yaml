@@ -1,0 +1,58 @@
+schema_version: 1
+study_id: h2-exp003-investor-convergence
+branch: feat/h2-exp003-investor-convergence
+status: blocked_external
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+ownership:
+  experiments: [exp-003]
+  hypothesis_roles:
+    primary: [H2]
+question: Is AI-agent convergence unusual relative to harmonized real-investor panels?
+dependencies:
+  upstream:
+    - producer: h1-h3-replay-model-convergence
+      artifacts: [replay_convergence_effects.parquet, manifest.json]
+      status: blocked_on_verified_release
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - src/flock/analysis/h2.py@4016845
+      - src/flock/data/builders/real_world_refs.py@4016845
+  inputs:
+    investor_panels: not_acquired
+    matching_protocol: not_frozen
+  rights:
+    investor_data: unresolved
+    derived_release: unresolved
+resources:
+  compute: small_cpu_after_panel_construction
+  api_calls: 0
+  storage: not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [investor_panel_license]
+  purchases_authorized: false
+approvals:
+  data_acquisition: required
+  spending: required_if_paid
+  protocol_freeze: required_before_headline_comparison
+  release_rights: required
+  remote_write: required
+outputs:
+  - matched_investor_panels.parquet
+  - convergence_anchor_effects.parquet
+  - matching_balance.json
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+blockers:
+  - no investor panel has immutable lineage, lawful use, and release permission
+  - matching and panel-construction runners are missing
+  - sampling, cadence, activity, and matching sensitivity rules are not frozen
+publication:
+  merge_target: main
+  merge_only_after: matching_balance_provenance_and_descriptive_result_verify
+  claim_boundary: descriptive_matched_comparison_not_population_wide_or_causal
