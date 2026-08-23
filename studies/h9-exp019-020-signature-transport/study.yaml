@@ -1,0 +1,64 @@
+schema_version: 1
+study_id: h9-exp019-020-signature-transport
+branch: feat/h9-exp019-020-signature-transport
+status: blocked_external
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+  design_lineage: exp_020_h10_role_is_contextual_not_causal
+ownership:
+  experiments: [exp-019, exp-020]
+  hypothesis_roles:
+    primary: [H9]
+    contextual: [H10]
+question: >-
+  Do locked simulation signatures transport to held-out regimes and real-market windows, and where
+  do calibrated AI-like patterns appear without causal labeling?
+dependencies:
+  upstream:
+    - producer: h9-h11-exp018-simulation-signatures
+      artifacts: [signature_library.parquet, discovery_metrics.json, manifest.json]
+      status: blocked_on_verified_release
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - src/flock/analysis/signatures.py@4016845
+      - src/flock/data/builders/real_world_refs.py@4016845
+  inputs:
+    real_market_feature_panel: not_acquired
+    held_out_simulated_regimes: not_materialized
+  rights:
+    market_data: unresolved
+    derived_release: unresolved
+resources:
+  compute: moderate_cpu
+  api_calls: 0
+  storage: feature_and_event_panels_not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [market_data_license, controlled_storage]
+  purchases_authorized: false
+approvals:
+  data_acquisition: required
+  spending: required_if_paid
+  protocol_freeze: required_before_real_windows
+  release_rights: required
+  remote_write: required
+outputs:
+  - transport_predictions.parquet
+  - transport_metrics.json
+  - domain_shift.json
+  - ai_like_events.parquet
+  - detection_calibration.json
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+blockers:
+  - locked upstream signatures do not exist
+  - lawful immutable real-market features and release rights are missing
+  - transport, domain-shift, calibration, and false-positive verifiers are missing
+publication:
+  merge_target: main
+  merge_only_after: transport_gate_domain_shift_and_noncausal_detection_verify
+  claim_boundary: resemblance_and_calibrated_detection_not_ai_presence_exposure_or_causation
