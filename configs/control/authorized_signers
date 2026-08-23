@@ -1,2 +1,0 @@
-# OpenSSH allowed-signers format: identity ssh-ed25519 public-key
-# production signing is intentionally unavailable until the operator enrolls a public key
