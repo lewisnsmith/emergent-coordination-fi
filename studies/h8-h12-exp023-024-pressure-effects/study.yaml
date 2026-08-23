@@ -1,0 +1,66 @@
+schema_version: 1
+study_id: h8-h12-exp023-024-pressure-effects
+branch: feat/h8-h12-exp023-024-pressure-effects
+status: planned
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+  design_lineage: pathway_analysis_not_formal_mechanistic_mediation
+ownership:
+  experiments: [exp-023, exp-024]
+  hypothesis_roles:
+    primary: [H12]
+    secondary: [H8]
+question: >-
+  How do fictional stakes, urgency, emotion, and forced action change decision quality, safety,
+  risk, abstention, and convergence, and do held-out frames reproduce measured pathways?
+dependencies:
+  upstream:
+    - producer: h8-exp016-black-box-attribution
+      artifacts: [causal_input_attributions.parquet, intervention_integrity.json, manifest.json]
+      status: blocked_on_verified_release
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - configs/prompts/pressure-treatments.yaml@4016845
+      - src/flock/experiments/treatments.py@4016845
+      - src/flock/analysis/causal.py@4016845
+  inputs:
+    core_24_cell_factorial: recoverable_source_only
+    held_out_prompt_families_and_models: not_frozen
+  rights:
+    synthetic_inputs: author_generated
+    provider_outputs: terms_and_release_status_unresolved
+resources:
+  compute: unbenchmarked_factorial_and_holdout
+  api_calls: required_for_closed_models
+  storage: not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [model_api_credits]
+  purchases_authorized: false
+approvals:
+  provider_execution: required
+  spending: required
+  protocol_freeze: required_before_core_execution
+  held_out_unlock: required_after_core_lock
+  release_rights: required
+  remote_write: required
+outputs:
+  - pressure_assignments.parquet
+  - pressure_effects.parquet
+  - equivalence_and_safety.json
+  - held_out_pressure_effects.parquet
+  - pathway_analysis.parquet
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+blockers:
+  - provider runner, cost controls, treatment integrity, and 24-cell verifier are missing
+  - quality, suitability, safety, risk, abstention, and convergence metrics are not frozen
+  - equivalence, noninferiority, multiplicity, and held-out pathway rules are not preregistered
+publication:
+  merge_target: main
+  merge_only_after: core_factorial_safety_equivalence_and_held_out_pathways_verify
+  claim_boundary: language_frame_effects_and_measured_pathways_not_felt_pressure_or_activation_mechanism
