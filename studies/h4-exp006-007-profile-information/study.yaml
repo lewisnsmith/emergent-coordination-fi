@@ -1,0 +1,67 @@
+schema_version: 1
+study_id: h4-exp006-007-profile-information
+branch: feat/h4-exp006-007-profile-information
+status: planned
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+  design_lineage: owns_h4_robustness_removed_from_exp_009
+ownership:
+  experiments: [exp-006, exp-007]
+  hypothesis_roles:
+    primary: [H4]
+question: >-
+  Does genuine information differentiation reduce convergence more than financially relevant
+  profile heterogeneity or identity-only wording?
+dependencies:
+  upstream: []
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - configs/personas/manifest.yaml@4016845
+      - configs/prompts/catalog.yaml@4016845
+      - src/flock/analysis/crossed.py@4016845
+      - src/flock/analysis/convergence.py@4016845
+  inputs:
+    profile_registry: recoverable_source_only
+    information_partitions: not_built
+    replay_windows: not_acquired
+    model_panel: not_frozen
+  rights:
+    market_data: unresolved
+    model_endpoints: separately_governed
+resources:
+  compute: unbenchmarked_balanced_factorial
+  api_calls: potentially_required
+  storage: not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [market_data_license, model_api_credits]
+  purchases_authorized: false
+approvals:
+  data_acquisition: required
+  provider_execution: required_if_used
+  spending: required
+  profile_review: required
+  protocol_freeze: required_before_held_out_blocks
+  release_rights: required
+  remote_write: required
+outputs:
+  - profile_assignments.parquet
+  - information_assignments.parquet
+  - profile_effects.parquet
+  - profile_information_effects.parquet
+  - suitability_effects.parquet
+  - robustness_effects.parquet
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+blockers:
+  - per-agent assignment runner and verifier are missing
+  - equal-budget information partitions and reviewed profile factors are not frozen
+  - independent units, suitability rules, and H4 robustness margins are not preregistered
+publication:
+  merge_target: main
+  merge_only_after: balanced_factorial_suitability_and_h4_robustness_verify
+  claim_boundary: sampled_profiles_information_sets_models_windows_and_prompts_only
