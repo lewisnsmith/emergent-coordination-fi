@@ -1,0 +1,58 @@
+schema_version: 1
+study_id: h8-exp016-black-box-attribution
+branch: feat/h8-exp016-black-box-attribution
+status: planned
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+  design_lineage: h12_is_supporting_method_not_pressure_result
+ownership:
+  experiments: [exp-016]
+  hypothesis_roles:
+    primary: [H8]
+    supporting: [H12]
+question: Which supplied facts causally alter sampled closed-model investment decisions?
+dependencies:
+  upstream: []
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - src/flock/interpretability/black_box.py@4016845
+      - src/flock/experiments/treatments.py@4016845
+      - src/flock/analysis/causal.py@4016845
+  inputs:
+    feature_intervention_catalog: not_frozen
+    prompt_model_observation_blocks: not_materialized
+  rights:
+    synthetic_inputs: author_generated
+    provider_outputs: terms_and_release_status_unresolved
+resources:
+  compute: unbenchmarked_paired_interventions
+  api_calls: required_for_closed_models
+  storage: not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [model_api_credits]
+  purchases_authorized: false
+approvals:
+  provider_execution: required
+  spending: required
+  intervention_freeze: required
+  output_release_rights: required
+  remote_write: required
+outputs:
+  - input_interventions.parquet
+  - causal_input_attributions.parquet
+  - intervention_integrity.json
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+blockers:
+  - authorization-bound provider runner, provenance, and cumulative cost controls are missing
+  - one-factor transformations, shams, negative controls, and semantic checks are not frozen
+  - independent blocks, multiplicity, and missing-output handling are not preregistered
+publication:
+  merge_target: main
+  merge_only_after: intervention_integrity_controls_costs_and_paired_effects_verify
+  claim_boundary: black_box_input_attribution_not_internal_mechanism_or_pressure_effect
