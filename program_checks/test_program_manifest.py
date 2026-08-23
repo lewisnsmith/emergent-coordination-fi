@@ -14,6 +14,7 @@ EXPECTED_BRANCHES = {
     "feat/h8-h13-local-fidelity-quantization",
     "feat/h9-h10-h11-market-signatures",
 }
+EXPECTED_PROGRAM_EXPERIMENTS = {f"exp-{index:03d}" for index in range(27)}
 
 
 def test_program_manifest_names_every_family() -> None:
@@ -25,3 +26,11 @@ def test_program_manifest_names_every_family() -> None:
         study["status"] in {"planned", "blocked_external"}
         for study in manifest["study_families"]
     )
+    assigned = [
+        experiment
+        for study in manifest["study_families"]
+        for experiment in study["experiments"]
+        if experiment.startswith("exp-")
+    ]
+    assert len(assigned) == len(set(assigned))
+    assert set(assigned) == EXPECTED_PROGRAM_EXPERIMENTS

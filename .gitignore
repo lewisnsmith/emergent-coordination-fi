@@ -1,37 +1,7 @@
-# Python
 __pycache__/
 *.pyc
-.venv
+.venv/
 .venv.nosync/
-*.egg-info/
 .pytest_cache/
 .ruff_cache/
-dist/
-
-# Secrets
-.env
-
-# Data & results payloads (manifests are checked in)
-datasets/*
-!datasets/manifests.json
-!datasets/.gitkeep
-results/*
-!results/.gitkeep
-
-# LLM response cache (exportable artifact, not committed by default)
-.flock-cache/
-
-# Paper build artifacts
-paper/figures/
-paper/*.aux
-paper/*.log
-paper/*.out
-paper/*.bbl
-paper/*.blg
-paper/*.pdf
-
-# Notebooks
-.ipynb_checkpoints/
-
-# OS
 .DS_Store
