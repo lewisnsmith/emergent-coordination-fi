@@ -1,0 +1,70 @@
+schema_version: 1
+study_id: h2b-h5-exp010-012-shared-exchange
+branch: feat/h2b-h5-exp010-012-shared-exchange
+status: planned
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+ownership:
+  experiments: [exp-010, exp-011, exp-012]
+  hypothesis_roles:
+    primary: [H2b, H5]
+question: >-
+  Inside a controlled exchange, how do AI-managed capital share and correlated behavior change
+  impact, liquidity, volatility, spreads, herding, and cascades?
+dependencies:
+  upstream:
+    - producer: h2b-exp004-014-delegation-transmission
+      artifacts: [delegation_breadth_curve.parquet, manifest.json]
+      status: blocked_on_verified_release
+    - producer: h1-h3-replay-model-convergence
+      artifacts: [replay_convergence_effects.parquet, manifest.json]
+      status: blocked_on_verified_release
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - configs/experiments/exp-010-shared-exchange.yaml@4016845
+      - src/flock/markets/exchange.py@4016845
+      - src/flock/analysis/coordination.py@4016845
+  inputs:
+    operating_domain: not_frozen
+    background_books_and_liquidity: not_calibrated
+    capital_share_grid: not_frozen
+  rights:
+    synthetic_inputs: author_generated
+    model_outputs: separately_governed_if_used
+resources:
+  compute: unbenchmarked_market_replicas
+  api_calls: potentially_required_for_agent_orders
+  storage: full_book_logs_not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [model_api_credits, compute_capacity]
+  purchases_authorized: false
+approvals:
+  provider_execution: required_if_used
+  substantial_compute: required
+  spending: required
+  protocol_freeze: required_before_threshold_analysis
+  release_rights: required_if_model_outputs_used
+  remote_write: required
+outputs:
+  - exchange_calibration.parquet
+  - capital_share_outcomes.parquet
+  - capital_share_curve.parquet
+  - capital_weighted_convergence_breadth.parquet
+  - market_threshold_distribution.json
+  - microstructure_effects.parquet
+  - cascade_effects.parquet
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+blockers:
+  - exchange runner and full reconstruction verifier are missing
+  - operating domain, background liquidity, capital grid, and replica units are not frozen
+  - threshold materiality and simultaneous inference are not preregistered
+publication:
+  merge_target: main
+  merge_only_after: calibration_paired_replicas_book_reconstruction_and_claims_verify
+  claim_boundary: causal_total_effects_inside_the_frozen_synthetic_exchange_only
