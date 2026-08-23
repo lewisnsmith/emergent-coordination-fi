@@ -1,0 +1,68 @@
+schema_version: 1
+study_id: exp008-mphiq-exploratory
+branch: feat/exp008-mphiq-exploratory
+status: planned_exploratory
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+  design_lineage: removes_h12_and_reclassifies_exp_008_as_exploratory
+ownership:
+  experiments: [exp-008]
+  hypothesis_roles:
+    exploratory: [H1, H3, H4]
+    removed_by_amendment: [H12]
+question: >-
+  Which combinations of model, profile, harness, information, and semantic prompt sameness are
+  associated with convergence in a balanced 32-cell exploratory screen?
+dependencies:
+  upstream:
+    - producer: h1-h3-replay-model-convergence
+      artifacts: [model_pair_effects.parquet, manifest.json]
+      status: blocked_on_verified_release
+    - producer: h4-exp006-007-profile-information
+      artifacts: [profile_information_effects.parquet, manifest.json]
+      status: blocked_on_verified_release
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - configs/designs/mphiq.yaml@4016845
+      - src/flock/experiments/design.py@4016845
+      - src/flock/analysis/crossed.py@4016845
+  inputs:
+    model_profile_harness_information_prompt_registries: not_frozen
+    all_32_scheme_assignments: not_materialized
+  rights:
+    upstream_outputs: unresolved_until_producer_release
+    model_outputs: separately_governed_if_regenerated
+resources:
+  compute: unbenchmarked_32_cell_screen
+  api_calls: potentially_required
+  storage: not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [model_api_credits]
+  purchases_authorized: false
+approvals:
+  upstream_release_use: required
+  provider_execution: required_if_regenerated
+  spending: required
+  exploratory_protocol_freeze: required
+  release_rights: required
+  remote_write: required
+outputs:
+  - mphiq_assignments.parquet
+  - mphiq_effects.parquet
+  - mphiq_balance.json
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+blockers:
+  - verified upstream registries and outputs do not exist
+  - all 32 assignments and byte-identity claims are not materialized
+  - exploratory screening and hierarchical FDR rules are not frozen
+publication:
+  merge_target: main
+  merge_only_after: all_cells_balance_hashes_and_exploratory_labels_verify
+  cannot_block_confirmatory_studies: true
+  claim_boundary: exploratory_associations_only
