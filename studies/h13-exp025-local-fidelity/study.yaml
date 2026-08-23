@@ -1,0 +1,67 @@
+schema_version: 1
+study_id: h13-exp025-local-fidelity
+branch: feat/h13-exp025-local-fidelity
+status: planned
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+ownership:
+  experiments: [exp-025]
+  hypothesis_roles:
+    primary: [H13]
+question: >-
+  Which lower-weight local models are behaviorally equivalent to sampled frontier endpoints on
+  frozen financial tasks, trading actions, and convergence?
+dependencies:
+  upstream: []
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - configs/models.yaml@4016845
+      - src/flock/analysis/strategy.py@4016845
+      - src/flock/markets/replay.py@4016845
+  inputs:
+    financial_chain_tasks_and_scoring_keys: not_built
+    local_checkpoint_registry: not_frozen
+    held_out_replay_windows: not_acquired
+    frontier_bridge_responses: not_authorized
+  rights:
+    local_weights: separately_licensed_not_redistributed
+    replay_data: unresolved
+    frontier_outputs: terms_and_release_status_unresolved
+resources:
+  compute: multi_model_local_gpu
+  api_calls: optional_frontier_bridge
+  storage: checkpoint_storage_not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [gpu_compute, model_storage, frontier_api_credits]
+  purchases_authorized: false
+approvals:
+  model_acquisition: required
+  data_acquisition: required
+  frontier_bridge_execution: required_if_used
+  substantial_compute: required
+  spending: required
+  protocol_freeze: required_before_held_out_evaluation
+  release_rights: required
+  remote_write: required
+outputs:
+  - behavioral_fidelity.parquet
+  - convergence_transport.parquet
+  - error_types.parquet
+  - cost_frontier.json
+  - scoring_audit.json
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+excluded_outputs: [model_weights, provider_responses]
+blockers:
+  - executable tasks, deterministic scoring keys, and held-out families are missing
+  - immutable local checkpoint and optional frontier registries are not frozen
+  - compute, storage, data, and optional frontier costs and rights are unresolved
+publication:
+  merge_target: main
+  merge_only_after: capability_gate_pairing_equivalence_scoring_and_rights_verify
+  claim_boundary: behavioral_resemblance_not_correctness_or_quantization_mechanism
