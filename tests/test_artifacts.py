@@ -17,7 +17,10 @@ def test_canonical_json_is_stable() -> None:
     assert canonical_json_bytes({"b": 2, "a": [1, "é"]}) == b'{"a":[1,"\xc3\xa9"],"b":2}\n'
 
 
-@pytest.mark.parametrize("value", ["", "/absolute", "../escape", "a/../b", "./a"])
+@pytest.mark.parametrize(
+    "value",
+    ["", "/absolute", "../escape", "a/../b", "./a", "a\nb", "a\rb", "a\0b"],
+)
 def test_safe_relative_path_rejects_unsafe_values(value: str) -> None:
     with pytest.raises(ValueError):
         safe_relative_path(value)
@@ -40,3 +43,19 @@ def test_checksums_detect_tampering(tmp_path: Path) -> None:
 
     artifact.write_text("changed\n", encoding="utf-8")
     assert verify_checksums(tmp_path, manifest) == ("hash mismatch: artifact.txt",)
+
+
+def test_checksums_reject_symlinks(tmp_path: Path) -> None:
+    release = tmp_path / "release"
+    release.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside\n", encoding="utf-8")
+    link = release / "linked.txt"
+    link.symlink_to(outside)
+
+    manifest = release / "checksums.sha256"
+    with pytest.raises(ValueError, match="symlink"):
+        write_checksums(release, ("linked.txt",), manifest)
+
+    manifest.write_text(f"{'0' * 64}  linked.txt\n", encoding="utf-8")
+    assert verify_checksums(release, manifest) == ("unsafe path: linked.txt",)
