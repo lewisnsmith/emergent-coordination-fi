@@ -1,0 +1,68 @@
+schema_version: 1
+study_id: h8-h13-exp026-quantization-mechanisms
+branch: feat/h8-h13-exp026-quantization-mechanisms
+status: planned
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+ownership:
+  experiments: [exp-026]
+  hypothesis_roles:
+    primary: [H8, H13]
+question: >-
+  Where do same-checkpoint quantization errors first appear, and when do they propagate into
+  different financial decisions and closed-loop trajectories?
+dependencies:
+  upstream:
+    - producer: h13-exp025-local-fidelity
+      artifacts: [behavioral_fidelity.parquet, scoring_audit.json, manifest.json]
+      status: blocked_on_verified_release
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - src/flock/interpretability/local_hooks.py@4016845
+      - src/flock/interpretability/artifacts.py@4016845
+      - src/flock/markets/replay.py@4016845
+  inputs:
+    precision_paired_checkpoints: not_acquired
+    quantizer_and_calibration_metadata: not_frozen
+    step_aligned_tasks_and_scorer: not_built
+  rights:
+    model_weights: separately_licensed_not_redistributed
+    calibration_and_replay_data: unresolved
+resources:
+  compute: multi_precision_local_gpu
+  api_calls: 0
+  storage: checkpoints_and_raw_activations_not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [gpu_compute, model_and_activation_storage]
+  purchases_authorized: false
+approvals:
+  model_and_data_acquisition: required
+  substantial_compute: required
+  spending: required
+  protocol_freeze: required_before_held_out_evaluation
+  activation_intervention: separate_approval_after_divergence_gate
+  release_rights: required
+  remote_write: required
+outputs:
+  - step_transitions.parquet
+  - chain_survival.parquet
+  - activation_drift.parquet
+  - trajectory_divergence.parquet
+  - mechanism_transport.json
+  - activation_traces_manifest.json
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+excluded_outputs: [model_weights, raw_activation_tensors]
+blockers:
+  - upstream capability and scoring release does not exist
+  - precision-paired registry, step scorer, hooks, and closed-loop runner are missing
+  - GPU, storage, quantizer lineage, calibration-data rights, and margins are unresolved
+publication:
+  merge_target: main
+  merge_only_after: precision_pairing_first_error_reconciliation_and_held_out_intervention_verify
+  claim_boundary: sampled_checkpoint_tasks_precisions_depths_and_replay_environments_only
