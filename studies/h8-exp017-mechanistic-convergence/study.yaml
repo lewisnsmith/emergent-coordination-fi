@@ -1,0 +1,67 @@
+schema_version: 1
+study_id: h8-exp017-mechanistic-convergence
+branch: feat/h8-exp017-mechanistic-convergence
+status: planned
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+  design_lineage: narrows_and_supersedes_4016845_exp_017
+ownership:
+  experiments: [exp-017]
+  hypothesis_roles:
+    primary: [H8]
+question: >-
+  In one frozen open-weight model, does a causal residual-stream intervention change decision
+  convergence and paired synthetic price displacement?
+dependencies:
+  upstream: []
+  code:
+    runner: missing
+    verifier: missing
+    fake_model: missing
+    source_material:
+      - src/flock/interpretability/local_hooks.py@4016845
+      - src/flock/analysis/convergence.py@4016845
+      - src/flock/markets/exchange.py@4016845
+  inputs:
+    model: Qwen/Qwen3-4B-Instruct-2507
+    revision: cdbee75f17c01a7cc42f958dc650907174af0554
+    discovery_trajectories: 1101-1108
+    confirmation_trajectories: 2101-2124
+  rights:
+    synthetic_inputs: author_generated
+    model_weights: separately_licensed_not_redistributed
+resources:
+  compute: fp16_batch_one_gpu
+  api_calls: 0
+  storage: raw_activations_local_or_controlled_store
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: []
+  purchases_authorized: false
+approvals:
+  model_acquisition: required_if_absent
+  discovery_compute: separate_bounded_approval_required
+  confirmation_compute: separate_hash_bound_approval_required
+  registration: required_before_confirmation
+  remote_write: required
+outputs:
+  - observations.parquet
+  - decisions.parquet
+  - activation_traces_manifest.json
+  - intervention_effects.parquet
+  - convergence_effects.parquet
+  - microstructure_effects.parquet
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+  - dataset_card.md
+  - report.md
+  - report.pdf
+blockers:
+  - hook adapter, deterministic scorer, alignment verifier, and controls are missing
+  - fake-model CPU study and release builder are missing
+publication:
+  merge_target: main
+  merge_only_after: verified_result_and_clean_offline_release
+  claim_boundary: checkpoint_prompt_trajectory_intervention_and_synthetic_exchange_only
