@@ -1,47 +1,179 @@
-schema_version: 1
+schema_version: 2
 status: planned
-publication_base: 3002008b291dcd736b90237cccd1e5fd9f4ba0e4
+publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+publication_base_tree: a6e1bff70a4421461341e15707b1094ac8514333
 recoverable_source: 4016845d86b58b8da2715a60cd621a03dd049626
 evidence_snapshot: external-evidence-2026-08-12
 policy:
-  branch_unit: dependency_linked_experiment_families
-  merge_target: main_after_verified_family_release
+  branch_unit: independently_publishable_study
+  merge_target: main_after_verified_namespaced_release
+  unfinished_sibling_branches_required: false
   remote_writes: separately_authorized
   purchases: unauthorized
-study_families:
-  - branch: feat/h8-exp017-causal-convergence
-    hypotheses: [H8]
+study_units:
+  - study_id: h8-exp017-mechanistic-convergence
+    branch: feat/h8-exp017-mechanistic-convergence
     experiments: [exp-017]
+    hypothesis_roles: {primary: [H8]}
     status: planned
-  - branch: feat/h1-h3-h4-h12-replay-convergence
-    hypotheses: [H1, H3, H4, H12]
-    experiments: [exp-000, exp-001, exp-002, exp-005, exp-006, exp-007, exp-008, exp-009]
-    status: planned
-  - branch: feat/h2-h2b-h6-investor-delegation
-    hypotheses: [H2, H2b, H6]
-    experiments: [exp-003, exp-004, exp-013, exp-014]
+    structure_stage: packet_only
+    initial_packet_commit: 34b4945b76b8c45e67d8867222cfdd920f2cef4b
+    depends_on: []
+  - study_id: h1-h3-replay-model-convergence
+    branch: feat/h1-h3-replay-model-convergence
+    experiments: [exp-000, exp-001, exp-002, exp-005, exp-009]
+    hypothesis_roles: {primary: [H1, H3], removed_by_amendment: [H4_from_exp_009]}
     status: blocked_external
-  - branch: feat/h2b-h5-shared-exchange
-    hypotheses: [H2b, H5]
+    structure_stage: packet_only
+    initial_packet_commit: 44c50f6992641d6bd3c2ee6dd820a6105c42b647
+    depends_on: []
+  - study_id: h4-exp006-007-profile-information
+    branch: feat/h4-exp006-007-profile-information
+    experiments: [exp-006, exp-007]
+    hypothesis_roles: {primary: [H4]}
+    status: planned
+    structure_stage: packet_only
+    initial_packet_commit: 8d0d869755eca8c7fc564794f6507fff88bf395a
+    depends_on: []
+  - study_id: exp008-mphiq-exploratory
+    branch: feat/exp008-mphiq-exploratory
+    experiments: [exp-008]
+    hypothesis_roles: {exploratory: [H1, H3, H4], removed_by_amendment: [H12]}
+    status: planned_exploratory
+    structure_stage: packet_only
+    initial_packet_commit: bf719a5edf8515f8a1449bb1d8c7293d105b0e78
+    depends_on:
+      - producer: h1-h3-replay-model-convergence
+        artifacts: [model_pair_effects.parquet, manifest.json]
+      - producer: h4-exp006-007-profile-information
+        artifacts: [profile_information_effects.parquet, manifest.json]
+  - study_id: h2-exp003-investor-convergence
+    branch: feat/h2-exp003-investor-convergence
+    experiments: [exp-003]
+    hypothesis_roles: {primary: [H2]}
+    status: blocked_external
+    structure_stage: packet_only
+    initial_packet_commit: abfcbe033a250438c820c77e5faea325fe99a827
+    depends_on:
+      - producer: h1-h3-replay-model-convergence
+        artifacts: [replay_convergence_effects.parquet, manifest.json]
+  - study_id: h2b-exp004-014-delegation-transmission
+    branch: feat/h2b-exp004-014-delegation-transmission
+    experiments: [exp-004, exp-014]
+    hypothesis_roles: {primary: [H2b], contextual: [H6]}
+    status: planned
+    structure_stage: packet_only
+    initial_packet_commit: 726f011ee2b652c9b5d87f2a98b3a78e77a8c4b6
+    depends_on:
+      - producer: h2-exp003-investor-convergence
+        artifacts: [convergence_anchor_effects.parquet, manifest.json]
+  - study_id: h6-exp013-human-delegation
+    branch: feat/h6-exp013-human-delegation
+    experiments: [exp-013]
+    hypothesis_roles: {primary: [H6]}
+    status: blocked_external
+    structure_stage: packet_only
+    initial_packet_commit: d7671acd192fdde5de9d2e80e65733ae1fbf4644
+    depends_on: []
+  - study_id: h2b-h5-exp010-012-shared-exchange
+    branch: feat/h2b-h5-exp010-012-shared-exchange
     experiments: [exp-010, exp-011, exp-012]
+    hypothesis_roles: {primary: [H2b, H5]}
     status: planned
-  - branch: feat/h7-adoption-forecast
-    hypotheses: [H7]
+    structure_stage: packet_only
+    initial_packet_commit: 32eb27e2277f4e7419f8fc088ea78fffbba9eb14
+    depends_on:
+      - producer: h2b-exp004-014-delegation-transmission
+        artifacts: [delegation_breadth_curve.parquet, manifest.json]
+      - producer: h1-h3-replay-model-convergence
+        artifacts: [replay_convergence_effects.parquet, manifest.json]
+  - study_id: h7-exp015-adoption-forecast
+    branch: feat/h7-exp015-adoption-forecast
     experiments: [exp-015]
+    hypothesis_roles: {primary: [H7]}
     status: blocked_external
-  - branch: feat/h8-h12-pressure-attribution
-    hypotheses: [H8, H12]
-    experiments: [exp-016, exp-023, exp-024]
+    structure_stage: packet_only
+    initial_packet_commit: 5b4018d4ca3a785a0ede0970ea20718d99fe313f
+    depends_on:
+      - producer: h2b-h5-exp010-012-shared-exchange
+        artifacts: [market_threshold_distribution.json, manifest.json]
+  - study_id: h8-exp016-black-box-attribution
+    branch: feat/h8-exp016-black-box-attribution
+    experiments: [exp-016]
+    hypothesis_roles: {primary: [H8], supporting: [H12]}
     status: planned
-  - branch: feat/h9-h10-h11-market-signatures
-    hypotheses: [H9, H10, H11]
-    experiments: [exp-018, exp-019, exp-020, exp-021, exp-022]
+    structure_stage: packet_only
+    initial_packet_commit: ee6c7f5d647962d973130f6ccb8186f097e86758
+    depends_on: []
+  - study_id: h8-h12-exp023-024-pressure-effects
+    branch: feat/h8-h12-exp023-024-pressure-effects
+    experiments: [exp-023, exp-024]
+    hypothesis_roles: {primary: [H12], secondary: [H8]}
+    status: planned
+    structure_stage: packet_only
+    initial_packet_commit: 2d1254a42c5d69721d98a17dcddd50467975529c
+    depends_on:
+      - producer: h8-exp016-black-box-attribution
+        artifacts: [causal_input_attributions.parquet, intervention_integrity.json, manifest.json]
+  - study_id: h9-h11-exp018-simulation-signatures
+    branch: feat/h9-h11-exp018-simulation-signatures
+    experiments: [exp-018]
+    hypothesis_roles: {primary: [H9], secondary: [H11]}
+    status: planned
+    structure_stage: packet_only
+    initial_packet_commit: 935e5dc6c21e1caf419db57a1ed714c805b3dcf6
+    depends_on:
+      - producer: h2b-h5-exp010-012-shared-exchange
+        artifacts:
+          - capital_share_outcomes.parquet
+          - microstructure_effects.parquet
+          - cascade_effects.parquet
+          - manifest.json
+  - study_id: h9-exp019-020-signature-transport
+    branch: feat/h9-exp019-020-signature-transport
+    experiments: [exp-019, exp-020]
+    hypothesis_roles: {primary: [H9], contextual: [H10]}
     status: blocked_external
-  - branch: feat/h8-h13-local-fidelity-quantization
-    hypotheses: [H8, H13]
-    experiments: [exp-025, exp-026]
+    structure_stage: packet_only
+    initial_packet_commit: b9460dd8629257ca8ec0ab66f67bb13bc2a91d41
+    depends_on:
+      - producer: h9-h11-exp018-simulation-signatures
+        artifacts: [signature_library.parquet, discovery_metrics.json, manifest.json]
+  - study_id: h10-h11-exp021-022-attribution-release
+    branch: feat/h10-h11-exp021-022-attribution-release
+    experiments: [exp-021, exp-022]
+    hypothesis_roles: {primary: [H10, H11]}
+    status: blocked_external
+    structure_stage: packet_only
+    initial_packet_commit: fc5b0b065d3710e4691f772ca7ab057c05206ae0
+    depends_on:
+      - producer: h9-h11-exp018-simulation-signatures
+        artifacts: [simulation_signature_dataset.parquet, manifest.json]
+      - producer: h9-exp019-020-signature-transport
+        artifacts: [ai_like_events.parquet, detection_calibration.json, manifest.json]
+  - study_id: h13-exp025-local-fidelity
+    branch: feat/h13-exp025-local-fidelity
+    experiments: [exp-025]
+    hypothesis_roles: {primary: [H13]}
     status: planned
-  - branch: feat/alpha-oos-evaluation
-    hypotheses: []
+    structure_stage: packet_only
+    initial_packet_commit: 99966c6509e867b1b6406a0ceaea7b880863ef4b
+    depends_on: []
+  - study_id: h8-h13-exp026-quantization-mechanisms
+    branch: feat/h8-h13-exp026-quantization-mechanisms
+    experiments: [exp-026]
+    hypothesis_roles: {primary: [H8, H13]}
+    status: planned
+    structure_stage: packet_only
+    initial_packet_commit: 5a1b84efdfe38df7bfa0420be2a5dce8c1d004e7
+    depends_on:
+      - producer: h13-exp025-local-fidelity
+        artifacts: [behavioral_fidelity.parquet, scoring_audit.json, manifest.json]
+  - study_id: alpha-oos-signal-evaluation
+    branch: feat/alpha-oos-signal-evaluation
     experiments: [alpha-oos-001]
+    hypothesis_roles: {primary: []}
     status: blocked_external
+    structure_stage: packet_only
+    initial_packet_commit: d2ac5bdf1ea555fb81707fb00d87947eb1370166
+    depends_on: []

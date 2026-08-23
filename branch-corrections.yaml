@@ -1,0 +1,79 @@
+schema_version: 1
+reason: split_broad_families_into_independently_publishable_studies
+current_base:
+  commit: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  tree: a6e1bff70a4421461341e15707b1094ac8514333
+superseded_base:
+  commit: 3002008b291dcd736b90237cccd1e5fd9f4ba0e4
+  tree: a6e1bff70a4421461341e15707b1094ac8514333
+recoverable_source: 4016845d86b58b8da2715a60cd621a03dd049626
+recovery_bundle:
+  path: /Users/lewis/Documents/GitHub/flock-local-archive/pre-mechanistic-2026-08-18/git/flock-pre-publication-units-complete.bundle
+  sha256: 119883f5a944fcca050a8dfe30c28a24fb726e42122e9c5f9df4d276131fb44a
+superseded_families:
+  - old_branch: feat/h8-exp017-causal-convergence
+    recovery_ref: backup/pre-publication-units/h8-exp017-causal-convergence
+    tip: 8cb13ee9e07a5451ee24a720e7f1a61fa276bc6e
+    replaced_by: [feat/h8-exp017-mechanistic-convergence]
+  - old_branch: feat/h1-h3-h4-h12-replay-convergence
+    recovery_ref: backup/pre-publication-units/h1-h3-h4-h12-replay-convergence
+    tip: 288f2f3a54975002f7e8541c9f38c9e5e041a83d
+    replaced_by:
+      - feat/h1-h3-replay-model-convergence
+      - feat/h4-exp006-007-profile-information
+      - feat/exp008-mphiq-exploratory
+  - old_branch: feat/h2-h2b-h6-investor-delegation
+    recovery_ref: backup/pre-publication-units/h2-h2b-h6-investor-delegation
+    tip: 689bc859b77502f3f9c1ebca734206ab9b3f0867
+    replaced_by:
+      - feat/h2-exp003-investor-convergence
+      - feat/h2b-exp004-014-delegation-transmission
+      - feat/h6-exp013-human-delegation
+  - old_branch: feat/h2b-h5-shared-exchange
+    recovery_ref: backup/pre-publication-units/h2b-h5-shared-exchange
+    tip: 049ffa79ebe73ac521eb31a23373f163b90a5f46
+    replaced_by: [feat/h2b-h5-exp010-012-shared-exchange]
+  - old_branch: feat/h7-adoption-forecast
+    recovery_ref: backup/pre-publication-units/h7-adoption-forecast
+    tip: cff84b6cd2b2ede2a9875978f504aae49812139f
+    replaced_by: [feat/h7-exp015-adoption-forecast]
+  - old_branch: feat/h8-h12-pressure-attribution
+    recovery_ref: backup/pre-publication-units/h8-h12-pressure-attribution
+    tip: a073f654b38d83770c9b619a8590433a50f54447
+    replaced_by:
+      - feat/h8-exp016-black-box-attribution
+      - feat/h8-h12-exp023-024-pressure-effects
+  - old_branch: feat/h9-h10-h11-market-signatures
+    recovery_ref: backup/pre-publication-units/h9-h10-h11-market-signatures
+    tip: cafb3eb176c9547a3413ae0057fa7450b8b38368
+    replaced_by:
+      - feat/h9-h11-exp018-simulation-signatures
+      - feat/h9-exp019-020-signature-transport
+      - feat/h10-h11-exp021-022-attribution-release
+  - old_branch: feat/h8-h13-local-fidelity-quantization
+    recovery_ref: backup/pre-publication-units/h8-h13-local-fidelity-quantization
+    tip: c0c29370fec421621bd4a6fe27bcc3b5aa096a9a
+    replaced_by:
+      - feat/h13-exp025-local-fidelity
+      - feat/h8-h13-exp026-quantization-mechanisms
+  - old_branch: feat/alpha-oos-evaluation
+    recovery_ref: backup/pre-publication-units/alpha-oos-evaluation
+    tip: e766f9adecda7676482a0f8fec97593525eb31e9
+    replaced_by: [feat/alpha-oos-signal-evaluation]
+scientific_amendments:
+  - experiment: exp-008
+    change: remove_H12_and_keep_H1_H3_H4_as_exploratory
+  - experiment: exp-009
+    change: narrow_to_H1_H3_and_move_H4_robustness_to_exp_006_007_packet
+  - experiment: exp-014
+    change: H6_is_contextual_not_evidentiary
+  - experiment: exp-016
+    change: H12_is_supporting_method_not_pressure_result
+  - experiment: exp-017
+    change: preserve_narrowed_mechanistic_convergence_design
+  - experiment: exp-020
+    change: H10_is_contextual_not_causal
+  - experiment: exp-024
+    change: measured_pathways_are_not_formal_mechanistic_mediation
+  - experiment: exp-022
+    change: omit_unavailable_tiers_and_never_collapse_causal_status
