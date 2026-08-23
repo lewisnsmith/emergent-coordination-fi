@@ -1,0 +1,58 @@
+schema_version: 1
+study_id: h6-exp013-human-delegation
+branch: feat/h6-exp013-human-delegation
+status: blocked_external
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+ownership:
+  experiments: [exp-013]
+  hypothesis_roles:
+    primary: [H6]
+question: Which randomized conditions change incentive-compatible human AI delegation choices?
+dependencies:
+  upstream: []
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - docs/research/low-cost-human-trading-behavior-simulation.md@75b3d82
+      - configs/personas/manifest.yaml@4016845
+  inputs:
+    approved_protocol: absent
+    consent_and_recruitment_materials: absent
+    randomized_choice_tasks: not_built
+  rights:
+    human_data: requires_ethics_consent_deidentification_and_release_review
+resources:
+  compute: small_cpu
+  api_calls: 0
+  storage: secure_deidentified_store_not_estimated
+  participant_count: not_estimated
+  cost_estimate: not_benchmarked
+  proposed_purchases: [participant_recruitment, participant_compensation, secure_storage]
+  purchases_authorized: false
+approvals:
+  ethics_review: required
+  participant_contact: required
+  consent: required
+  spending: required
+  deidentification_review: required
+  release_rights: required
+  remote_write: required
+outputs:
+  - deidentified_choices.parquet
+  - delegation_effects.parquet
+  - randomization_balance.json
+  - nonresponse_sensitivity.json
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+blockers:
+  - ethics protocol, consent, sampling frame, recruitment plan, and tasks are absent
+  - participant count, compensation, secure storage, and deidentification are not estimated
+  - human-study runner and randomization verifier are missing
+publication:
+  merge_target: main
+  merge_only_after: ethics_consent_randomization_deidentification_and_effects_verify
+  claim_boundary: approved_sample_tasks_and_incentive_context_only
