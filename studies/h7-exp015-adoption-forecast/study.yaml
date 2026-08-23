@@ -1,0 +1,62 @@
+schema_version: 1
+study_id: h7-exp015-adoption-forecast
+branch: feat/h7-exp015-adoption-forecast
+status: blocked_external
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+ownership:
+  experiments: [exp-015]
+  hypothesis_roles:
+    primary: [H7]
+question: >-
+  Given verified adoption observations and a synthetic impact-threshold distribution, what
+  calibrated distribution describes conditional threshold-crossing times?
+dependencies:
+  upstream:
+    - producer: h2b-h5-exp010-012-shared-exchange
+      artifacts: [market_threshold_distribution.json, manifest.json]
+      status: blocked_on_verified_release
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - src/flock/analysis/adoption.py@4016845
+      - src/flock/data/builders/real_world_refs.py@4016845
+  inputs:
+    adoption_series: not_acquired
+    revision_vintages: not_frozen
+    forecast_origins: not_frozen
+  rights:
+    adoption_data: unresolved
+    derived_release: unresolved
+resources:
+  compute: small_cpu
+  api_calls: 0
+  storage: not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [adoption_data_license]
+  purchases_authorized: false
+approvals:
+  data_acquisition: required
+  spending: required_if_paid
+  protocol_freeze: required_before_later_origins
+  release_rights: required
+  remote_write: required
+outputs:
+  - adoption_observations.parquet
+  - adoption_scenarios.parquet
+  - threshold_forecasts.parquet
+  - forecast_calibration.json
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+blockers:
+  - no adoption series has verified construct validity, lineage, rights, and revision history
+  - the upstream threshold distribution does not exist
+  - rolling-origin runner, baselines, and calibration verifier are missing
+publication:
+  merge_target: main
+  merge_only_after: input_rights_threshold_lineage_and_rolling_calibration_verify
+  claim_boundary: conditional_scenarios_not_current_adoption_or_real_market_thresholds
