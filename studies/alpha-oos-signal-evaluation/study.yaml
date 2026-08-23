@@ -1,0 +1,71 @@
+schema_version: 1
+study_id: alpha-oos-signal-evaluation
+branch: feat/alpha-oos-signal-evaluation
+status: blocked_external
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+  design_lineage: post_program_separate_track
+ownership:
+  experiments: [alpha-oos-001]
+  hypothesis_roles:
+    primary: []
+question: >-
+  Does one frozen consensus signal produce positive net benchmark-relative next-session return in
+  a lawfully sourced untouched historical panel?
+dependencies:
+  upstream: []
+  code:
+    runner: missing
+    verifier: missing
+    signal_generator: missing
+    source_material:
+      - src/flock/analysis/strategy.py@4016845
+      - src/flock/analysis/stats.py@4016845
+      - src/flock/data/registry.py@4016845
+  inputs:
+    model: Qwen/Qwen3-4B-Instruct-2507
+    revision: cdbee75f17c01a7cc42f958dc650907174af0554
+    universe: [SPY, QQQ, IWM, TLT]
+    window: 2025-08-01/2026-07-31
+    price_panel: not_acquired
+    prompt_and_timestamped_decisions: not_materialized
+  rights:
+    historical_prices: unresolved
+    model_weights: separately_licensed_not_redistributed
+    derived_release: unresolved
+resources:
+  compute: fp16_local_signal_generation_plus_small_cpu_evaluation
+  api_calls: 0
+  storage: local_model_decisions_and_small_price_panel
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [historical_data_license, gpu_compute_if_needed]
+  purchases_authorized: false
+approvals:
+  model_acquisition: required_if_absent
+  signal_generation_compute: required
+  data_acquisition: required
+  spending: required_if_paid
+  protocol_freeze: required_before_oos_inspection
+  result_inspection: required
+  release_rights: required
+  remote_write: required
+outputs:
+  - clean_prompt_set_manifest.json
+  - timestamped_decisions.parquet
+  - alpha_evaluation.parquet
+  - variant_ledger.parquet
+  - failures.parquet
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+blockers:
+  - lookahead-safe evaluator, costs, turnover, failure handling, and uncertainty tests are missing
+  - no lawful immutable price source with derived-release permission is fixed
+  - frozen prompt decisions for the full untouched panel do not exist
+publication:
+  merge_target: main
+  merge_only_after: evaluator_lawful_panel_untouched_result_and_release_verify
+  monitoring: every_future_cohort_is_a_new_locked_version
+  claim_boundary: separate_signal_evaluation_not_mechanism_live_trading_or_future_return_claim
