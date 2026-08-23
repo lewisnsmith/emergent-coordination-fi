@@ -1,5 +1,5 @@
 {
-  "include": ["src"],
+  "include": ["program_checks"],
   "exclude": ["**/__pycache__"],
   "venvPath": ".",
   "venv": ".venv",

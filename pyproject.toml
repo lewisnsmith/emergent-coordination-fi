@@ -1,66 +1,27 @@
 [project]
-name = "flock"
+name = "flock-research-program"
 version = "0.1.0"
-description = "Experiment zone for measuring strategy convergence and emergent coordination in LLM-powered trading agents"
-readme = "README.md"
+description = "tracks the flock study families"
 requires-python = ">=3.12"
-license = { text = "MIT" }
-dependencies = [
-    "numpy>=1.26",
-    "pandas>=2.2",
-    "pyarrow>=16",
-    "pydantic>=2.7",
-    "pyyaml>=6.0",
-    "typer>=0.12",
-    "scipy>=1.13",
-    "matplotlib>=3.9",
-    "httpx>=0.27",
-    "tabulate>=0.9",
-]
-
-[project.optional-dependencies]
-providers = [
-    "anthropic>=0.40",
-    "openai>=1.50",
-    "google-genai>=1.0",
-]
-data = [
-    "yfinance>=0.2.40",
-]
-
-[project.scripts]
-flock = "flock.cli:app"
+dependencies = []
 
 [dependency-groups]
 dev = [
     "pyright>=1.1.411",
     "pytest>=8.2",
+    "pyyaml>=6.0",
     "ruff>=0.5",
 ]
-
-[tool.uv]
-# Rebuild the non-editable wheel after source changes; see CLAUDE.md for the iCloud constraint.
-cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.py" }]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/flock"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src", "tests"]
+src = ["program_checks"]
+extend-exclude = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
-[tool.ruff.lint.per-file-ignores]
-# typer's Argument/Option-in-default is the documented idiom
-"src/flock/cli.py" = ["B008"]
-
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["program_checks"]
 addopts = "-q"

@@ -1,0 +1,47 @@
+schema_version: 1
+status: planned
+publication_base: 3002008b291dcd736b90237cccd1e5fd9f4ba0e4
+recoverable_source: 4016845d86b58b8da2715a60cd621a03dd049626
+evidence_snapshot: external-evidence-2026-08-12
+policy:
+  branch_unit: experiments_that_answer_the_same_hypotheses
+  merge_target: main_after_verified_family_release
+  remote_writes: separately_authorized
+  purchases: unauthorized
+study_families:
+  - branch: feat/h8-exp017-causal-convergence
+    hypotheses: [H8]
+    experiments: [exp-017]
+    status: planned
+  - branch: feat/h1-h3-h4-h12-replay-convergence
+    hypotheses: [H1, H3, H4, H12]
+    experiments: [exp-000, exp-001, exp-002, exp-005, exp-006, exp-007, exp-008, exp-009]
+    status: planned
+  - branch: feat/h2-h2b-h6-investor-delegation
+    hypotheses: [H2, H2b, H6]
+    experiments: [exp-003, exp-004, exp-013, exp-014]
+    status: blocked_external
+  - branch: feat/h2b-h5-shared-exchange
+    hypotheses: [H2b, H5]
+    experiments: [exp-010, exp-011, exp-012]
+    status: planned
+  - branch: feat/h7-adoption-forecast
+    hypotheses: [H7]
+    experiments: [exp-015]
+    status: blocked_external
+  - branch: feat/h8-h12-pressure-attribution
+    hypotheses: [H8, H12]
+    experiments: [exp-016, exp-023, exp-024]
+    status: planned
+  - branch: feat/h9-h10-h11-market-signatures
+    hypotheses: [H9, H10, H11]
+    experiments: [exp-018, exp-019, exp-020, exp-021, exp-022]
+    status: blocked_external
+  - branch: feat/h8-h13-local-fidelity-quantization
+    hypotheses: [H8, H13]
+    experiments: [exp-025, exp-026]
+    status: planned
+  - branch: feat/alpha-oos-evaluation
+    hypotheses: []
+    experiments: [alpha-oos-001]
+    status: blocked_external
