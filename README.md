@@ -1,195 +1,40 @@
-# flock
+# flock research program control
 
-**Which shared components make LLM trading agents converge, relative to matched classical
-strategies?**
+This branch is the small cross-study index for planned flock research. It contains no study runner,
+provider integration, market engine, result, or publication claim. Historical implementations and
+the former broad manuals remain reachable from commit
+`4016845d86b58b8da2715a60cd621a03dd049626` and the verified recovery bundle.
 
-flock is an experiment zone for measuring *common-response convergence* and *outcome
-homogenization* in LLM trading agents. The proposed study uses a matched
-`technology (LLM/classical) × ecology (homogeneous/heterogeneous)` design and asks how model
-lineage, profiles, harnesses, information, and wording affect convergence. It does not infer
-coordination or collusion from agents independently responding to the same information.
+The publication base is local `main` at
+`3002008b291dcd736b90237cccd1e5fd9f4ba0e4`. Each study family starts at that exact commit and owns
+its hypotheses, experiments, protocol, dependencies, cost status, approval gates, blockers, and
+outputs. A family returns to `main` only after its result and scoped release verify.
 
-The research record has four lifecycle manuals:
+## Study families
 
-- [scope, outcomes, hypotheses, evidence, and prior work](docs/research/research-scope-outcomes-and-evidence.md)
-- [experimental methods, metrics, and statistical analysis](docs/research/experimental-methods-and-statistical-analysis.md)
-- [data provenance, artifacts, verification, and release](docs/research/data-provenance-artifacts-and-release.md)
-- [local-first execution, costs, and risk roadmap](docs/research/local-first-execution-costs-and-risk-roadmap.md)
+| Branch | Scope |
+| --- | --- |
+| `feat/h8-exp017-causal-convergence` | H8 causal activation intervention and synthetic downstream effect |
+| `feat/h1-h3-h4-h12-replay-convergence` | replay, model lineage, profiles, information, harness, and prompt robustness |
+| `feat/h2-h2b-h6-investor-delegation` | matched investors, delegation breadth, human trust, and advisor execution |
+| `feat/h2b-h5-shared-exchange` | shared-exchange calibration, capital share, liquidity, and cascades |
+| `feat/h7-adoption-forecast` | conditional adoption and threshold forecasts |
+| `feat/h8-h12-pressure-attribution` | black-box input attribution and prompt-pressure factorials |
+| `feat/h9-h10-h11-market-signatures` | signature discovery, transport, detection, attribution, and dataset tiers |
+| `feat/h8-h13-local-fidelity-quantization` | local behavioral fidelity and quantization error propagation |
+| `feat/alpha-oos-evaluation` | separately judged historical out-of-sample signal evaluation |
 
-Its formal records are the [preregistration](docs/research/preregistration.md),
-[research decisions and execution log](docs/research/research-decisions-and-execution-log.md),
-[authorship and AI-use record](docs/research/authorship-ai-use-and-accountability.md),
-[independent review protocol](docs/research/independent-review-protocol-and-responses.md), and
-[literature search and screening log](docs/research/literature-search-and-screening-log.yaml).
-The machine-readable [`configs/research-program.yaml`](configs/research-program.yaml) remains the
-H1–H13 experiment catalog.
+See [research-program.yaml](research-program.yaml),
+[scientific decisions](docs/scientific-decisions.md), and the
+[evidence snapshot](docs/evidence-snapshot.md).
 
-The proposed first study is H1/H3/H4. H2 is a conditional descriptive external anchor, and H5 is
-a separate experiment whose causal claims, if its validation gates pass, are bounded to the
-simulator. H6–H13 are future work, not claims of the proposed study. The working manuscript is
-[`paper/main.tex`](paper/main.tex); it is a skeleton with no confirmatory results.
-
-The project targets three separate outputs: reusable public research datasets, an owned
-out-of-sample alpha evaluation, and evidence-backed findings about AI-agent trading risks. None
-inherits evidentiary status from another.
-
-H13 is the local-model fidelity lane: it tests whether lower-weight open models preserve sampled
-frontier behavior and convergence, then uses same-checkpoint BF16/W8/W4 comparisons to measure how
-quantization errors propagate through executable financial chains and portfolio state. Its
-local-first pilot caps the frontier bridge near 3,800 API calls and gates activation work on a
-measured behavioral question; it is scaffolded, separately preregistered future work.
-
-The [local-first roadmap](docs/research/local-first-execution-costs-and-risk-roadmap.md) proposes
-running that affordable H13/H8 lane before broad paid frontier work. The canonical
-first-paper configuration remains H1/H3/H4 until the study and budget contracts are reconciled.
-
-## Current readiness
-
-The software scaffold passes its offline test, lint, type, study-compilation, synthetic smoke, and
-complete first-paper mock-rehearsal gates. The ignored rehearsal reached terminal status for all
-197 assignments: 149 replay/MPHIQ runs completed and verified, while all 48 H5 runs remained
-explicitly blocked. Its 144 confirmatory H1/H3/H4 runs aggregated and reproduced byte-identically
-through a release marked `mock`, `paper_requested=false`, and `paper_eligible=false`. These runs
-validate code paths only: no paid frontier-model canary, pilot, or confirmatory study has run, the
-preregistration is not frozen or registered, and no paper-level empirical result exists.
-
-The proposed study is **not execution-ready**. It still requires real datasets and nonoverlapping
-windows, immutable model releases, matched cohort weights and activity, final prompts,
-power-derived top-level sample sizes and inference, acquired H2 inputs run through the implemented
-activity-match gate, the remaining H5 simulator gates, reconciliation of the draft statistical
-contracts, and a frozen preregistration.
-
-Run the preflight rather than inferring readiness from config files:
-
-```bash
-uv run flock validate
-uv run flock doctor
-uv run flock compile-study configs/studies/paper-core.yaml --output results/paper-core/plan.json
-uv run flock validate-study results/paper-core/plan.json
-uv run flock materialize-study results/paper-core/plan.json \
-  --output results/paper-core/assignments.json --allow-unresolved
-uv run flock estimate --plan results/paper-core/plan.json --stage canary
-```
-
-`scaffold_ok=true` means only that repository contracts are internally consistent.
-`execution_ready=false` lists missing real datasets, approvals, exposure evidence, or runners and
-therefore blocks confirmatory execution.
-
-## Quickstart (no API keys required)
-
-The pipeline runs offline with deterministic mock models:
+## Verify the index
 
 ```bash
 uv sync
-uv run flock data build synthetic          # seeded synthetic equities
-uv run flock run configs/experiments/exp-000-smoke.yaml
-uv run flock verify-run results/<run-id>
-uv run flock analyze latest                # convergence report with bootstrap CIs
+UV_NO_EDITABLE=1 uv run pytest
+uv run ruff check .
+uv run pyright
 ```
 
-Do not start a real-model run until `flock doctor --live` passes for the exact endpoints,
-`flock validate` has no first-paper blocker, the compiled high envelope is below the authorized
-stage cap, and the preregistration is frozen. Frontier configs carry request, token, and dollar
-limits; a call reserves its conservative envelope before reaching a provider. Real-model runs
-need provider keys and the extras:
-
-```bash
-uv sync --extra providers --extra data
-uv run flock data build equities --symbols AAPL,MSFT,NVDA --start 2023-01-01 --end 2024-12-31
-# replace the placeholder block/window IDs only with frozen compiled assignments
-uv run flock run configs/experiments/exp-001-replay-equities.yaml
-```
-
-## How it works
-
-```
-First paper (Replay):                  Separate H5 (Shared exchange):
-  data ──▶ Agent A ──▶ trades_A          Agent A ─┐
-  data ──▶ Agent B ──▶ trades_B          Agent B ─┼─▶ [order book] ─▶ price impact
-  data ──▶ Agent C ──▶ trades_C          Agent C ─┘        ▲              │
-  (no interaction; estimates                              └── feedback ──┘
-   common-response convergence)        (tests market effects inside the
-                                        simulator after validation gates)
-```
-
-The first-paper benchmark crosses technology with ecology: homogeneous LLM, heterogeneous LLM,
-homogeneous classical, and heterogeneous classical cohorts. Cohorts are matched on family count
-and weights, activity, capital, information, and trading constraints. Family-weighted estimands
-prevent a provider or strategy family with more sampled endpoints from dominating the contrast.
-H2 real-investor panels are reported only if universe, cadence, activity, capital weighting, and
-sampling can be harmonized; otherwise they remain separate descriptive context.
-
-## Repo map
-
-| Path | What |
-|---|---|
-| `src/flock/agents/` | Agent protocol, LLM harness, provider adapters, baseline strategies |
-| `src/flock/markets/` | Replay engine (Phase 1), shared exchange / matching engine (Phase 2) |
-| `src/flock/data/` | Dataset builders, schemas, versioned registry |
-| `src/flock/experiments/` | Run orchestration, sweeps, portfolio ledger |
-| `src/flock/analysis/` | Convergence and simulator-bounded market metrics, statistics, reports |
-| `src/flock/interpretability/` | API input interventions and local activation-patching contracts |
-| `configs/research-program.yaml` | All hypotheses, experiments, dependencies, outputs, verification |
-| `configs/designs/`, `prompts/`, `personas/` | MPHIQ, pressure, wording, and profile treatments |
-| `configs/budgets/` | Dated official prices and staged call/credit assumptions |
-| `docs/research/` | Four lifecycle manuals and the formal research records |
-| `paper/` | Claim-locked LaTeX manuscript and bibliography; no single-run paper export |
-
-## Reproducibility
-
-Every run writes a manifest (resolved config/persona/model hash, git SHA, dataset hash, seeds)
-under `results/<run-id>/`. LLM responses are cached content-addressed in `.flock-cache/` so
-published results can be re-derived offline. Decision logs include full observation, prompt and
-raw-response hashes, evidence references, grounding verdicts, token usage, and cost.
-
-Paper-level inference requires multiple top-level units: independently generated synthetic
-trajectories or nonoverlapping historical windows. Overlapping windows and units exposed to a
-common shock share a dependence cluster. Seeds, agents, agent pairs, calls, steps, symbols, and
-prompt variants are nested observations, not additional independent evidence. A single run is a
-pipeline artifact, never a paper result.
-
-Study-level release commands fail closed on incomplete or unverified runs, duplicate trajectories,
-mock evidence declared as real, changed inputs, and missing immutable preregistration evidence:
-
-```bash
-uv run flock analyze-study results/study-source.json --output results/paper-core/bundle
-uv run flock verify-study results/paper-core/bundle
-# --paper additionally requires real evidence and the frozen preregistration reference
-uv run flock verify-study results/paper-core/bundle --paper
-uv run flock reproduce results/paper-core/bundle/release-manifest.json \
-  --output results/paper-core/clean-reproduction
-```
-
-The bundle contains independent-unit and block-effect tables, missingness/failure and sensitivity
-tables, frozen estimand and equivalence/noninferiority records, one crossed H1/H3/H4 multiplicity
-family, claim links, an experimental-topology figure, and a block-level forest plot. Every crossed
-aggregate row must cite verified treatment runs with the same block lineage, and every contributing
-run is hash-locked without increasing independent `n`. Reproduction regenerates into an empty
-directory and requires byte-identical core artifacts. A deterministic raw-decision-to-crossed-input
-compiler remains a paper blocker; externally assembled aggregate tables are never accepted without
-complete run provenance.
-
-## Publication gates
-
-Before submission, the study must pass the
-[ODD protocol](https://doi.org/10.18564/jasss.4259) for model description and the
-[STRESS guidelines](https://doi.org/10.1080/17477778.2018.1442155) for simulation reporting. The
-paper and release package must also satisfy the
-[NeurIPS paper checklist](https://neurips.cc/public/guides/PaperChecklist), the
-[AEA Data and Code Availability Policy](https://www.aeaweb.org/journals/data/data-code-policy),
-and the current [ACM artifact review and badging criteria](https://www.acm.org/publications/policies/artifact-review-and-badging-current).
-These are release gates: claims remain draft until the model description, experiment report,
-provenance, master reproduction path, artifact inventory, and independent rerun evidence are
-present and audited. See the
-[release manual](docs/research/data-provenance-artifacts-and-release.md#release-gates-and-handoff)
-for the complete checklist and walkthrough.
-
-## Development
-
-```bash
-uv run pytest && uv run ruff check . && uv run pyright
-```
-
-In iCloud-synced folders (for example, `~/Documents`), export `UV_NO_EDITABLE=1` before running
-uv. iCloud can hide editable-install `.pth` files, causing intermittent `ModuleNotFoundError`
-failures; `.claude/settings.json` sets this automatically for Claude Code sessions.
+These checks validate the index only. They do not establish study readiness.
