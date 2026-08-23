@@ -1,0 +1,66 @@
+schema_version: 1
+study_id: h2b-exp004-014-delegation-transmission
+branch: feat/h2b-exp004-014-delegation-transmission
+status: planned
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+  design_lineage: removes_h6_evidentiary_role_from_exp_014
+ownership:
+  experiments: [exp-004, exp-014]
+  hypothesis_roles:
+    primary: [H2b]
+    contextual: [H6]
+question: >-
+  How does shared AI delegation spread ordinary convergence across people and capital when human
+  execution is partial, delayed, or noisy?
+dependencies:
+  upstream:
+    - producer: h2-exp003-investor-convergence
+      artifacts: [convergence_anchor_effects.parquet, manifest.json]
+      status: blocked_on_verified_release
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - src/flock/analysis/coordination.py@4016845
+      - src/flock/analysis/h2.py@4016845
+  inputs:
+    delegation_share_grid: not_frozen
+    compliance_latency_and_sizing_models: not_frozen
+    ai_recommendations: not_materialized
+  rights:
+    upstream_outputs: unresolved_until_producer_release
+    model_outputs: separately_governed_if_generated
+resources:
+  compute: unbenchmarked_replica_sweep
+  api_calls: potentially_required_for_recommendations
+  storage: not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [model_api_credits, compute_capacity]
+  purchases_authorized: false
+approvals:
+  upstream_release_use: required
+  provider_execution: required_if_used
+  substantial_compute: required
+  spending: required
+  protocol_freeze: required
+  release_rights: required
+  remote_write: required
+outputs:
+  - delegation_breadth_curve.parquet
+  - delegation_thresholds.json
+  - advisor_transmission.parquet
+  - advisor_thresholds.json
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+blockers:
+  - verified matched-investor anchor does not exist
+  - delegation-mixture and advisor-execution runners are missing
+  - independent replicas, compliance grid, and executor-noise models are not frozen
+publication:
+  merge_target: main
+  merge_only_after: fixed_convergence_fixed_capital_and_transmission_reconciliation_verify
+  claim_boundary: simulated_delegation_not_human_trust_adoption_or_real_market_effect
