@@ -1,0 +1,65 @@
+schema_version: 1
+study_id: h1-h3-replay-model-convergence
+branch: feat/h1-h3-replay-model-convergence
+status: blocked_external
+source:
+  publication_base: c1fd8cd5c0205dfdf66b587f90477b2014f8aff1
+  recoverable_program_commit: 4016845d86b58b8da2715a60cd621a03dd049626
+  design_lineage: narrows_exp_009_to_h1_h3_robustness
+ownership:
+  experiments: [exp-000, exp-001, exp-002, exp-005, exp-009]
+  hypothesis_roles:
+    primary: [H1, H3]
+    removed_by_amendment: [H4_from_exp_009]
+question: >-
+  Do matched LLM and classical cohorts converge differently, and does convergence vary by model
+  and provider lineage across equity and prediction-market replay?
+dependencies:
+  upstream: []
+  code:
+    runner: missing
+    verifier: missing
+    source_material:
+      - configs/experiments/exp-000-smoke.yaml@4016845
+      - configs/experiments/exp-001-replay-equities.yaml@4016845
+      - configs/experiments/exp-002-replay-prediction.yaml@4016845
+      - src/flock/markets/replay.py@4016845
+      - src/flock/analysis/convergence.py@4016845
+  inputs:
+    equity_windows: not_acquired
+    prediction_markets: not_acquired
+    model_and_provider_lineage: not_frozen
+  rights:
+    market_data: unresolved
+    model_endpoints: separately_governed
+resources:
+  compute: unbenchmarked_replay_panel
+  api_calls: potentially_required
+  storage: not_estimated
+  participant_count: 0
+  cost_estimate: not_benchmarked
+  proposed_purchases: [market_data_license, model_api_credits]
+  purchases_authorized: false
+approvals:
+  data_acquisition: required
+  provider_execution: required_if_used
+  spending: required
+  release_rights: required
+  protocol_freeze: required_before_held_out_robustness
+  remote_write: required
+outputs:
+  - calibration_effects.parquet
+  - replay_convergence_effects.parquet
+  - model_pair_effects.parquet
+  - robustness_effects.parquet
+  - manifest.json
+  - claims.json
+  - checksums.sha256
+blockers:
+  - dependency-closed replay runner and verifier are missing
+  - lawful immutable replay inputs and a frozen model-lineage panel are missing
+  - top-level units, equivalence margins, and multiplicity rules are not frozen
+publication:
+  merge_target: main
+  merge_only_after: calibration_primary_replay_and_held_out_checks_verify
+  claim_boundary: sampled_models_lineages_markets_windows_prompts_and_harnesses_only
