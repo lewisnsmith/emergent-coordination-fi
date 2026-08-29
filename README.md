@@ -1,4 +1,4 @@
-# flock
+# emergent-coordination
 
 shared foundations for reproducible, branch-isolated studies
 
